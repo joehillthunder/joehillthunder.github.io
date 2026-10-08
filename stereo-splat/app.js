@@ -1,6 +1,8 @@
-// Stereo Splat — 3D camera → stereo photo → depth → Gaussian splat (.sog) → woven 3D tile.
+// Stereo Splat — 3D camera or spatial photo → stereo pair → depth → Gaussian splat (.sog) → 3D tile.
 //
 //   @displayxr/inline3d/camera            finds the 3D camera, auto-converged self view, raw-pair photo
+//   ./cameras.js                          stereo cameras the SDK cannot see by shape (Acer SpatialLabs Eyes)
+//   ./heif.js                             iPhone / Vision Pro spatial photos (HEIC stereo pairs)
 //   ./stereo.js (in a worker)             disparity → depth → one Gaussian per pixel
 //   @playcanvas/splat-transform + sog.js  .sog with a DisplayXR `camera` block in meta.json
 //   @displayxr/inline3d/splat/playcanvas  the splat as an inline-3D window (camera rig from the block)
@@ -9,16 +11,21 @@ import { sharedInline3D } from '@displayxr/inline3d';
 import { openCamera, addCameraView, readJpegStereoMeta } from '@displayxr/inline3d/camera';
 import { addSplat } from '@displayxr/inline3d/splat/playcanvas';
 import { encodeSog, cameraBlock } from './sog.js';
+import { knownStereoCamera, STEREO_HINT, eyeAspectOf, openProfileStream } from './cameras.js';
+import { isHeif, decodeSpatialPhoto } from './heif.js';
 
 const ST_URL = 'https://cdn.jsdelivr.net/npm/@playcanvas/splat-transform@3.6.4';
 const DEFAULT_BASELINE_MM = 60;
 const DEFAULT_FOV_DEG = 70;
+// iPhone spatial photos without camera metadata: the lens pair is close together (≈ 2 cm).
+const SPATIAL_PHOTO_BASELINE_MM = 20;
+const SPATIAL_PHOTO_FOV_DEG = 65;
 const MAX_PROC_WIDTH = 640; // per-eye width the stereo matcher runs at (= splat columns)
 const NEAREST_M = 0.25; // the closest subject the disparity search reaches
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  dot: $('dot'), kind: $('kind'), facts: $('facts'), device: $('device'),
+  dot: $('dot'), kind: $('kind'), facts: $('facts'), device: $('device'), layout: $('layout'),
   live: $('live'), liveCover: $('liveCover'), liveBadge: $('liveBadge'), liveStatus: $('liveStatus'),
   capture: $('capture'), file: $('file'),
   splat: $('splat'), splatCover: $('splatCover'), splatCoverTitle: $('splatCoverTitle'),
@@ -31,56 +38,155 @@ const ui = {
 const wall = await sharedInline3D(); // one inline-3D session for the whole document
 let cam = null;
 let view = null;
+let ownStream = null; // a stream this page opened (profile / manual layout); stopped on switch
+/** What the open camera is: `{ name, format: 'sbs'|'mono', eyeAspect, baselineMm, hfovDeg, how }` */
+let profile = null;
 let splat = null;
-let lastPair = null; // { bitmap, eyeWidth, height, convergencePx, blob, name }
+/** `{ bitmap, rawEyeWidth, height, eyeAspect, convergencePx, blob, name, source }` */
+let lastPair = null;
 let busy = false;
 
 // ── camera: detect, open, auto-converged preview ──────────────────────────────────────────
 
-function describe(c) {
-  if (c.format === 'sbs' && c.stereo?.rectified) return { kind: '3D camera · rectified stereo pair', level: 'ok' };
-  if (c.format === 'sbs') return { kind: '3D camera · side-by-side pair (not rectified)', level: 'warn' };
-  return { kind: '2D camera · no stereo', level: 'warn' };
+async function videoInputs() {
+  return (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
 }
 
-async function startCamera(prefer) {
-  if (view) view.remove();
-  if (cam) cam.close();
-  view = null;
-  cam = null;
+function closeCamera() {
+  view?.remove();
+  cam?.close();
+  ownStream?.getTracks().forEach((t) => t.stop());
+  view = cam = ownStream = profile = null;
+}
+
+/** Hand a stream this page opened to the SDK as the camera, declared `format`. */
+async function adoptStream(stream, format, p) {
+  ownStream = stream;
+  cam = await openCamera({
+    prefer: stream,
+    format,
+    calibration: format === 'sbs' ? { baselineMm: p.baselineMm ?? undefined, horizontalFovDeg: p.hfovDeg ?? undefined } : undefined,
+  });
+  profile = p;
+}
+
+const LAYOUT_NAMES = { sbs: 'full side-by-side', 'half-sbs': 'half side-by-side', mono: '2D' };
+
+/**
+ * `choice`: 'auto' or a deviceId. The layout select can force how the device is read.
+ *  1. The SDK opens the best camera (and with it, permission and device labels).
+ *  2. A device the SDK read as 2D is upgraded when its label is a known stereo camera — or,
+ *     on 'auto', when any connected device is one.
+ */
+async function startCamera(choice = 'auto') {
+  closeCamera();
   ui.capture.disabled = true;
   ui.liveCover.hidden = false;
+  const layout = ui.layout.value;
   try {
-    cam = await openCamera({ prefer });
+    cam = await openCamera({ prefer: choice === 'auto' ? 'stereo' : choice });
+    const devs = await videoInputs();
+    const deviceId = cam.deviceId;
+    const label = cam.label;
+
+    if (layout !== 'auto') {
+      // Manual: read this device as the chosen layout, at the resolution its profile (or a
+      // sensible default for the layout) asks for.
+      const known = knownStereoCamera(label);
+      const want =
+        layout === 'mono'
+          ? { width: 1920, height: 1080, frameRate: 30 }
+          : (known ?? (layout === 'sbs' ? { width: 3840, height: 1080, frameRate: 30 } : { width: 3840, height: 2160, frameRate: 30 }));
+      cam.close();
+      cam = null;
+      const stream = await openProfileStream(deviceId, want);
+      const s = stream.getVideoTracks()[0].getSettings();
+      await adoptStream(stream, layout === 'mono' ? 'mono' : 'sbs', {
+        name: `${label || 'Camera'} as ${LAYOUT_NAMES[layout]}`,
+        format: layout === 'mono' ? 'mono' : 'sbs',
+        eyeAspect: layout === 'mono' ? s.width / s.height : eyeAspectOf(s.width, s.height, layout),
+        baselineMm: known?.baselineMm ?? null,
+        hfovDeg: known?.hfovDeg ?? null,
+        how: 'manual',
+      });
+    } else if (cam.format === 'mono') {
+      const pool = choice === 'auto' ? devs : devs.filter((d) => d.deviceId === deviceId);
+      const hit = pool.map((d) => ({ d, p: knownStereoCamera(d.label) })).find((x) => x.p);
+      if (hit) {
+        cam.close();
+        cam = null;
+        const stream = await openProfileStream(hit.d.deviceId, hit.p);
+        const s = stream.getVideoTracks()[0].getSettings();
+        await adoptStream(stream, 'sbs', {
+          name: hit.p.name,
+          format: 'sbs',
+          eyeAspect: eyeAspectOf(s.width, s.height, hit.p.layout),
+          baselineMm: hit.p.baselineMm,
+          hfovDeg: hit.p.hfovDeg,
+          how: 'label',
+        });
+      }
+    }
+    if (!profile) {
+      profile =
+        cam.format === 'sbs'
+          ? {
+              name: cam.stereo?.rectified ? 'DisplayXR 3D Camera' : 'Side-by-side stereo camera',
+              format: 'sbs',
+              eyeAspect: cam.eyeWidth / cam.height,
+              baselineMm: cam.stereo?.baselineMm ?? null,
+              hfovDeg: cam.stereo?.horizontalFovDeg ?? null,
+              how: cam.stereo?.rectified ? 'runtime' : 'shape',
+            }
+          : { name: '2D camera', format: 'mono', eyeAspect: cam.width / cam.height, baselineMm: null, hfovDeg: null, how: 'shape' };
+    }
   } catch (err) {
+    closeCamera();
     ui.dot.className = 'dot warn';
     ui.kind.textContent = err.code === 'permission-denied' ? 'Camera access was refused' : 'No camera found';
-    ui.facts.textContent = err.code === 'camera-busy' ? 'Every camera is in use by another app.' : 'You can still load a side-by-side photo.';
+    ui.facts.textContent =
+      err.code === 'camera-busy' ? 'Every camera is in use by another app.' : 'You can still load a side-by-side photo or an iPhone spatial photo.';
     ui.liveCover.querySelector('.big').textContent = ui.kind.textContent;
     ui.liveCover.lastChild.textContent = ui.facts.textContent;
     return;
   }
 
-  const d = describe(cam);
-  ui.dot.className = `dot ${d.level}`;
-  ui.kind.textContent = d.kind;
-  const facts = [cam.label || 'camera', `${cam.format === 'sbs' ? `${cam.eyeWidth}×${cam.height} per eye` : `${cam.width}×${cam.height}`}`];
-  if (cam.stereo?.baselineMm) facts.push(`baseline ${cam.stereo.baselineMm} mm`);
-  if (cam.stereo?.horizontalFovDeg) facts.push(`FOV ${cam.stereo.horizontalFovDeg}°`);
-  if (cam.skipped.length) facts.push(`skipped ${cam.skipped.length} busy/other device${cam.skipped.length > 1 ? 's' : ''}`);
+  const stereo = profile.format === 'sbs';
+  ui.dot.className = `dot ${stereo ? 'ok' : 'warn'}`;
+  ui.kind.textContent = stereo ? `3D camera · ${profile.name}` : `2D camera · ${profile.how === 'manual' ? 'set by you' : 'no stereo'}`;
+  const how = {
+    runtime: 'rectified pair from the DisplayXR runtime',
+    shape: stereo ? 'side-by-side frames' : null,
+    label: 'recognised by name · half side-by-side',
+    manual: null,
+  }[profile.how];
+  const facts = [cam.label || 'camera'];
+  const rawEye = Math.round(cam.width / 2);
+  const trueEye = Math.round(cam.height * profile.eyeAspect);
+  facts.push(
+    !stereo
+      ? `${cam.width}×${cam.height}`
+      : rawEye === trueEye
+        ? `${rawEye}×${cam.height} per eye`
+        : `${rawEye}×${cam.height} per eye, shown as ${trueEye}×${cam.height}`,
+  );
+  if (how) facts.push(how);
+  if (profile.baselineMm) facts.push(`baseline ${profile.baselineMm} mm`);
+  if (profile.hfovDeg) facts.push(`FOV ${profile.hfovDeg}°`);
+  if (!stereo && profile.how !== 'manual' && STEREO_HINT.test(cam.label)) facts.push('the name suggests a stereo camera: pick its layout');
   ui.facts.textContent = facts.join(' · ');
-  ui.baseline.value = cam.stereo?.baselineMm ?? (ui.baseline.value || DEFAULT_BASELINE_MM);
-  ui.fov.value = cam.stereo?.horizontalFovDeg ?? (ui.fov.value || DEFAULT_FOV_DEG);
+  ui.baseline.value = Math.round(profile.baselineMm ?? (Number(ui.baseline.value) || DEFAULT_BASELINE_MM));
+  ui.fov.value = Math.round(profile.hfovDeg ?? (Number(ui.fov.value) || DEFAULT_FOV_DEG));
 
-  const eyeAspect = (cam.format === 'sbs' ? cam.eyeWidth : cam.width) / cam.height;
-  ui.live.style.setProperty('--aspect', String(eyeAspect));
+  ui.live.style.setProperty('--aspect', String(profile.eyeAspect));
   // The splat tile takes the same shape; it is only registered at the first capture.
-  if (!splat) ui.splat.style.setProperty('--aspect', String(eyeAspect));
+  if (!splat) ui.splat.style.setProperty('--aspect', String(profile.eyeAspect));
 
+  // `aspect` is the TRUE per-eye shape, so a half side-by-side eye is drawn unsqueezed.
   view = addCameraView(wall, ui.live, cam, {
     mirror: true,
     autoConverge: true, // the face at the display plane
-    aspect: eyeAspect,
+    aspect: profile.eyeAspect,
     onRouteChange: () => setBadge(ui.liveBadge, view?.woven),
   });
   setBadge(ui.liveBadge, view.woven);
@@ -95,23 +201,26 @@ async function startCamera(prefer) {
     ui.capture.disabled = true;
   });
 
-  if (cam.format === 'sbs') {
-    ui.capture.disabled = false;
-    ui.liveStatus.textContent = 'The preview auto-converges: it keeps your face at the screen plane.';
-  } else {
-    ui.liveStatus.textContent = 'This camera is 2D, so there is no depth to build a splat from. Connect a stereo camera or load a side-by-side photo.';
-  }
+  ui.capture.disabled = !stereo;
+  ui.liveStatus.textContent = stereo
+    ? 'The preview auto-converges: it keeps your face at the screen plane.'
+    : 'This camera is 2D, so there is no depth to build a splat from. Connect a stereo camera, pick a side-by-side layout, or load a photo.';
   await listDevices();
 }
 
 async function listDevices() {
-  const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+  const devs = await videoInputs();
   if (devs.length < 2) return;
-  ui.device.replaceChildren(new Option('Auto (prefer 3D)', 'auto'), ...devs.map((d, i) => new Option(d.label || `Camera ${i + 1}`, d.deviceId)));
+  const tag = (d) => (knownStereoCamera(d.label) ? ' (3D)' : '');
+  ui.device.replaceChildren(
+    new Option('Auto (prefer 3D)', 'auto'),
+    ...devs.map((d, i) => new Option(`${d.label || `Camera ${i + 1}`}${tag(d)}`, d.deviceId)),
+  );
   ui.device.value = cam?.deviceId && devs.some((d) => d.deviceId === cam.deviceId) ? cam.deviceId : 'auto';
   ui.device.hidden = false;
 }
 ui.device.addEventListener('change', () => startCamera(ui.device.value));
+ui.layout.addEventListener('change', () => startCamera(cam?.deviceId ?? 'auto'));
 
 function setBadge(el, woven) {
   el.textContent = woven ? '3D' : '2D';
@@ -125,20 +234,21 @@ ui.capture.addEventListener('click', async () => {
   ui.capture.disabled = true;
   try {
     const photo = await cam.capturePhoto({ type: 'image/jpeg', quality: 0.95 });
-    const bitmap = await createImageBitmap(photo.blob);
     lastPair = {
-      bitmap,
-      eyeWidth: photo.width / 2,
+      bitmap: await createImageBitmap(photo.blob),
+      rawEyeWidth: photo.width / 2,
       height: photo.height,
+      eyeAspect: profile.eyeAspect,
       convergencePx: photo.convergencePx,
       blob: photo.blob,
       name: photo.suggestedName,
+      source: profile.name,
     };
     await build();
   } catch (err) {
     fail(err);
   } finally {
-    ui.capture.disabled = !(cam?.format === 'sbs');
+    ui.capture.disabled = !(profile?.format === 'sbs');
   }
 });
 
@@ -148,22 +258,55 @@ ui.file.addEventListener('change', async () => {
   if (!f || busy) return;
   try {
     const bytes = new Uint8Array(await f.arrayBuffer());
-    const meta = f.type === 'image/jpeg' ? readJpegStereoMeta(bytes) : null;
-    const bitmap = await createImageBitmap(f);
-    const sbs = meta?.layout === 'sbs' || /_2x1\./i.test(f.name) || bitmap.width / bitmap.height > 2.5;
-    if (!sbs) throw new Error('That photo is not side-by-side. Use a stereo pair with the left eye on the left, like the _2x1.jpg files this page saves.');
-    if (meta?.baselineMm) ui.baseline.value = meta.baselineMm;
-    if (meta?.horizontalFovDeg) ui.fov.value = meta.horizontalFovDeg;
-    if (!ui.baseline.value) ui.baseline.value = DEFAULT_BASELINE_MM;
-    if (!ui.fov.value) ui.fov.value = DEFAULT_FOV_DEG;
-    lastPair = {
-      bitmap,
-      eyeWidth: bitmap.width / 2,
-      height: bitmap.height,
-      convergencePx: meta?.convergencePx ?? null,
-      blob: f,
-      name: f.name,
-    };
+    if (isHeif(bytes)) {
+      progress('Opening spatial photo', 'Decoding both eyes (HEVC, about 2 MB of decoder on first use)', null);
+      const sp = await decodeSpatialPhoto(bytes);
+      ui.baseline.value = Math.round((sp.baselineMm ?? SPATIAL_PHOTO_BASELINE_MM) * 10) / 10;
+      ui.fov.value = Math.round(sp.hfovDeg ?? SPATIAL_PHOTO_FOV_DEG);
+      // keep a side-by-side JPEG of the pair for download
+      const c = new OffscreenCanvas(sp.eyeWidth * 2, sp.height);
+      c.getContext('2d').drawImage(sp.bitmap, 0, 0);
+      const notes = [sp.ordered ? 'stereo pair group' : 'two images with camera positions'];
+      notes.push(sp.baselineMm ? `baseline ${sp.baselineMm.toFixed(1)} mm from file` : 'baseline assumed, edit if known');
+      notes.push(sp.hfovDeg ? 'lens from file' : 'FOV assumed');
+      lastPair = {
+        bitmap: sp.bitmap,
+        rawEyeWidth: sp.eyeWidth,
+        height: sp.height,
+        eyeAspect: sp.eyeWidth / sp.height,
+        convergencePx: null,
+        blob: await c.convertToBlob({ type: 'image/jpeg', quality: 0.95 }),
+        name: f.name,
+        source: `Spatial photo (${notes.join(', ')})`,
+      };
+    } else {
+      const meta = f.type === 'image/jpeg' || /\.jpe?g$/i.test(f.name) ? readJpegStereoMeta(bytes) : null;
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: f.type || 'image/jpeg' }));
+      const forced = ui.layout.value === 'sbs' || ui.layout.value === 'half-sbs';
+      const sbs = forced || meta?.layout === 'sbs' || /_2x1\./i.test(f.name) || bitmap.width / bitmap.height > 2.5;
+      if (!sbs) {
+        throw new Error(
+          'That photo is not side-by-side. Use a stereo pair with the left eye on the left (or set the layout above), or an iPhone spatial photo (.heic).',
+        );
+      }
+      if (meta?.baselineMm) ui.baseline.value = meta.baselineMm;
+      if (meta?.horizontalFovDeg) ui.fov.value = meta.horizontalFovDeg;
+      if (!ui.baseline.value) ui.baseline.value = DEFAULT_BASELINE_MM;
+      if (!ui.fov.value) ui.fov.value = DEFAULT_FOV_DEG;
+      const layout = forced ? ui.layout.value : 'auto';
+      const eyeAspect = eyeAspectOf(bitmap.width, bitmap.height, layout);
+      const half = eyeAspect === bitmap.width / bitmap.height;
+      lastPair = {
+        bitmap,
+        rawEyeWidth: bitmap.width / 2,
+        height: bitmap.height,
+        eyeAspect,
+        convergencePx: meta?.convergencePx ?? null,
+        blob: f,
+        name: f.name,
+        source: `Side-by-side photo (${half ? 'half' : 'full'} width)`,
+      };
+    }
     await build();
   } catch (err) {
     fail(err);
@@ -209,12 +352,16 @@ async function build() {
   const t0 = performance.now();
   const stLoad = loadSplatTransform(); // 5 MB; fetched while the matcher runs
 
-  const { bitmap, eyeWidth, height, convergencePx } = lastPair;
+  const { bitmap, rawEyeWidth, height, eyeAspect } = lastPair;
+  // The eye's TRUE width: a half side-by-side eye (squeezed to half width) is unsqueezed here.
+  const eyeWidth = height * eyeAspect;
+  const squeeze = eyeWidth / rawEyeWidth;
+  const convergencePx = lastPair.convergencePx > 0 ? lastPair.convergencePx * squeeze : null;
   const baselineM = Math.max(1, Number(ui.baseline.value) || DEFAULT_BASELINE_MM) / 1000;
   const fovDeg = Math.min(170, Math.max(10, Number(ui.fov.value) || DEFAULT_FOV_DEG));
   const fxFull = eyeWidth / 2 / Math.tan((fovDeg * Math.PI) / 360);
 
-  // Both eyes at the matcher's resolution.
+  // Both eyes at the matcher's resolution, at their true aspect.
   const w = Math.min(MAX_PROC_WIDTH, Math.round(eyeWidth));
   const h = Math.round((height * w) / eyeWidth);
   const s = w / eyeWidth;
@@ -222,7 +369,7 @@ async function build() {
     const c = new OffscreenCanvas(w, h);
     const g = c.getContext('2d', { willReadFrequently: true });
     g.imageSmoothingQuality = 'high';
-    g.drawImage(bitmap, i * eyeWidth, 0, eyeWidth, height, 0, 0, w, h);
+    g.drawImage(bitmap, i * rawEyeWidth, 0, rawEyeWidth, height, 0, 0, w, h);
     return g.getImageData(0, 0, w, h).data;
   };
   const L = eye(0);
@@ -230,7 +377,7 @@ async function build() {
   const fx = fxFull * s;
   const maxD = Math.min(192, Math.max(32, Math.ceil((fx * baselineM) / NEAREST_M)));
   // The face the camera converged on gives the subject distance; else the scene's median depth.
-  const subjectZ = convergencePx > 0 ? (fxFull * baselineM) / convergencePx : null;
+  const subjectZ = convergencePx ? (fxFull * baselineM) / convergencePx : null;
 
   progress('Finding depth', 'Matching the left and right eye', 0);
   const res = await new Promise((resolve, reject) => {
@@ -276,7 +423,10 @@ async function build() {
 
 async function showSplat(sog) {
   if (!splat) {
-    // First splat: register the tile (once — later captures swap the source, never the canvas).
+    // First splat: give the canvas the photo's shape, let it settle two frames (woven-canvas
+    // rule 4), then register the tile — once; later captures swap the source, never the canvas.
+    ui.splat.style.setProperty('--aspect', String(lastPair.eyeAspect));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     splat = addSplat(wall, ui.splat, sog, {
       rig: 'auto', // the .sog's camera block → the camera rig at the capture viewpoint
       feather: 24,
@@ -326,10 +476,11 @@ function ramp(t) {
 function report({ res, w, h, baselineM, fovDeg, sog, ms }) {
   const m = (v) => (v >= 1 ? `${v.toFixed(2)} m` : `${Math.round(v * 100)} cm`);
   const rows = [
+    ['Source', lastPair.source],
     ['Gaussians', `${res.count.toLocaleString()} (${w}×${h})`],
     ['Subject', m(res.depth.subject)],
     ['Depth range', `${m(res.depth.near)} – ${m(res.depth.far)}`],
-    ['Stereo', `baseline ${Math.round(baselineM * 1000)} mm · eye FOV ${fovDeg}°`],
+    ['Stereo', `baseline ${+(baselineM * 1000).toFixed(1)} mm · eye FOV ${fovDeg}°`],
     ['.sog size', `${(sog.length / 1024).toFixed(0)} KB`],
     ['Time', `depth ${(ms.depth / 1000).toFixed(1)} s · encode ${(ms.sog / 1000).toFixed(1)} s`],
   ];

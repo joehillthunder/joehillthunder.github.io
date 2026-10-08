@@ -35,7 +35,7 @@
   .dot.ok { background: var(--ok); }
   .dot.warn { background: var(--warn); }
   .detect .facts { color: var(--muted); font-size: 13px; }
-  .detect select { margin-left: auto; }
+  .detect .pickers { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
@@ -87,7 +87,8 @@
 <body>
 <div class="wrap">
   <h1>Stereo Splat</h1>
-  <p class="sub">Point a 3D camera at something and take a photo. The page finds depth in the stereo pair,
+  <p class="sub">Point a 3D camera at something and take a photo: the DisplayXR 3D Camera, an Acer SpatialLabs Eyes,
+    or any side-by-side stereo webcam. You can also load an iPhone spatial photo. The page finds depth in the stereo pair,
     turns every pixel into a Gaussian and encodes the result as <code>.sog</code> with PlayCanvas
     <code>splat-transform</code>. Everything runs in your browser. In the
     <a href="https://displayxr.org/browser">DisplayXR Browser</a> on a 3D display, the preview and the splat
@@ -96,7 +97,15 @@
   <div class="detect" id="detect">
     <span><span class="dot" id="dot"></span><span class="kind" id="kind">Looking for cameras…</span></span>
     <span class="facts" id="facts"></span>
-    <select id="device" aria-label="Camera" hidden></select>
+    <span class="pickers">
+      <select id="device" aria-label="Camera" hidden></select>
+      <select id="layout" aria-label="Camera layout" title="How to read the camera frame">
+        <option value="auto">Layout: auto-detect</option>
+        <option value="sbs">Full side-by-side</option>
+        <option value="half-sbs">Half side-by-side</option>
+        <option value="mono">2D (no stereo)</option>
+      </select>
+    </span>
   </div>
 
   <div class="grid">
@@ -108,9 +117,10 @@
       </div>
       <div class="controls">
         <button class="primary" id="capture" disabled>Take 3D photo</button>
-        <label class="file">Load side-by-side photo…<input type="file" id="file" accept="image/*"></label>
+        <label class="file">Load photo…<input type="file" id="file" accept="image/*,.heic,.heif"></label>
       </div>
       <div class="status" id="liveStatus">The preview auto-converges: it keeps your face at the screen plane.</div>
+      <div class="status">Photos can be side-by-side JPEG/PNG (left eye on the left) or an iPhone / Vision Pro spatial photo (.heic).</div>
     </section>
 
     <section class="panel">
@@ -147,7 +157,9 @@
 
   <p class="note">How it works: the camera module of the DisplayXR web SDK finds the 3D camera. It accepts
     the DisplayXR Browser's rectified "3D Camera" or any device that sends side-by-side frames wider than 2.5:1,
-    and saves the raw pair. Depth comes from 7×7 census matching with semi-global aggregation and a left/right check.
+    and saves the raw pair. Half side-by-side cameras such as the Acer SpatialLabs Eyes are recognised by name
+    and unsqueezed. iPhone spatial photos are decoded with libheif, and the HEIF stereo group, camera positions
+    and lens give the left and right eyes, the baseline and the field of view. Depth comes from 7×7 census matching with semi-global aggregation and a left/right check.
     Each pixel becomes one Gaussian, placed in 3D through the pinhole Z = f·B/d.
     <code>splat-transform</code> writes the <code>.sog</code>. The page adds a DisplayXR <code>camera</code>
     block to its <code>meta.json</code>, so the viewer reopens the splat from the camera that took it.
