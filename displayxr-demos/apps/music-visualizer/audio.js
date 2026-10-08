@@ -55,7 +55,11 @@ export class AudioEngine {
       this._time = new Float32Array(this.analyser.fftSize);
       this._bandRanges = this._makeBandRanges();
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      // Without a user gesture resume() never settles; say so instead of doing nothing.
+      await Promise.race([this.ctx.resume(), new Promise((r) => setTimeout(r, 1500))]);
+      if (this.ctx.state !== 'running') throw new Error('The browser blocked audio. Click the button again to start it.');
+    }
     return this.ctx;
   }
 
