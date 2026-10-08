@@ -10,7 +10,8 @@
 import { sharedInline3D } from '@displayxr/inline3d';
 import { openCamera, addCameraView, readJpegStereoMeta } from '@displayxr/inline3d/camera';
 import { addSplat } from '@displayxr/inline3d/splat/playcanvas';
-import { encodeSog, cameraBlock } from './sog.js';
+import { encodeSog, cameraBlock, zipStored } from './sog.js';
+import { buildObj } from './mesh.js';
 import { knownStereoCamera, STEREO_HINT, eyeAspectOf, openProfileStream } from './cameras.js';
 import { isHeif, decodeSpatialPhoto } from './heif.js';
 
@@ -33,6 +34,7 @@ const ui = {
   splatStatus: $('splatStatus'), reset: $('reset'), rebuild: $('rebuild'),
   baseline: $('baseline'), fov: $('fov'),
   results: $('results'), depth: $('depth'), stats: $('stats'), downloads: $('downloads'),
+  exportObj: $('exportObj'), meshDetail: $('meshDetail'), meshEdges: $('meshEdges'), meshDepth: $('meshDepth'), exportStatus: $('exportStatus'),
 };
 
 const wall = await sharedInline3D(); // one inline-3D session for the whole document
@@ -44,6 +46,8 @@ let profile = null;
 let splat = null;
 /** `{ bitmap, rawEyeWidth, height, eyeAspect, convergencePx, blob, name, source }` */
 let lastPair = null;
+/** The last build's depth, for the mesh export: `{ pair, disp, w, h, fx, baselineM, far, subjectZ }` */
+let lastResult = null;
 let busy = false;
 
 // ── camera: detect, open, auto-converged preview ──────────────────────────────────────────
@@ -416,6 +420,9 @@ async function build() {
   await showSplat(sog);
   drawDepth(res.disp, w, h, res.depth, fx, baselineM);
   report({ res, w, h, baselineM, fovDeg, sog, ms: { depth: tDepth - t0, sog: tSog - tDepth } });
+  lastResult = { pair: lastPair, disp: res.disp, w, h, fx, baselineM, far: res.depth.far, subjectZ: res.depth.subject };
+  ui.exportObj.disabled = false;
+  ui.exportStatus.textContent = '';
   ui.splatStatus.textContent = 'Drag to look around. Scroll to zoom. Double-click to focus. Space resets focus.';
   ui.rebuild.disabled = false;
   busy = false;
@@ -487,13 +494,65 @@ function report({ res, w, h, baselineM, fovDeg, sog, ms }) {
   ui.stats.replaceChildren(...rows.flatMap(([k, v]) => [Object.assign(document.createElement('dt'), { textContent: k }), Object.assign(document.createElement('dd'), { textContent: v })]));
 
   for (const a of ui.downloads.querySelectorAll('a')) URL.revokeObjectURL(a.href);
-  const base = (lastPair.name || 'photo').replace(/(_2x1)?\.[a-z0-9]+$/i, '');
+  const base = baseName(lastPair);
   const link = (blob, name, label) => Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name, textContent: label });
   ui.downloads.replaceChildren(
     link(new Blob([sog], { type: 'application/octet-stream' }), `${base}.sog`, `Download splat (${base}.sog)`),
     link(lastPair.blob, `${base}_2x1.jpg`, `Download stereo photo (${base}_2x1.jpg)`),
   );
 }
+
+function baseName(pair) {
+  return (pair.name || 'photo').replace(/(_2x1)?\.[a-z0-9]+$/i, '').replace(/[^\w.-]+/g, '_') || 'photo';
+}
+
+// ── .obj export for the DisplayXR 3D Model Viewer ─────────────────────────────────────────
+
+ui.exportObj.addEventListener('click', async () => {
+  const r = lastResult;
+  if (!r) return;
+  ui.exportObj.disabled = true;
+  try {
+    const pair = r.pair;
+    const base = baseName(pair);
+    const mesh = buildObj({
+      ...r,
+      step: Number(ui.meshDetail.value) || 2,
+      edgeRatio: ui.meshEdges.value === 'cut' ? 1.08 : Infinity,
+      depthScale: Number(ui.meshDepth.value) || 1,
+      name: base,
+    });
+    // texture: the left eye at its true aspect, up to 2048 px wide
+    const eyeW = pair.height * pair.eyeAspect;
+    const tw = Math.min(2048, Math.round(eyeW));
+    const th = Math.round((pair.height * tw) / eyeW);
+    const c = new OffscreenCanvas(tw, th);
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(pair.bitmap, 0, 0, pair.rawEyeWidth, pair.height, 0, 0, tw, th);
+    const jpg = new Uint8Array(await (await c.convertToBlob({ type: 'image/jpeg', quality: 0.92 })).arrayBuffer());
+    const enc = new TextEncoder();
+    const zip = zipStored([
+      [`${base}.obj`, enc.encode(mesh.obj)],
+      [`${base}.mtl`, enc.encode(mesh.mtl)],
+      [`${base}.jpg`, jpg],
+    ]);
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([zip], { type: 'application/zip' })),
+      download: `${base}_obj.zip`,
+    });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    ui.exportStatus.textContent =
+      `${base}_obj.zip: ${mesh.triangles.toLocaleString()} triangles, ${(zip.length / 1048576).toFixed(1)} MB. ` +
+      `Unzip it, then open ${base}.obj in the DisplayXR 3D Model Viewer (Ctrl+O or drag and drop). Keep the three files together.`;
+  } catch (err) {
+    console.error(err);
+    ui.exportStatus.textContent = `Export failed: ${err?.message || err}`;
+  } finally {
+    ui.exportObj.disabled = false;
+  }
+});
 
 // ── go ────────────────────────────────────────────────────────────────────────────────────
 

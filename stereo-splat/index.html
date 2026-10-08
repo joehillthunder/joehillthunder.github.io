@@ -152,6 +152,30 @@
       <h3>This capture</h3>
       <dl id="stats"></dl>
       <div class="downloads" id="downloads"></div>
+      <div class="controls export">
+        <label class="num">Mesh detail
+          <select id="meshDetail">
+            <option value="1">Full (largest file)</option>
+            <option value="2" selected>Half</option>
+            <option value="4">Quarter</option>
+          </select>
+        </label>
+        <label class="num">Depth
+          <select id="meshDepth" title="Pull the scene toward the subject plane for comfortable viewing">
+            <option value="1">As measured</option>
+            <option value="0.5" selected>Half (comfortable)</option>
+            <option value="0.25">Quarter (relief)</option>
+          </select>
+        </label>
+        <label class="num">Depth edges
+          <select id="meshEdges">
+            <option value="fill" selected>Stretch to fill gaps</option>
+            <option value="cut">Cut (gaps show through)</option>
+          </select>
+        </label>
+        <button id="exportObj" disabled>Export .obj for DisplayXR viewer</button>
+      </div>
+      <div class="status" id="exportStatus"></div>
     </div>
   </div>
 

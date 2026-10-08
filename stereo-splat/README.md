@@ -23,6 +23,18 @@ and the splat are glasses-free 3D. Other browsers show the same page in 2D.
    capture camera.
 7. **View.** `addSplat` from `@displayxr/inline3d/splat/playcanvas`. Later captures swap in with `setSource`.
 
+**Export a mesh for the [DisplayXR 3D Model Viewer](https://github.com/DisplayXR/displayxr-demo-modelviewer)** (`mesh.js`).
+"Export .obj" downloads `<name>_obj.zip` with `.obj`, `.mtl` and `.jpg`. Unzip it and open the `.obj` in the
+viewer (Ctrl+O or drag and drop). The viewer looks for the `.mtl` and texture next to the `.obj`.
+
+- **Geometry:** the depth map as a grid mesh with UVs and smooth normals, in glTF axes (+Y up, facing +Z),
+  with the subject at the origin so the viewer frames and orbits around it.
+- **Material:** the photo goes on as emission (`Ke` / `map_Ke`) with a black diffuse. The viewer turns
+  OBJ materials into PBR, so the photo shows as captured under every lighting mode.
+- **Options:** mesh detail (full, half or quarter grid). Depth: as measured, half or quarter. A smaller
+  value pulls points toward the subject along their camera rays, so the mesh still lines up with the photo
+  from the capture camera. Depth edges: stretch to fill the gaps a single viewpoint cannot see, or cut them.
+
 You can also load photos:
 
 - **Side-by-side JPEG or PNG**, full or half width (`_2x1` in the name, or set the layout).
