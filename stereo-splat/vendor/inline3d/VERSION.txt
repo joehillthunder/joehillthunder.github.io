@@ -1,0 +1,3 @@
+@displayxr/inline3d 1.37.1
+Source: https://github.com/DisplayXR/displayxr-web @ 77d4a5ea907916656e4b8a922d76ca610ea0a65c
+Vendored unmodified (js/ only). Apache-2.0, see LICENSE.

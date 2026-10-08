@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stereo Splat</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Take a photo with a 3D camera and turn the stereo pair into a Gaussian splat, in the browser, for the DisplayXR Browser.">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --panel: #141821;
+    --line: #262c3a;
+    --text: #e7eaf0;
+    --muted: #98a0b3;
+    --accent: #5b8cff;
+    --ok: #3ecf8e;
+    --warn: #f5a524;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 18px; max-width: 760px; }
+  a { color: var(--accent); }
+
+  .detect { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 18px; }
+  .detect .kind { font-weight: 600; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted); margin-right: 8px; vertical-align: 1px; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  .detect .facts { color: var(--muted); font-size: 13px; }
+  .detect select { margin-left: auto; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .panel h2 { font-size: 15px; margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
+  .badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px;
+    background: var(--line); color: var(--muted); }
+  .badge.on { background: var(--ok); color: #04150d; }
+
+  /* WOVEN CANVASES: see vendor/inline3d docs, woven-canvas rules. The canvas stays visually
+     bare (no border, radius, shadow, filter, opacity) and no ancestor gets an effect. Black sits
+     BEHIND it (the stage), never above. will-change from the first paint. */
+  .stage { position: relative; background: #000; }
+  .stage canvas { display: block; width: 100%; aspect-ratio: var(--aspect, 16 / 9);
+    will-change: transform; }
+  #splat { cursor: grab; }
+  #splat:active { cursor: grabbing; }
+  /* Covers sit ON TOP until the tile's firstWoven, then are cut (hidden), never faded. */
+  .cover { position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+    background: var(--bg); color: var(--muted); padding: 16px; }
+  .cover[hidden] { display: none; }
+  .cover .big { color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .bar { height: 4px; width: 220px; background: var(--line); margin: 12px auto 0; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+  button, .file, select, input[type=number] { font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  button, .file { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .file input { display: none; }
+  input[type=number] { width: 84px; padding: 5px 8px; }
+  label.num { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+  .status { color: var(--muted); font-size: 13px; min-height: 1.5em; margin-top: 8px; }
+
+  .results { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 22px; }
+  @media (max-width: 860px) { .results { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card h3 { margin: 0 0 8px; font-size: 14px; }
+  .card canvas { display: block; width: 100%; height: auto; background: #000; }
+  .card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 13px; }
+  .card dt { color: var(--muted); }
+  .card dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .downloads { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 13px; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 28px; max-width: 820px; }
+  code { background: #ffffff14; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Stereo Splat</h1>
+  <p class="sub">Point a 3D camera at something and take a photo. The page finds depth in the stereo pair,
+    turns every pixel into a Gaussian and encodes the result as <code>.sog</code> with PlayCanvas
+    <code>splat-transform</code>. Everything runs in your browser. In the
+    <a href="https://displayxr.org/browser">DisplayXR Browser</a> on a 3D display, the preview and the splat
+    are glasses-free 3D.</p>
+
+  <div class="detect" id="detect">
+    <span><span class="dot" id="dot"></span><span class="kind" id="kind">Looking for cameras…</span></span>
+    <span class="facts" id="facts"></span>
+    <select id="device" aria-label="Camera" hidden></select>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Live 3D camera <span class="badge" id="liveBadge">2D</span></h2>
+      <div class="stage">
+        <canvas id="live" width="1280" height="720"></canvas>
+        <div class="cover" id="liveCover"><div><div class="big">Opening camera…</div>Allow camera access when asked.</div></div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="capture" disabled>Take 3D photo</button>
+        <label class="file">Load side-by-side photo…<input type="file" id="file" accept="image/*"></label>
+      </div>
+      <div class="status" id="liveStatus">The preview auto-converges: it keeps your face at the screen plane.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Gaussian splat <span class="badge" id="splatBadge">2D</span></h2>
+      <div class="stage">
+        <canvas id="splat" width="1280" height="720"></canvas>
+        <div class="cover" id="splatCover"><div>
+          <div class="big" id="splatCoverTitle">No splat yet</div>
+          <span id="splatCoverText">Take a 3D photo to build one.</span>
+          <div class="bar" id="splatBar" hidden><i></i></div>
+        </div></div>
+      </div>
+      <div class="controls">
+        <button id="reset" disabled>Reset view</button>
+        <label class="num">Baseline <input type="number" id="baseline" min="5" max="300" step="1"> mm</label>
+        <label class="num">Eye FOV <input type="number" id="fov" min="20" max="150" step="1"> °</label>
+        <button id="rebuild" disabled>Rebuild</button>
+      </div>
+      <div class="status" id="splatStatus">Drag to look around. Scroll to zoom. Double-click to focus.</div>
+    </section>
+  </div>
+
+  <div class="results" id="results" hidden>
+    <div class="card">
+      <h3>Depth from stereo</h3>
+      <canvas id="depth"></canvas>
+    </div>
+    <div class="card">
+      <h3>This capture</h3>
+      <dl id="stats"></dl>
+      <div class="downloads" id="downloads"></div>
+    </div>
+  </div>
+
+  <p class="note">How it works: the camera module of the DisplayXR web SDK finds the 3D camera. It accepts
+    the DisplayXR Browser's rectified "3D Camera" or any device that sends side-by-side frames wider than 2.5:1,
+    and saves the raw pair. Depth comes from 7×7 census matching with semi-global aggregation and a left/right check.
+    Each pixel becomes one Gaussian, placed in 3D through the pinhole Z = f·B/d.
+    <code>splat-transform</code> writes the <code>.sog</code>. The page adds a DisplayXR <code>camera</code>
+    block to its <code>meta.json</code>, so the viewer reopens the splat from the camera that took it.
+    The preview is mirrored like a selfie. The splat is not mirrored: it is what the camera saw.</p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "playcanvas": "https://cdn.jsdelivr.net/npm/playcanvas@2.22.3/build/playcanvas.mjs",
+  "@playcanvas/splat-transform": "https://cdn.jsdelivr.net/npm/@playcanvas/splat-transform@3.6.4/dist/index.mjs",
+  "@displayxr/inline3d": "./vendor/inline3d/js/inline3d.js",
+  "@displayxr/inline3d/camera": "./vendor/inline3d/js/inline3d-camera.js",
+  "@displayxr/inline3d/splat/playcanvas": "./vendor/inline3d/js/inline3d-splat-pc-entry.js"
+} }
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
