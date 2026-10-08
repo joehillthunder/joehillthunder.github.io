@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sugar Rush</title>
+<meta name="description" content="A candy-factory 3D platformer with real depth on glasses-free 3D displays (DisplayXR). Plays in 2D in any browser.">
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #2a1633;
+    --ink: #fff7fb;
+    --muted: #e9cfe0;
+    --panel: rgba(26, 12, 32, 0.78);
+    --gold: #ffc83d;
+    --pink: #ff9cc8;
+    --mint: #9ff0d8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+  /* THE WOVEN CANVAS: visually bare (no border, radius, filter, opacity) on any ancestor;
+     will-change from the first paint. Everything else is a DOM sibling painted after it. */
+  #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; will-change: transform;
+    touch-action: none; }
+
+  /* Covers the canvas until its first woven frame, then is cut (never faded). */
+  #cover { position: fixed; inset: 0; background: var(--bg); display: grid; place-items: center;
+    font-weight: 700; letter-spacing: .04em; color: var(--muted); }
+  #cover[hidden] { display: none; }
+
+  /* HUD: small plates, plain translucent tint (no backdrop-filter over the weave) */
+  .hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between;
+    align-items: flex-start; pointer-events: none; gap: 8px; }
+  .plate { background: var(--panel); border-radius: 10px; padding: 6px 12px; pointer-events: auto;
+    display: flex; gap: 14px; align-items: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #seals { color: var(--gold); letter-spacing: 2px; }
+  #lives { color: var(--pink); }
+  .btns { display: flex; gap: 6px; }
+  .btns button, .card button, .card select { font: inherit; font-weight: 700; border: 0; border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; color: #2a1633; background: var(--mint); }
+  .btns button { background: var(--panel); color: var(--ink); padding: 6px 10px; font-size: 14px; }
+  .btns button:focus-visible, .card button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  #mode { font-size: 12px; opacity: .8; }
+  #fps { font-size: 12px; opacity: .8; }
+
+  /* Menus: centred cards, smaller than the canvas */
+  .card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px));
+    background: var(--panel); border-radius: 16px; padding: 22px 22px 18px; text-align: center; }
+  .card[hidden] { display: none; }
+  .card h1 { margin: 0 0 4px; font-size: 34px; line-height: 1.1;
+    background: linear-gradient(90deg, var(--gold), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .card h2 { margin: 0 0 8px; }
+  .card p { margin: 6px 0 12px; color: var(--muted); }
+  .card .row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .card button.go { background: linear-gradient(90deg, var(--gold), #ffa63d); padding: 10px 22px; font-size: 18px; }
+  .card select { background: #fff; padding: 9px 10px; }
+  .keys { font-size: 13px; color: var(--muted); text-align: left; margin: 10px auto 0; display: grid;
+    grid-template-columns: auto 1fr; gap: 2px 12px; max-width: 340px; }
+  .keys b { color: var(--ink); white-space: nowrap; }
+  #best, #winNote { color: var(--gold); font-weight: 700; min-height: 1.5em; }
+
+  #toast { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); background: var(--panel);
+    padding: 8px 14px; border-radius: 10px; font-weight: 700; pointer-events: none; }
+  #toast[hidden] { display: none; }
+
+  /* touch controls: only on touch screens */
+  .touch { display: none; }
+  @media (pointer: coarse) {
+    .touch { display: block; position: fixed; bottom: 24px; pointer-events: auto; touch-action: none; }
+    #stick { left: 24px; width: 130px; height: 130px; border-radius: 50%; background: rgba(26, 12, 32, .55); }
+    #knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: var(--mint); }
+    .tbtn { width: 78px; height: 78px; border-radius: 50%; border: 0; font: inherit; font-weight: 800; color: #2a1633; }
+    #jumpBtn { right: 24px; background: var(--gold); }
+    #dashBtn { right: 116px; bottom: 60px; background: var(--pink); }
+    .keys { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Sugar Rush game"></canvas>
+
+<div class="hud">
+  <div class="plate" aria-live="polite">
+    <span id="seals" title="Golden Confection Seals">○○○○</span>
+    <span id="lives" title="Lives">♥♥♥</span>
+    <span id="timer">0:00.0</span>
+  </div>
+  <div class="btns">
+    <span class="plate" id="mode">…</span>
+    <span class="plate" id="fps" hidden></span>
+    <button id="modeBtn" hidden title="Switch the display between 3D and 2D">3D on</button>
+    <button id="muteBtn">Sound on</button>
+    <button id="pauseBtn" aria-label="Pause">Pause</button>
+  </div>
+</div>
+
+<section class="card" id="title">
+  <h1>Sugar Rush</h1>
+  <p>Race through the candy factory, bounce on gummy pads, grab all <b>4 Golden Seals</b>,
+     then reach the <b>Grand Sugar Fountain</b>.</p>
+  <div class="row">
+    <select id="difficulty" aria-label="Difficulty">
+      <option value="easy">Easy · 5 lives</option>
+      <option value="normal" selected>Normal · 3 lives</option>
+      <option value="hard">Hard · 2 lives</option>
+    </select>
+    <button class="go" data-start>Start run</button>
+  </div>
+  <div class="keys">
+    <b>WASD / arrows</b><span>move (left stick on a gamepad)</span>
+    <b>Space / click</b><span>jump (A on a gamepad)</span>
+    <b>Shift / right-click</b><span>Fizzy Dash, once in the air (X / RB)</span>
+    <b>Esc / P</b><span>pause (Start)</span>
+  </div>
+  <div id="best"></div>
+</section>
+
+<section class="card" id="paused" hidden>
+  <h2>Paused</h2>
+  <div class="row"><button class="go" id="resume">Resume</button><button data-start>Restart</button></div>
+</section>
+
+<section class="card" id="won" hidden>
+  <h2>Sweet victory!</h2>
+  <p>All 4 seals, and the fountain is yours in <b id="winTime">0:00.0</b>.</p>
+  <div id="winNote"></div>
+  <div class="row"><button class="go" data-start>Run again</button></div>
+</section>
+
+<section class="card" id="over" hidden>
+  <h2>Out of lives</h2>
+  <p>The factory wins this time.</p>
+  <div class="row"><button class="go" data-start>Try again</button></div>
+</section>
+
+<div id="toast" hidden></div>
+
+<div class="touch" id="stick"><div id="knob"></div></div>
+<button class="touch tbtn" id="dashBtn">DASH</button>
+<button class="touch tbtn" id="jumpBtn">JUMP</button>
+
+<div id="cover">Loading…</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "@displayxr/inline3d": "../stereo-splat/vendor/inline3d/js/inline3d.js",
+  "@displayxr/inline3d/three": "../stereo-splat/vendor/inline3d/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
