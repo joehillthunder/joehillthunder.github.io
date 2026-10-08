@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music Visualizer · DisplayXR</title>
+<meta name="description" content="A beat-reactive music visualizer with real depth on glasses-free 3D displays, and plain 2D in any browser.">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- The one woven canvas, for the life of the page. Never remounted, never resized by CSS
+       effects; styles swap what is drawn in it. -->
+  <canvas id="stage"></canvas>
+
+  <!-- Rule 5: an opaque cover ON TOP of the canvas until handle.firstWoven, cut not faded. -->
+  <div id="cover" aria-hidden="true"></div>
+
+  <main id="start" class="panel" data-inline3d-overlay>
+    <h1>Music Visualizer</h1>
+    <p class="lede">Six beat-reactive styles. On a glasses-free 3D display the visuals have depth that
+      pulses with the music.</p>
+    <div class="sources">
+      <button id="src-demo" class="primary" type="button">
+        <span class="t">Play demo track</span><span class="d">Synthesized live, no download</span>
+      </button>
+      <button id="src-file" type="button">
+        <span class="t">Open audio file</span><span class="d">MP3, WAV, OGG, FLAC, M4A, or drop one here</span>
+      </button>
+      <button id="src-tab" type="button">
+        <span class="t">Capture tab audio</span><span class="d">Spotify, YouTube or any tab: tick "Share tab audio"</span>
+      </button>
+      <button id="src-mic" type="button">
+        <span class="t">Use microphone</span><span class="d">Music playing in the room</span>
+      </button>
+    </div>
+    <p id="start-error" class="error" hidden></p>
+    <button id="start-close" type="button" hidden>Back to the visualizer</button>
+    <p class="mode"><span id="mode-badge" class="badge">checking display…</span></p>
+    <p class="keys">Keys: <kbd>1</kbd>–<kbd>6</kbd> style · <kbd>A</kbd> auto-cycle · <kbd>Space</kbd> play/pause ·
+      <kbd>F</kbd> fullscreen · <kbd>H</kbd> hide controls</p>
+  </main>
+
+  <div id="drop" class="panel drop" data-inline3d-overlay hidden>Drop to play</div>
+
+  <div id="bar" class="panel bar" data-inline3d-overlay hidden>
+    <div class="row">
+      <button id="play" type="button" class="icon" title="Play / pause (Space)" aria-label="Play or pause">❚❚</button>
+      <div class="now">
+        <div id="now-label" class="label">—</div>
+        <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek" hidden>
+      </div>
+      <span id="beat" class="beat" title="Beat"></span>
+      <button id="change" type="button" title="Choose another source">Source</button>
+      <button id="fs" type="button" class="icon" title="Fullscreen (F)" aria-label="Fullscreen">⛶</button>
+    </div>
+    <div class="row">
+      <div id="style-buttons" class="styles" role="group" aria-label="Visual style"></div>
+      <button id="auto" type="button" class="toggle" title="Cycle styles on the beat (A)">Auto</button>
+      <label id="depth-wrap" class="depth" hidden title="Depth: eye separation on the 3D display">
+        Depth <input id="depth" type="range" min="0" max="1" step="0.05" value="1">
+      </label>
+    </div>
+  </div>
+
+  <div id="hud" hidden></div>
+  <input id="file" type="file" accept="audio/*,.mp3,.wav,.ogg,.oga,.flac,.m4a,.aac,.opus,.webm" hidden>
+
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js" } }
+  </script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
