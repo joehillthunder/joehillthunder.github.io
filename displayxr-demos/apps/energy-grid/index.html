@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Future Grids Training</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand">
+      <div class="brand-title">Future Grids Training</div>
+      <div class="brand-sub">Interactive grid operations · glasses-free 3D · the whole simulation runs in this page</div>
+    </div>
+    <nav class="views" aria-label="Views">
+      <button data-view="map" class="on"><kbd>1</kbd> Grid map</button>
+      <button data-view="twin"><kbd>2</kbd> Substation twin</button>
+      <button id="btn-whatif"><kbd>3</kbd> What-if: one year</button>
+      <button id="btn-reset"><kbd>R</kbd> Reset</button>
+    </nav>
+    <div class="clock"><span id="clock">--:--</span><span id="mode-tag" class="tag">Explore</span></div>
+  </header>
+
+  <aside id="left">
+    <section id="mission" class="panel"></section>
+    <section id="card" class="panel"></section>
+    <section id="tutor" class="panel">
+      <h3>Ask the tutor</h3>
+      <div class="chips">
+        <button data-q="What should I do next?">What should I do next?</button>
+        <button data-q="Why did the breaker trip?">Why did the breaker trip?</button>
+        <button data-q="What does this device do?">What does this device do?</button>
+        <button data-q="What is a microgrid?">What is a microgrid?</button>
+      </div>
+      <form id="ask"><input id="ask-input" placeholder="Type a question…" autocomplete="off"><button>Ask</button></form>
+      <div id="answer" class="answer"></div>
+      <div id="tutor-backend" class="fine"></div>
+    </section>
+  </aside>
+
+  <main id="stage">
+    <canvas id="grid3d"></canvas>
+    <div id="toast" class="toast" hidden></div>
+    <div id="cover" class="cover">Loading the grid…</div>
+  </main>
+
+  <aside id="right">
+    <section class="panel">
+      <h3>One-line diagram <span class="fine">live</span></h3>
+      <div id="oneline"></div>
+    </section>
+    <section class="panel alarms">
+      <h3>Alarms <button id="btn-ack" class="mini">Acknowledge</button></h3>
+      <ol id="alarms"></ol>
+    </section>
+    <section class="panel compute">
+      <h3>Under the hood <span class="fine">local compute</span></h3>
+      <div id="compute"></div>
+    </section>
+  </aside>
+
+  <footer id="kpis"></footer>
+</div>
+
+<div id="scorecard" class="scorecard" hidden></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.37.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.37.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
