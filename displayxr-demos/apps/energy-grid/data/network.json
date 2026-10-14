@@ -1,0 +1,462 @@
+{
+ "network": {
+  "buses": {
+   "bulk": {
+    "kv": 115.0,
+    "pos": [
+     -0.74,
+     -0.28
+    ],
+    "ol": [
+     0,
+     1
+    ],
+    "label": "Bulk power (gas + wind)"
+   },
+   "sub_hv": {
+    "kv": 115.0,
+    "pos": [
+     -0.38,
+     -0.02
+    ],
+    "ol": [
+     1,
+     1
+    ],
+    "label": "Substation 115 kV"
+   },
+   "sub_lv": {
+    "kv": 12.47,
+    "pos": [
+     -0.29,
+     0.02
+    ],
+    "ol": [
+     2,
+     1
+    ],
+    "label": "Substation 12.47 kV bus"
+   },
+   "f1": {
+    "kv": 12.47,
+    "pos": [
+     -0.12,
+     0.14
+    ],
+    "ol": [
+     3,
+     2
+    ],
+    "label": "Feeder 1 — Oak Hills"
+   },
+   "f2": {
+    "kv": 12.47,
+    "pos": [
+     0.02,
+     0.22
+    ],
+    "ol": [
+     4,
+     2
+    ],
+    "label": "Feeder 1 — Market St"
+   },
+   "f2a": {
+    "kv": 12.47,
+    "pos": [
+     0.11,
+     0.25
+    ],
+    "ol": [
+     5,
+     2
+    ],
+    "label": "Feeder 1 — SW-A load side"
+   },
+   "f3a": {
+    "kv": 12.47,
+    "pos": [
+     0.27,
+     0.27
+    ],
+    "ol": [
+     6,
+     2
+    ],
+    "label": "Feeder 1 — SW-B source side"
+   },
+   "f3": {
+    "kv": 12.47,
+    "pos": [
+     0.35,
+     0.25
+    ],
+    "ol": [
+     7,
+     2
+    ],
+    "label": "Feeder 1 — Riverside"
+   },
+   "f4": {
+    "kv": 12.47,
+    "pos": [
+     0.52,
+     0.18
+    ],
+    "ol": [
+     8,
+     2
+    ],
+    "label": "Feeder 1 — Lakeview"
+   },
+   "mg": {
+    "kv": 12.47,
+    "pos": [
+     0.66,
+     0.02
+    ],
+    "ol": [
+     9,
+     2
+    ],
+    "label": "Microgrid campus"
+   },
+   "g1": {
+    "kv": 12.47,
+    "pos": [
+     -0.08,
+     -0.17
+    ],
+    "ol": [
+     3,
+     0
+    ],
+    "label": "Feeder 2 — Solar Ridge"
+   },
+   "g2": {
+    "kv": 12.47,
+    "pos": [
+     0.3,
+     -0.14
+    ],
+    "ol": [
+     7,
+     0
+    ],
+    "label": "Feeder 2 — Northgate"
+   }
+  },
+  "branches": {
+   "TL1": {
+    "kind": "tline",
+    "a": "bulk",
+    "b": "sub_hv",
+    "km": 14.0,
+    "amps": 600,
+    "normally": "closed",
+    "label": "115 kV transmission line"
+   },
+   "XFMR": {
+    "kind": "xfmr",
+    "a": "sub_hv",
+    "b": "sub_lv",
+    "kva": 20000,
+    "normally": "closed",
+    "label": "Substation transformer 115/12.47 kV, 20 MVA"
+   },
+   "BKR_F1": {
+    "kind": "breaker",
+    "a": "sub_lv",
+    "b": "f1",
+    "amps": 600,
+    "normally": "closed",
+    "label": "Feeder 1 circuit breaker"
+   },
+   "L1": {
+    "kind": "line",
+    "a": "f1",
+    "b": "f2",
+    "km": 1.6,
+    "amps": 400,
+    "normally": "closed",
+    "label": "Feeder 1 overhead line, section 1"
+   },
+   "SW_A": {
+    "kind": "switch",
+    "a": "f2",
+    "b": "f2a",
+    "amps": 600,
+    "normally": "closed",
+    "label": "Sectionalizing switch A"
+   },
+   "L2": {
+    "kind": "line",
+    "a": "f2a",
+    "b": "f3a",
+    "km": 1.8,
+    "amps": 400,
+    "normally": "closed",
+    "label": "Feeder 1 overhead line, section 2"
+   },
+   "SW_B": {
+    "kind": "switch",
+    "a": "f3a",
+    "b": "f3",
+    "amps": 600,
+    "normally": "closed",
+    "label": "Sectionalizing switch B"
+   },
+   "L3": {
+    "kind": "line",
+    "a": "f3",
+    "b": "f4",
+    "km": 1.7,
+    "amps": 400,
+    "normally": "closed",
+    "label": "Feeder 1 overhead line, section 3"
+   },
+   "PCC": {
+    "kind": "breaker",
+    "a": "f4",
+    "b": "mg",
+    "amps": 400,
+    "normally": "closed",
+    "label": "Microgrid point of common coupling (PCC) breaker"
+   },
+   "BKR_F2": {
+    "kind": "breaker",
+    "a": "sub_lv",
+    "b": "g1",
+    "amps": 600,
+    "normally": "closed",
+    "label": "Feeder 2 circuit breaker"
+   },
+   "L5": {
+    "kind": "line",
+    "a": "g1",
+    "b": "g2",
+    "km": 2.6,
+    "amps": 120,
+    "normally": "closed",
+    "label": "Feeder 2 overhead line"
+   },
+   "TIE": {
+    "kind": "switch",
+    "a": "g2",
+    "b": "f3",
+    "amps": 600,
+    "normally": "open",
+    "label": "Normally-open tie switch (Feeder 2 to Feeder 1)"
+   }
+  },
+  "loads": {
+   "ld_f1": {
+    "bus": "f1",
+    "kw": 850,
+    "customers": 410,
+    "kind": "residential",
+    "label": "Oak Hills homes"
+   },
+   "ld_f2": {
+    "bus": "f2",
+    "kw": 1250,
+    "customers": 64,
+    "kind": "commercial",
+    "label": "Market St businesses"
+   },
+   "ld_f3": {
+    "bus": "f3",
+    "kw": 1050,
+    "customers": 530,
+    "kind": "residential",
+    "label": "Riverside homes"
+   },
+   "ld_f4": {
+    "bus": "f4",
+    "kw": 900,
+    "customers": 455,
+    "kind": "residential",
+    "label": "Lakeview homes"
+   },
+   "ld_g1": {
+    "bus": "g1",
+    "kw": 950,
+    "customers": 380,
+    "kind": "residential",
+    "label": "Solar Ridge homes"
+   },
+   "ld_g2": {
+    "bus": "g2",
+    "kw": 750,
+    "customers": 300,
+    "kind": "commercial",
+    "label": "Northgate offices"
+   },
+   "ld_hosp": {
+    "bus": "mg",
+    "kw": 520,
+    "customers": 1,
+    "kind": "critical",
+    "label": "Community hospital"
+   },
+   "ld_water": {
+    "bus": "mg",
+    "kw": 310,
+    "customers": 1,
+    "kind": "critical",
+    "label": "Water treatment plant"
+   },
+   "ld_fire": {
+    "bus": "mg",
+    "kw": 90,
+    "customers": 1,
+    "kind": "critical",
+    "label": "Fire station"
+   }
+  },
+  "pv": {
+   "pv_farm": {
+    "bus": "g1",
+    "kw": 2500,
+    "label": "Solar Ridge solar farm (2.5 MW)"
+   },
+   "pv_mg": {
+    "bus": "mg",
+    "kw": 800,
+    "label": "Microgrid rooftop + carport solar (0.8 MW)"
+   }
+  },
+  "bess": {
+   "bus": "mg",
+   "kw": 2000,
+   "kwh": 8000,
+   "label": "Microgrid battery (2 MW / 8 MWh)"
+  },
+  "protection": {
+   "BKR_F1": 900,
+   "BKR_F2": 900,
+   "PCC": 700
+  }
+ },
+ "cards": {
+  "bulk": {
+   "title": "Bulk power: gas plant + wind farm",
+   "what": "Large generators connected to the high-voltage transmission system. Here they stand in for the whole bulk grid: in OpenDSS they are one strong 115 kV source.",
+   "role": "Generation is far from load. Raising voltage for transmission cuts the current, and line losses scale with current squared, so high voltage is what makes distance affordable.",
+   "nameplate": "115 kV source, 3,000 MVA short-circuit strength"
+  },
+  "sub_hv": {
+   "title": "Substation, 115 kV side",
+   "what": "Where the transmission line lands. Disconnect switches, breakers and instrument transformers protect and measure the incoming line.",
+   "role": "The boundary between transmission (bulk, meshed, high voltage) and distribution (local, mostly radial, medium voltage).",
+   "nameplate": "115 kV bus"
+  },
+  "sub_lv": {
+   "title": "Substation 12.47 kV bus",
+   "what": "The medium-voltage bus that feeds the distribution feeders through their own breakers.",
+   "role": "Each feeder breaker can isolate its feeder without affecting the others.",
+   "nameplate": "12.47 kV, 3-phase"
+  },
+  "TL1": {
+   "title": "115 kV transmission line",
+   "what": "Overhead conductors on steel lattice towers, 14 km long.",
+   "role": "Moves bulk power to the substation. Transmission lines are usually part of a meshed network, so one line can trip without dropping customers; here it is the only source, a single point of failure.",
+   "nameplate": "14 km, 600 A rating"
+  },
+  "XFMR": {
+   "title": "Substation power transformer",
+   "what": "Steps 115 kV down to 12.47 kV. Oil-filled tank, high- and low-voltage bushings, radiators for cooling. Delta on the high side, grounded wye on the low side.",
+   "role": "The most expensive single piece of equipment in the substation. Losing it drops both feeders until a mobile transformer arrives, which is why utilities study it carefully.",
+   "nameplate": "20 MVA, 115/12.47 kV, 8% impedance"
+  },
+  "BKR_F1": {
+   "title": "Feeder 1 circuit breaker",
+   "what": "A breaker that can interrupt fault current, controlled by an overcurrent protective relay.",
+   "role": "When a fault draws thousands of amps, the relay trips the breaker in a fraction of a second. Closing it again before the fault is isolated (\"reclosing into a fault\") trips it again and stresses equipment.",
+   "nameplate": "600 A continuous, relay pickup 900 A"
+  },
+  "BKR_F2": {
+   "title": "Feeder 2 circuit breaker",
+   "what": "The same kind of breaker as Feeder 1, protecting Feeder 2.",
+   "role": "If Feeder 2 is ever connected to a fault (for example through the tie switch), this breaker trips and Feeder 2's customers go out too.",
+   "nameplate": "600 A continuous, relay pickup 900 A"
+  },
+  "L1": {
+   "title": "Feeder 1, section 1",
+   "what": "Overhead 12.47 kV line on wood poles, 1.6 km.",
+   "role": "Carries all of Feeder 1's load, so it is the most heavily loaded section.",
+   "nameplate": "400 A rating"
+  },
+  "L2": {
+   "title": "Feeder 1, section 2",
+   "what": "Overhead 12.47 kV line, 1.8 km, between switches SW-A and SW-B.",
+   "role": "Because it has a switch at each end, a fault here can be isolated and the rest of the feeder restored. That's what sectionalizing is for.",
+   "nameplate": "400 A rating"
+  },
+  "L3": {
+   "title": "Feeder 1, section 3",
+   "what": "Overhead 12.47 kV line, 1.7 km, out to Lakeview.",
+   "role": "Feeds Lakeview and the microgrid's point of common coupling.",
+   "nameplate": "400 A rating"
+  },
+  "L5": {
+   "title": "Feeder 2 line",
+   "what": "Overhead 12.47 kV line, 2.6 km, with a smaller conductor than Feeder 1.",
+   "role": "Its lower rating is what limits how much of Feeder 1 can be picked up through the tie.",
+   "nameplate": "120 A rating"
+  },
+  "SW_A": {
+   "title": "Sectionalizing switch A",
+   "what": "A pole-top switch that can be opened and closed under load but cannot interrupt fault current.",
+   "role": "Opening it separates section L2 from the substation side.",
+   "nameplate": "600 A, load-break"
+  },
+  "SW_B": {
+   "title": "Sectionalizing switch B",
+   "what": "A pole-top load-break switch at the downstream end of section L2.",
+   "role": "Opening it separates L2 from the downstream customers, so they can be fed from elsewhere.",
+   "nameplate": "600 A, load-break"
+  },
+  "TIE": {
+   "title": "Normally-open tie switch",
+   "what": "A switch between two feeders that is normally left open.",
+   "role": "Feeders run radially (one source each) to keep protection simple. The tie lets operators move load from one feeder to the other during outages or maintenance. Never close a tie into an un-isolated fault.",
+   "nameplate": "600 A, load-break, normally open"
+  },
+  "PCC": {
+   "title": "Microgrid point of common coupling (PCC)",
+   "what": "The breaker that connects the microgrid to the utility feeder.",
+   "role": "When the grid fails it opens automatically and the microgrid islands. Reconnecting needs a sync check: grid voltage must be present and match the island's voltage and frequency.",
+   "nameplate": "400 A, sync-check relay"
+  },
+  "mg": {
+   "title": "Microgrid campus",
+   "what": "A hospital, a water treatment plant and a fire station with their own solar and battery.",
+   "role": "A microgrid can disconnect and keep its critical loads running from local resources, then reconnect and support the grid when it returns.",
+   "nameplate": "0.9 MW critical load, 0.8 MW PV, 2 MW / 8 MWh battery"
+  },
+  "bess": {
+   "title": "Battery energy storage system (BESS)",
+   "what": "Lithium-ion battery containers with grid-forming inverters.",
+   "role": "Grid-connected, it follows a dispatch (charge from midday solar, discharge at peak or to relieve a feeder). Islanded, it is grid-forming: it sets the voltage and frequency that everything else in the microgrid follows.",
+   "nameplate": "2 MW, 8 MWh (4-hour)"
+  },
+  "pv_farm": {
+   "title": "Solar Ridge solar farm",
+   "what": "Ground-mounted PV arrays with inverters, on Feeder 2.",
+   "role": "Output follows the sun and drops quickly under clouds. On a sunny afternoon it can push power back toward the substation (reverse flow).",
+   "nameplate": "2.5 MW AC"
+  },
+  "pv_mg": {
+   "title": "Microgrid solar",
+   "what": "Rooftop and carport PV on the campus.",
+   "role": "Reduces what the battery must supply when islanded.",
+   "nameplate": "0.8 MW AC"
+  },
+  "fci": {
+   "title": "Fault circuit indicators (FCIs)",
+   "what": "Small sensors clamped on the line that flag (here: orange) when fault current passes.",
+   "role": "Crews and operators follow the flags: the fault is past the last flagged device. That turns hours of patrolling into minutes."
+  }
+ }
+}
