@@ -39,6 +39,9 @@ URL flags: `?mono` forces the flat renderer; `?attract=N` sets the idle timeout 
   the diorama is the subject and the user turns it under a fixed portal. The canvas stays bare
   (no CSS border/background/filter) and is covered until `handle.firstWoven`.
 - `data/network.json` — the network and the equipment explanations.
+- `vendor/inline3d/` — `@displayxr/inline3d` 1.37.1, served from this site (Apache-2.0, `LICENSE`). Vendored
+  because jsDelivr returned 503 for two of its modules (`inline3d-viewer-ease.js`, `inline3d-buffer-limit.js`)
+  on 2026-10-14; three.js still comes from jsDelivr.
 
 `js/api.js` looks for a local simulation server at `api/` first and uses it when present (a
 separate desktop build backs it with EPRI's open-source OpenDSS); on GitHub Pages there is none,
