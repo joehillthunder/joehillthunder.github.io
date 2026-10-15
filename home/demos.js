@@ -132,6 +132,14 @@ export const WINGS = [
         source: 'https://github.com/azbleia',
         chatter: ['These buttons rise out of the glass', 'Pop-out or recessed? Pick one', 'Tuning the hover depth', 'Dock icons in real depth'],
       },
+      {
+        id: 'flight-lines',
+        name: 'Flight Lines',
+        desc: "The world's airline network on a 3D globe: about 2,400 simulated flights on real routes. Click any airplane for its airline and the aircraft's maker, specs and a to-scale 3D model.",
+        url: 'displayxr-flight-lines/',
+        source: 'https://github.com/joehillthunder/displayxr-flight-lines',
+        chatter: ['EK 1 over the Gulf at FL380', 'Flat map or globe? Press M', 'That A380 is to scale', 'Following LH 45 over Greenland'],
+      },
     ],
   },
 ];

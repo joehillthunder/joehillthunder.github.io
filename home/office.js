@@ -293,6 +293,45 @@ const BUILD = {
       eye.material.emissiveIntensity = Math.sin(t * 6) > 0 ? 1.4 : 0.3;
     });
   },
+  'flight-lines'(g) {
+    // A glowing globe on a plinth with little airliners circling it on tilted flight rings.
+    box(g, 1.2, 0.8, 1.2, '#2a3340', 0, 0, 0);
+    const globe = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.62, 2),
+      new THREE.MeshLambertMaterial({ color: '#1d4f8a', emissive: '#0d2f66', emissiveIntensity: 0.8, flatShading: true }),
+    );
+    globe.position.y = 1.55;
+    globe.castShadow = true;
+    g.add(globe);
+    [[0.25, 0.2], [-0.3, -0.35], [0.1, 0.5], [-0.6, 1.4]].forEach(([a, b]) => {
+      const land = box(globe, 0.34, 0.1, 0.28, '#5fbf7a', 0, 0, 0, { shadow: false });
+      land.position.setFromSphericalCoords(0.6, 1.3 + a, b * 6);
+      land.lookAt(0, 0, 0);
+    });
+    const planes = [[0.5, 0, '#ff7ab8'], [-0.4, 1.1, '#5fb4ff'], [0.15, 2.2, '#ffd34d']].map(([tilt, yaw, color]) => {
+      const ring = new THREE.Group();
+      ring.position.y = 1.55;
+      ring.rotation.set(tilt, yaw, 0);
+      g.add(ring);
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.012, 6, 64), glow(color, 0.9));
+      arc.rotation.x = Math.PI / 2;
+      ring.add(arc);
+      const plane = new THREE.Group();
+      ring.add(plane);
+      box(plane, 0.07, 0.07, 0.3, '#eef1f5', 0, -0.035, -0.15, { shadow: false });
+      box(plane, 0.36, 0.02, 0.08, '#eef1f5', 0, -0.01, -0.12, { shadow: false });
+      box(plane, 0.02, 0.09, 0.06, color, 0, 0.02, -0.27, { shadow: false });
+      return plane;
+    });
+    animators.push((t) => {
+      globe.rotation.y = t * 0.25;
+      planes.forEach((p, i) => {
+        const a = t * (0.6 + i * 0.15) + i * 2;
+        p.position.set(Math.cos(a) * 0.88, 0, -Math.sin(a) * 0.88);
+        p.rotation.y = a + Math.PI;   // the nose is local +z; point it along the direction of travel
+      });
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
