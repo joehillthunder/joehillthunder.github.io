@@ -472,6 +472,41 @@ const BUILD = {
       });
     });
   },
+  aetherfall(g) {
+    // A war table: two castles, an aether geyser between them and two little armies.
+    box(g, 4.4, 0.7, 2.4, '#5a3e28', 0, 0, 0);
+    box(g, 4.2, 0.06, 2.2, '#5c8a34', 0, 0.7, 0);
+    const base = 0.76;
+    box(g, 0.8, 0.55, 0.7, '#d8ccb0', -1.6, base, -0.3);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.5, 4), mat('#3f6fd0'));
+    roof.position.set(-1.6, base + 0.8, -0.3);
+    roof.rotation.y = Math.PI / 4;
+    g.add(roof);
+    box(g, 0.28, 0.95, 0.28, '#b8b2a6', -1.15, base, 0.15);
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.85, 6), mat('#b8603a'));
+    tent.position.set(1.6, base + 0.42, -0.25);
+    g.add(tent);
+    box(g, 0.06, 0.5, 0.06, '#e8e0c8', 1.6, base + 0.75, -0.25);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), glow('#5ff0ff', 1));
+    crystal.position.set(0, base + 0.35, 0);
+    crystal.scale.y = 1.6;
+    g.add(crystal);
+    const motes = [];
+    for (let i = 0; i < 10; i++) motes.push({ m: box(g, 0.07, 0.07, 0.07, glow(i % 3 ? '#5ff0ff' : '#c89aff', 1.4), 0, 0, 0, { shadow: false }), o: i / 10, a: i * 2.4 });
+    const armies = [];
+    for (let i = 0; i < 4; i++) armies.push({ m: box(g, 0.12, 0.22, 0.12, i < 2 ? '#3f8fff' : '#e0402f', 0, base, 0), side: i < 2 ? -1 : 1, z: -0.55 + (i % 2) * 0.22 });
+    animators.push((t) => {
+      crystal.rotation.y = t * 1.2;
+      crystal.material.emissiveIntensity = 0.8 + Math.sin(t * 3) * 0.4;
+      motes.forEach((p) => {
+        const k = (t * 0.45 + p.o) % 1;
+        p.m.position.set(Math.cos(p.a + t * 2) * 0.12 * (1 + k), base + 0.3 + k * 1.8, Math.sin(p.a + t * 2) * 0.12 * (1 + k));
+        p.m.scale.setScalar(1 - k * 0.7);
+      });
+      const clash = (Math.sin(t * 0.8) + 1) / 2;
+      armies.forEach((a) => a.m.position.set(a.side * (1.2 - clash * 0.85), base + Math.abs(Math.sin(t * 8 + a.z * 9)) * 0.04, 0.55 + a.z));
+    });
+  },
   music(g) {
     [-1.7, 1.7].forEach((x) => {
       box(g, 0.75, 1.6, 0.6, '#1d1d24', x, 0, 0);

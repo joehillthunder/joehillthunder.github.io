@@ -99,6 +99,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-battleship',
         chatter: ['B4. Hit!', 'You sank my battleship!', 'Pass the screen, no peeking', 'That fireball came out of the glass'],
       },
+      {
+        id: 'aetherfall',
+        name: 'Aetherfall',
+        desc: 'A classic-style fantasy strategy game: five realms (humans, orcs, elves, undead, dwarves), ten heroes, and glowing aether geysers that rise out of the screen.',
+        url: 'displayxr-aetherfall/',
+        source: 'https://github.com/joehillthunder/displayxr-aetherfall',
+        chatter: ['Build an extractor on that geyser!', 'Our hero hit level 3', 'The Aether Wyrm is awake', 'Ironfang raiders at the ford!'],
+      },
     ],
   },
   {
