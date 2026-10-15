@@ -14,6 +14,9 @@ the DisplayXR web SDK (`@displayxr/inline3d`).
   Gate** at the fountain; all 5 earn a Perfect bonus.
 - **Moves:** run, jump, bounce off gummy pads (a big launch) and cotton-candy clouds (a soft one), and
   a **Fizzy Dash** (a short burst, once per jump in the air).
+- **Blueberries:** three, off the path. Touching one starts a 2.2 s bubble flight along a high arc to
+  a later checkpoint (Conveyor Hall, Kettle Tower, fountain plaza); you're safe in the bubble and the
+  checkpoint moves with you. The price is the sweets and Golden Ticket you fly over.
 - **Course mechanics:** drifting rafts and trays carry you; conveyor belts push you; wafer tiles
   crumble 0.55 s after you land and return 3.5 s later.
 - **Hazards:** the chocolate river, spinning whisks, rolling jawbreakers and timed steam vents (a

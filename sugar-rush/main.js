@@ -94,6 +94,13 @@ const hero = createPlayer(THREE);
 const player = hero.root;
 player.rotation.y = Math.PI; // back to the camera, facing into the factory
 scene.add(player);
+// The blueberry bubble the player rides in during a warp.
+const bubble = new THREE.Mesh(new THREE.SphereGeometry(0.95, 32, 20),
+  new THREE.MeshStandardMaterial({ color: 0x8fa6ff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.2,
+    emissive: 0x2a3a9a, emissiveIntensity: 0.5, depthWrite: false }));
+bubble.position.y = 0.75;
+bubble.visible = false;
+player.add(bubble);
 
 // ---- sparkle bursts (pop toward the viewer) ---------------------------------------------------
 const SPARKS = 160;
@@ -193,6 +200,12 @@ function startGame(difficulty = G.difficulty) {
     t.taken = false;
     t.mesh.visible = true;
   }
+  for (const b of world.blueberries) {
+    b.taken = false;
+    b.mesh.visible = true;
+  }
+  P.warp = null;
+  bubble.visible = false;
   for (const p of world.platforms) {
     restorePlatform(p);
     p.reached = false;
@@ -293,10 +306,55 @@ function stepPlatforms(dt) {
   }
 }
 
+// ---- blueberry warp: a bubble carries you along an arc to a point further down the course ------
+const WARP_TIME = 2.2;
+function startWarp(b) {
+  b.taken = true;
+  b.mesh.visible = false;
+  G.score += 100;
+  const from = P.pos.clone(), to = new THREE.Vector3(b.to.x, b.to.y, b.to.z);
+  const mid = from.clone().lerp(to, 0.5);
+  mid.y = Math.max(from.y, to.y) + 6 + from.distanceTo(to) * 0.08;   // a high arc over the factory
+  P.warp = { t: 0, curve: new THREE.QuadraticBezierCurve3(from, mid, to), dest: world.platforms[b.dest] };
+  P.vel.set(0, 0, 0);
+  bubble.visible = true;
+  sfx.warp();
+  burst(b.mesh.position.clone(), 0x7f9cff, 40);
+  toast('Blueberry bubble! Hold on…');
+  hud();
+}
+
+function stepWarp(dt) {
+  const w = P.warp;
+  w.t += dt / WARP_TIME;
+  const u = Math.min(1, w.t);
+  const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;  // ease in and out
+  P.pos.copy(w.curve.getPoint(e));
+  const ahead = w.curve.getPoint(Math.min(1, e + 0.02));
+  if (ahead.distanceTo(P.pos) > 1e-4) P.facing = Math.atan2(ahead.x - P.pos.x, ahead.z - P.pos.z);
+  bubble.scale.setScalar(1 + Math.sin(worldT * 9) * 0.04);
+  if (Math.random() < dt * 30) burst(tmp.set(P.pos.x, P.pos.y + 0.7, P.pos.z).clone(), 0x9fb4ff, 3, false);
+  G.invuln = Math.max(G.invuln, 0.5);
+  if (u >= 1) {
+    P.warp = null;
+    bubble.visible = false;
+    P.onGround = false;
+    P.vel.set(0, 0, 0);
+    sfx.pop();
+    burst(tmp.set(P.pos.x, P.pos.y + 0.7, P.pos.z).clone(), 0x7f9cff, 30);
+    if (w.dest.checkpoint) reachCheckpoint(w.dest);
+  }
+  player.position.copy(P.pos);
+  player.rotation.y += wrapAngle(P.facing - player.rotation.y) * Math.min(1, dt * 8);
+  player.visible = true;
+  hero.animate(dt, { speed: 0, air: true, vy: 0, dashing: false });
+}
+
 function stepPlayer(dt, inp) {
   const k = DIFFICULTY[G.difficulty].hazard;
   P.dashCd = Math.max(0, P.dashCd - dt);
   G.invuln = Math.max(0, G.invuln - dt);
+  if (P.warp) return stepWarp(dt);
 
   // horizontal control
   if (P.dashT > 0) {
@@ -443,6 +501,10 @@ function stepPlayer(dt, inp) {
     sfx.sweet(G.combo, s.kind);
     burst(s.mesh.position.clone(), s.color, s.kind === 'truffle' ? 26 : 12);
     hud();
+  }
+  // Blueberries: one grab and you're on your way
+  for (const b of world.blueberries) {
+    if (!b.taken && tmp.distanceTo(b.mesh.position) < 1.0) { startWarp(b); return; }
   }
   // Golden Tickets
   for (const t of world.tickets) {
@@ -747,6 +809,18 @@ if (DEV) $('fps').hidden = false;
       resetPlayer(new THREE.Vector3(p.x, p.y + 0.01, p.z + (p.shape === 'round' ? 0 : p.d / 2 - 0.6)));
       stepCamera(0, true);
     }
+    // ?simulate=<s> runs the game that many seconds with no input before the first frame (QA).
+    const sim = Math.min(30, Number(q.get('simulate')) || 0);
+    const still = { x: 0, z: 0, jump: false, dash: false, pause: false, confirm: false };
+    for (let i = 0; i < sim * 60; i++) {
+      worldT += 1 / 60;
+      G.time += 1 / 60;
+      stepPlatforms(1 / 60);
+      stepPlayer(1 / 60, still);
+      updateWorld(world, worldT, 1 / 60, DIFFICULTY[G.difficulty].hazard, G.tickets);
+      stepCamera(1 / 60);
+    }
+    if (sim) hud();
   }
 }
 
