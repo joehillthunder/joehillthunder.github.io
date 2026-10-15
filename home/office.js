@@ -443,6 +443,28 @@ const BUILD = {
       ball.scale.y = ball.position.y < 0.4 ? 0.8 : 1;
     });
   },
+  'solar-system'(g) {
+    // An orrery on a dark table: a glowing Sun with planets circling at their own speeds.
+    box(g, 4.2, 0.7, 2.6, '#1c2233', 0, 0, 0);
+    box(g, 4.0, 0.04, 2.4, '#0b1020', 0, 0.7, 0);
+    const sun = sphere(g, 0.32, glow('#ffb547', 1.4), 0, 1.25, 0, 20);
+    box(g, 0.06, 0.5, 0.06, '#8a93a8', 0, 0.74, 0);
+    const planets = [
+      [0.55, 0.06, '#a8a39c', 4.1], [0.75, 0.09, '#e8c58a', 1.6], [0.98, 0.1, '#5b9bff', 1], [1.2, 0.08, '#e0663f', 0.53],
+      [1.5, 0.2, '#d8b48a', 0.25], [1.8, 0.17, '#e8d29c', 0.12],
+    ].map(([r, s, c, w], i) => ({ m: sphere(g, s, c, 0, 1.25, 0, 14), r, w: w * 0.9, o: i * 1.3 }));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 6, 32), mat('#d9c58f'));
+    ring.rotation.x = Math.PI / 2.4;
+    planets[5].m.add(ring);
+    const moon = sphere(g, 0.035, '#d0d0d0', 0, 0, 0, 8);
+    animators.push((t) => {
+      sun.rotation.y = t * 0.3;
+      sun.material.emissiveIntensity = 1.2 + Math.sin(t * 2) * 0.2;
+      planets.forEach((p) => p.m.position.set(Math.cos(t * p.w + p.o) * p.r, 1.25, Math.sin(t * p.w + p.o) * p.r * 0.75));
+      const e = planets[2].m.position;
+      moon.position.set(e.x + Math.cos(t * 5) * 0.18, 1.25, e.z + Math.sin(t * 5) * 0.18);
+    });
+  },
   'battle-school'(g) {
     // Left: a glass Battle Room with floating stars and a soldier jumping between them.
     const cube = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), new THREE.MeshStandardMaterial({ color: '#5fd0ff', transparent: true, opacity: 0.1, depthWrite: false }));

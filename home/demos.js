@@ -33,6 +33,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-mission-planner',
         chatter: ['Route via the ford, 4% exposed', 'IR shows three warm rooms', 'HLZ slope under 7 degrees', 'Going to ground at Bridge 7'],
       },
+      {
+        id: 'solar-system',
+        name: 'Solar System 3D',
+        desc: 'Fly to every planet and the big moons, spin them and find craters, storms, bands, rings and landing sites (yes, where Apollo 11 landed). A quiz, the night sky and hidden easter eggs.',
+        url: 'displayxr-solar-system/',
+        source: 'https://github.com/joehillthunder/displayxr-solar-system',
+        chatter: ['Found Tranquility Base!', 'Olympus Mons is three Everests', "That's no moon...", 'Saturn has a hexagon?!'],
+      },
     ],
   },
   {
