@@ -20,7 +20,7 @@ displayxr-demos/
   packages/importer/   ← dxr-import (Sketchfab, KitBash, Smithsonian)
   apps/energy-grid/    ← Future Grids Training (grid digital twin)
   apps/music-visualizer/
-  apps/battleship/     ← Battleship 3D (two-player game)
+  apps/battleship/     ← redirect stub (moved to the displayxr-battleship repo)
   apps/agent-voice/    ← Muse, Dot, Claude voice demo
   apps/aviation-coach/
   apps/playground-port/
