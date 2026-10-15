@@ -156,6 +156,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-flight-lines',
         chatter: ['EK 1 over the Gulf at FL380', 'Flat map or globe? Press M', 'That A380 is to scale', 'Following LH 45 over Greenland'],
       },
+      {
+        id: 'dual-view',
+        name: 'Dual View',
+        desc: 'Two people, two pictures: the lenticular lens and face tracking send a different image, movie or 3D object into each view of one display.',
+        url: 'displayxr-dual-view/',
+        source: 'https://github.com/joehillthunder/displayxr-dual-view',
+        chatter: ['I see the map, you see the movie', 'Close one eye: A. Other eye: B', 'Two card hands, one screen', 'Menu in English for me, Español for you'],
+      },
     ],
   },
 ];

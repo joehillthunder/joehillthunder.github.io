@@ -332,6 +332,36 @@ const BUILD = {
       });
     });
   },
+  'dual-view'(g) {
+    // A 3D display on a stand sending two coloured beams to two viewers: one picture each.
+    box(g, 0.5, 0.9, 0.4, '#2a3340', 0, 0, -0.4);
+    box(g, 2.2, 1.3, 0.12, '#14171f', 0, 0.9, -0.4);
+    const halfA = box(g, 1.0, 1.1, 0.02, glow('#5fb4ff', 0.9), -0.52, 1.0, -0.33, { shadow: false });
+    const halfB = box(g, 1.0, 1.1, 0.02, glow('#ff9a3d', 0.9), 0.52, 1.0, -0.33, { shadow: false });
+    const viewers = [[-1.3, '#5fb4ff'], [1.3, '#ff9a3d']].map(([x, color]) => {
+      const v = new THREE.Group();
+      v.position.set(x, 0, 1.4);
+      g.add(v);
+      box(v, 0.4, 0.75, 0.28, color, 0, 0, 0);
+      sphere(v, 0.2, '#f1c9a5', 0, 0.98, 0, 12);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.32, 1, 10, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide }));
+      g.add(beam);
+      // From the screen centre to the viewer's head.
+      const from = new THREE.Vector3(0, 1.0, -0.3), to = new THREE.Vector3(x, 0.98, 1.4);
+      beam.position.copy(from).add(to).multiplyScalar(0.5);
+      beam.scale.y = from.distanceTo(to);
+      beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), to.clone().sub(from).normalize());
+      return { v, beam };
+    });
+    animators.push((t) => {
+      halfA.material.emissiveIntensity = 0.7 + Math.sin(t * 2.2) * 0.25;
+      halfB.material.emissiveIntensity = 0.7 + Math.sin(t * 2.2 + Math.PI) * 0.25;
+      viewers.forEach(({ v, beam }, i) => {
+        beam.material.opacity = 0.18 + Math.abs(Math.sin(t * 1.6 + i * 1.3)) * 0.2;
+        v.rotation.y = Math.sin(t * 0.7 + i * 2) * 0.25;
+      });
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
