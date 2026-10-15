@@ -91,6 +91,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-battle-school',
         chatter: ["The enemy's gate is down", 'Little Doctor away!', 'Bean, take the flank', 'Tab back to the console'],
       },
+      {
+        id: 'battleship',
+        name: 'Battleship 3D',
+        desc: 'Two-player Battleship at sea: pass and play, online, or against the computer. Missiles, fireballs and wreckage rise out of the screen.',
+        url: 'displayxr-demos/apps/battleship/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/battleship',
+        chatter: ['B4. Hit!', 'You sank my battleship!', 'Pass the screen, no peeking', 'That fireball came out of the glass'],
+      },
     ],
   },
   {
