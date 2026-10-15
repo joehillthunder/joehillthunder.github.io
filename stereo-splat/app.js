@@ -32,6 +32,7 @@ const ui = {
   splat: $('splat'), splatCover: $('splatCover'), splatCoverTitle: $('splatCoverTitle'),
   splatCoverText: $('splatCoverText'), splatBar: $('splatBar'), splatBadge: $('splatBadge'),
   splatStatus: $('splatStatus'), reset: $('reset'), rebuild: $('rebuild'),
+  stereoDepth: $('stereoDepth'), stereoDepthVal: $('stereoDepthVal'), stereoDepthWrap: $('stereoDepthWrap'),
   baseline: $('baseline'), fov: $('fov'),
   results: $('results'), depth: $('depth'), stats: $('stats'), downloads: $('downloads'),
   exportObj: $('exportObj'), exportGlb: $('exportGlb'), meshDetail: $('meshDetail'), meshEdges: $('meshEdges'), meshDepth: $('meshDepth'), exportStatus: $('exportStatus'),
@@ -320,6 +321,24 @@ ui.file.addEventListener('change', async () => {
 ui.rebuild.addEventListener('click', () => lastPair && !busy && build().catch(fail));
 ui.reset.addEventListener('click', () => splat?.resetPose());
 
+// 3D depth: the splat's eye separation RELATIVE to the capture's own (setStereo's ipdScale), so 100%
+// is true to the photo whatever its baseline. Sticky across setSource; remembered per browser.
+let stereoDepth = 1;
+try {
+  const v = parseFloat(localStorage.getItem('stereo-splat-depth'));
+  if (v >= 0 && v <= 2) stereoDepth = v;
+} catch { /* storage blocked: default depth */ }
+function setStereoDepth(d) {
+  stereoDepth = Math.round(Math.min(2, Math.max(0, d)) * 20) / 20;
+  try { localStorage.setItem('stereo-splat-depth', String(stereoDepth)); } catch { /* fine without */ }
+  ui.stereoDepth.value = String(Math.round(stereoDepth * 100));
+  ui.stereoDepthVal.textContent = `${Math.round(stereoDepth * 100)}%`;
+  splat?.setStereo({ ipdScale: stereoDepth });
+}
+ui.stereoDepth.addEventListener('input', () => setStereoDepth(Number(ui.stereoDepth.value) / 100));
+ui.stereoDepthWrap.hidden = !wall.supported; // depth only means something on a 3D display
+setStereoDepth(stereoDepth);
+
 // ── stereo → splat → .sog → tile ──────────────────────────────────────────────────────────
 
 let stPromise = null;
@@ -440,6 +459,7 @@ async function showSplat(sog) {
       renderScale: 0.6,
       idleSpin: 0,
     });
+    splat.setStereo({ ipdScale: stereoDepth });
     const [, woven] = await Promise.all([splat.ready, splat.firstWoven]);
     setBadge(ui.splatBadge, woven.woven);
     ui.splatCover.hidden = true; // hard cut

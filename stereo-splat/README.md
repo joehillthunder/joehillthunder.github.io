@@ -22,6 +22,8 @@ and the splat are glasses-free 3D. Other browsers show the same page in 2D.
    DisplayXR `camera` block (intrinsics, baseline, focus), so the viewer reopens the splat at the
    capture camera.
 7. **View.** `addSplat` from `@displayxr/inline3d/splat/playcanvas`. Later captures swap in with `setSource`.
+   On a 3D display the **3D depth** slider (0–200%) calls `setStereo({ ipdScale })`: eye separation
+   relative to the capture's own, so 100% is true to the photo. It sticks across captures.
 
 **Export a mesh for the [DisplayXR 3D Model Viewer](https://github.com/DisplayXR/displayxr-demo-modelviewer)** (`mesh.js`).
 Two formats, from the same mesh:
