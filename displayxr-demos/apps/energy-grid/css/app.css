@@ -53,6 +53,50 @@ h3 { margin: 0 0 0.6rem; font-size: 0.95rem; font-weight: 600; letter-spacing: 0
   font-size: 0.9rem; cursor: pointer; color: var(--text-dim); }
 .angles button.on { color: var(--text); border-color: var(--equip); }
 .angles button:hover { background: #3a424b; }
+.tools { display: flex; gap: 0.3rem; }
+.tools button { background: var(--surface-2); border: 1px solid var(--line); border-radius: 0.4rem; padding: 0.5rem 0.8rem;
+  font-size: 0.9rem; cursor: pointer; }
+.tools button.on { border-color: var(--flow); color: var(--flow); }
+.tools button:hover { background: #3a424b; }
+
+/* Layers menu: an opaque plate (no backdrop-filter over the weave) */
+.pop { position: fixed; top: 5.6rem; right: 1rem; width: 26rem; z-index: 20; max-height: 70vh; overflow: auto;
+  box-shadow: 0 0.5rem 2rem #0008; }
+.pop[hidden] { display: none; }
+.layer { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.45rem 0; border-bottom: 1px solid #343b43; cursor: pointer; }
+.layer input { margin-top: 0.3rem; accent-color: var(--flow); width: 1.1rem; height: 1.1rem; }
+.layer b { display: block; font-weight: 600; }
+.layer small { color: var(--text-dim); font-size: 0.85rem; }
+.pop .row { margin-top: 0.8rem; }
+
+/* Full screen: the stage fills the window; header, rails and KPIs float over it, all still live. */
+#app.immersive { grid-template-columns: 1fr; grid-template-rows: 1fr; grid-template-areas: "stage"; }
+#app.immersive #top { position: fixed; top: 0.6rem; left: 50%; transform: translateX(-50%); z-index: 15; height: auto;
+  padding: 0.45rem 0.9rem; gap: 0.8rem; border: 1px solid var(--line); border-radius: 0.6rem; width: max-content; max-width: 98vw; }
+#app.immersive .brand { display: none; }
+#app.immersive .clock { font-size: 1.4rem; }
+#app.immersive #left, #app.immersive #right { position: fixed; top: 5rem; bottom: 6.4rem; width: 22vw; min-width: 20rem;
+  z-index: 12; padding: 0; background: transparent; border: 0; }
+#app.immersive #left { left: 0.8rem; }
+#app.immersive #right { right: 0.8rem; }
+#app.immersive.hide-left #left, #app.immersive.hide-right #right { display: none; }
+#app.immersive #kpis { position: fixed; left: 50%; bottom: 0.6rem; transform: translateX(-50%); z-index: 12;
+  width: min(96vw, 110rem); border: 1px solid var(--line); border-radius: 0.6rem; }
+#app.immersive .kpi { padding: 0.5rem 0.9rem; }
+#app.immersive .kpi .v { font-size: 1.7rem; }
+#app.immersive .kpi .s { display: none; }
+#panel-tabs { display: flex; gap: 0.3rem; }
+#panel-tabs[hidden] { display: none; }
+/* keep the header on one line: no wrapping labels; drop the subtitle when space is tight */
+.views button, .angles button, .tools button, #panel-tabs button, .depth span { white-space: nowrap; }
+@media (max-width: 2800px) {
+  .brand-sub { display: none; }
+  #top { gap: 1rem; }
+  .views button { padding: 0.55rem 0.75rem; }
+}
+#panel-tabs button { background: var(--surface); border: 1px solid var(--line); border-radius: 0.4rem; padding: 0.5rem 0.8rem;
+  font-size: 0.9rem; cursor: pointer; color: var(--text-dim); }
+#panel-tabs button.on { color: var(--text); border-color: var(--equip); }
 .depth { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; color: var(--text-dim); }
 .depth input { width: 9rem; accent-color: var(--flow); cursor: pointer; }
 .depth input:disabled { opacity: 0.4; cursor: default; }

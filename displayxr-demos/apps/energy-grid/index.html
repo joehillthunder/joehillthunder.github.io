@@ -13,6 +13,10 @@
       <div class="brand-title">Future Grids Training</div>
       <div class="brand-sub">Interactive grid operations · glasses-free 3D · the whole simulation runs in this page</div>
     </div>
+    <div id="panel-tabs" hidden>
+      <button data-side="left" class="on" title="Mission, equipment card and tutor">◧ Mission</button>
+      <button data-side="right" class="on" title="One-line diagram, alarms and compute">Diagram ◨</button>
+    </div>
     <nav class="views" aria-label="Views">
       <button data-view="map" class="on"><kbd>1</kbd> Grid map</button>
       <button data-view="twin"><kbd>2</kbd> Substation</button>
@@ -24,6 +28,10 @@
       <button data-angle="overview" class="on"><kbd>O</kbd>Overview</button>
       <button data-angle="eye"><kbd>E</kbd>Eye level</button>
       <button data-angle="top"><kbd>T</kbd>Top</button>
+    </nav>
+    <nav class="tools" aria-label="Tools">
+      <button id="btn-layers" title="Show what you can't see on site: current, voltage, fault current, energized zones, protection (L)">Layers</button>
+      <button id="btn-full" title="The 3D view fills the screen; panels float over it and stay usable (F)">Full screen</button>
     </nav>
     <label id="depth-wrap" class="depth">
       <span>3D depth</span>
@@ -75,6 +83,8 @@
 </div>
 
 <div id="scorecard" class="scorecard" hidden></div>
+<section id="layers-pop" class="panel pop" hidden></section>
+
 
 <script type="importmap">
 { "imports": {

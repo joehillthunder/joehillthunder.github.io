@@ -10,6 +10,7 @@
 import { T } from './theme.js';
 import { Kit } from './kit.js';
 import * as TX from './textures.js';
+import { makeLabel, fmtA, fmtKW, PRESETS } from './layers.js';
 
 export const TWIN_ITEMS = {
   twin_line: { title: 'Incoming 115 kV line', card: 'TL1' },
@@ -58,7 +59,128 @@ export class SubstationTwin {
     this.selected = null;
     this.time = 0;
     this._build();
+    this._buildLayers();
     this.kit.enableShadows();
+    this.setLayers(PRESETS.default);
+  }
+
+  // ---- invisible layers: current through the yard, CT secondaries, energized zones ----------------
+  _buildLayers() {
+    const THREE = this.THREE;
+    const X = -0.04;
+    const V = (pts) => new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)));
+    this.flowPaths = {
+      TL1: V([[-0.84, 0.37, 0], [-0.74, 0.325, 0], [-0.68, 0.32, 0], [-0.6, 0.176, 0], [-0.555, 0.228, 0], [-0.485, 0.228, 0],
+        [-0.415, 0.215, 0], [-0.305, 0.215, 0], [-0.24, 0.222, 0], [X - 0.06, 0.324, 0]]),
+      XFMR: V([[X - 0.06, 0.25, 0], [X + 0.07, 0.254, 0], [0.1, 0.206, 0], [0.16, 0.206, 0], [0.22, 0.206, 0]]),
+      BKR_F1: V([[0.22, 0.206, 0], [0.22, 0.165, 0.19], [0.22, 0.04, 0.3], [0.23, 0.28, 0.352]]),
+      BKR_F2: V([[0.22, 0.206, 0], [0.4, 0.206, 0], [0.4, 0.165, 0.19], [0.4, 0.04, 0.3], [0.41, 0.28, 0.352]]),
+    };
+    this.layerRoot = new THREE.Group();
+    this.root.add(this.layerRoot);
+    this.lg = {};
+    for (const id of ['flow', 'amps', 'volts', 'fault', 'live', 'zones']) {
+      this.lg[id] = new THREE.Group();
+      this.layerRoot.add(this.lg[id]);
+    }
+    this.particles = new THREE.InstancedMesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshBasicMaterial({ color: T.flow, toneMapped: false }), 220);
+    this.particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.particles.frustumCulled = false;
+    this.particles.count = 0;
+    this.lg.flow.add(this.particles);
+    this.phase = {};
+    const at = (label, x, y, z, g) => { label.sprite.position.set(x, y, z); this.lg[g].add(label.sprite); return label; };
+    this.labels = {
+      TL1: at(makeLabel(THREE, 0.16), -0.76, 0.43, 0, 'amps'),
+      XFMR: at(makeLabel(THREE, 0.18), X, 0.42, 0, 'amps'),
+      BKR_F1: at(makeLabel(THREE, 0.15), 0.2, 0.3, 0.3, 'amps'),
+      BKR_F2: at(makeLabel(THREE, 0.15), 0.42, 0.3, 0.3, 'amps'),
+      ct: at(makeLabel(THREE, 0.18), -0.24, 0.3, 0.12, 'amps'),
+      vHV: at(makeLabel(THREE, 0.15), -0.42, 0.36, -0.16, 'volts'),
+      vLV: at(makeLabel(THREE, 0.15), 0.3, 0.3, -0.1, 'volts'),
+      zF1: at(makeLabel(THREE, 0.17), 0.12, 0.45, 0.42, 'zones'),
+      zF2: at(makeLabel(THREE, 0.17), 0.5, 0.45, 0.42, 'zones'),
+      fF1: at(makeLabel(THREE, 0.17, { bg: 'rgba(60,10,10,0.9)' }), 0.2, 0.22, 0.42, 'fault'),
+      fF2: at(makeLabel(THREE, 0.17, { bg: 'rgba(60,10,10,0.9)' }), 0.42, 0.22, 0.42, 'fault'),
+    };
+    // Energized-zone shells: the HV yard, the LV bus, and each feeder bay.
+    const shell = (w, h, d, x, y, z) => {
+      const m = new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.12, depthWrite: false, toneMapped: false });
+      const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      o.position.set(x, y, z);
+      this.lg.live.add(o);
+      return m;
+    };
+    this.zones = {
+      hv: shell(0.6, 0.36, 0.3, -0.44, 0.19, 0),
+      xf: shell(0.3, 0.34, 0.36, X, 0.18, 0),
+      lv: shell(0.44, 0.1, 0.16, 0.3, 0.2, 0),
+      BKR_F1: shell(0.14, 0.17, 0.1, 0.22, 0.09, 0.2),
+      BKR_F2: shell(0.14, 0.17, 0.1, 0.4, 0.09, 0.2),
+    };
+    this.faultTubes = {};
+    for (const id of ['BKR_F1', 'BKR_F2']) {
+      const m = new THREE.MeshBasicMaterial({ color: 0xff5252, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false });
+      const t = new THREE.Mesh(new THREE.TubeGeometry(this.flowPaths[id], 40, 0.01, 8, false), m);
+      this.lg.fault.add(t);
+      this.faultTubes[id] = t;
+    }
+    this.layerRoot.traverse((o) => (o.userData.noShadow = true));
+  }
+
+  setLayers(flags) {
+    for (const [id, g] of Object.entries(this.lg)) g.visible = !!flags[id];
+  }
+
+  _updateLayers(state) {
+    const THREE = this.THREE;
+    // particles along each path, density and speed from the power on that branch
+    let n = 0;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1);
+    for (const [id, c] of Object.entries(this.flowPaths)) {
+      const br = state.branches[id];
+      if (!br || !br.closed || Math.abs(br.kw) < 15) continue;
+      const mag = Math.min(1, Math.abs(br.kw) / 5000), dir = br.kw >= 0 ? 1 : -1;
+      this.phase[id] = ((this.phase[id] || 0) + dir * (0.12 + 0.3 * mag) * 0.016 + 1) % 1;
+      const count = Math.round(10 + 30 * mag);
+      for (let i = 0; i < count && n < 220; i++) this.particles.setMatrixAt(n++, m.compose(c.getPointAt((this.phase[id] + i / count) % 1), q, s));
+    }
+    this.particles.count = n;
+    this.particles.instanceMatrix.needsUpdate = true;
+
+    const br = (id) => state.branches[id];
+    const amps = (id) => (br(id) && br(id).closed ? fmtA(Math.abs(br(id).amps)) : 'open');
+    this.labels.TL1.set(`TL1 ${amps('TL1')}`, '#7fa8d9', br('TL1') ? `${fmtKW(br('TL1').kw)} at 115 kV` : '');
+    const xl = br('XFMR');
+    this.labels.XFMR.set(`XFMR ${xl ? fmtKW(xl.kw) : '-'}`, xl && xl.loading > 0.9 ? '#fdd835' : '#e6eaee', xl ? `${Math.round(xl.loading * 100)}% of 20 MVA` : '');
+    for (const id of ['BKR_F1', 'BKR_F2']) {
+      const b = br(id);
+      this.labels[id].set(`${id.replace('BKR_', '')} ${amps(id)}`, b && b.loading > 0.9 ? '#fdd835' : '#c9c27a', b && b.closed ? fmtKW(b.kw) : 'breaker open');
+    }
+    // A feeder relay measures through a 1200:5 CT: what the relay actually sees.
+    const f1 = br('BKR_F1');
+    const sec = f1 && f1.closed ? (Math.abs(f1.amps) * 5) / 1200 : 0;
+    this.labels.ct.set(`CT ${sec.toFixed(2)} A`, '#b388ff', 'F1 relay input · 1200:5');
+    const hv = state.buses.sub_hv, lv = state.buses.sub_lv;
+    this.labels.vHV.set(hv.energized ? `${hv.vpu.toFixed(3)} pu` : '0 V · dead', hv.energized ? '#26a69a' : '#6b747d', '115 kV bus');
+    this.labels.vLV.set(lv.energized ? `${lv.vpu.toFixed(3)} pu` : '0 V · dead', lv.energized ? (lv.vpu < 0.95 ? '#ffb74d' : '#26a69a') : '#6b747d', '12.47 kV bus');
+    for (const [id, z] of [['BKR_F1', 'zF1'], ['BKR_F2', 'zF2']]) {
+      this.labels[z].set(`${id.replace('_', '-')} zone`, id === 'BKR_F1' ? '#26a69a' : '#7986cb', 'trips above 900 A');
+    }
+    const fci = state.fci || {};
+    const pulse = 0.35 + 0.3 * Math.abs(Math.sin(this.time * 6));
+    for (const [id, f] of [['BKR_F1', 'fF1'], ['BKR_F2', 'fF2']]) {
+      const seen = fci[id];
+      this.faultTubes[id].visible = !!seen;
+      this.faultTubes[id].material.opacity = pulse;
+      this.labels[f].sprite.visible = !!seen;
+      if (seen) this.labels[f].set(`Fault ${fmtA(seen)}`, '#ff8a80', 'seen by this breaker');
+    }
+    const live = (on, mat) => { mat.color.setHex(on ? 0xff3b30 : 0x43a047); mat.opacity = on ? 0.12 : 0.2; };
+    live(hv.energized, this.zones.hv);
+    live(hv.energized, this.zones.xf);
+    live(lv.energized, this.zones.lv);
+    for (const id of ['BKR_F1', 'BKR_F2']) live(lv.energized && state.closed[id], this.zones[id]);
   }
 
   _build() {
@@ -335,6 +457,7 @@ export class SubstationTwin {
     const load = state.branches.XFMR ? Math.max(0, state.branches.XFMR.loading) : 0;
     this.fanSpeed = (this.fanSpeed || 0) + ((lvLive ? 6 + 60 * load : 0) - (this.fanSpeed || 0)) * Math.min(1, dt * 0.8);
     for (const f of this.fans) f.rotation.z -= this.fanSpeed * dt;
+    this._updateLayers(state);
     const p = this.anchor(this.selected);
     this.ring.visible = !!p;
     if (p) { this.ring.position.copy(p); this.ring.scale.setScalar(1 + 0.12 * Math.sin(this.time * 4)); }

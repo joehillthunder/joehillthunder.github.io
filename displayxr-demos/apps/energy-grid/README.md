@@ -20,6 +20,18 @@ Static files only: no build, no keys, no server. Rules: [`../../CLAUDE.md`](../.
 | **Microgrid yard** | The campus microgrid at the end of Feeder 1, driven live: PCC recloser on the utility pole, microgrid switchgear, pad-mount step-up transformers, inverters (PCS), battery containers (one open, with rack LEDs showing state of charge), carport solar, controller with an island beacon, the hospital and its standby generator. Cyan particles show where power flows. |
 | **What-if: one year** | Fails every element under 8,760 hourly conditions, then restores what it can: ~158,000 AC power flows across all CPU cores (Web Workers). Risk shows as purple bars on the map. |
 
+**Invisible layers** (<kbd>L</kbd>, the **Layers** menu) draw what a trainee cannot see on site, in
+every module: power-flow particles; live current and power labels with direction arrows; bus voltage
+rings; the fault-current path with the amps each device saw; energized (red) vs isolated (green)
+overlays; and each breaker's protection zone and trip setting. The substation adds the CT secondary
+current the feeder relay actually measures; the microgrid adds AC vs DC current and island frequency.
+**Training** shows all layers; **Test** hides them so trainees work from the real cues only.
+`?layers=training|test|default` sets them from the URL.
+
+**Full screen** (<kbd>F</kbd>) makes the 3D view fill the screen. The header, mission and equipment
+card, one-line, alarms and KPIs float over it and stay fully interactive; the **Mission** and
+**Diagram** tabs hide or show the side panels. `?full` opens in this layout.
+
 Every 3D module has camera presets (**Overview**, **Eye level** for a walk-in view, **Top**) and a
 **3D depth** slider (0–200%, remembered per browser). Below 100% the slider lowers eye separation
 through the display rig's `ipdFactor`; above 100% it stretches the scene along the viewing axis for
@@ -29,6 +41,7 @@ Mouse/touch: drag to turn, wheel or pinch to zoom, tap to select, double-tap the
 microgrid on the map to open its module.
 Keys: <kbd>1</kbd> map, <kbd>2</kbd> substation, <kbd>3</kbd> microgrid yard, <kbd>4</kbd> what-if,
 <kbd>O</kbd>/<kbd>E</kbd>/<kbd>T</kbd> overview / eye level / top, <kbd>[</kbd> <kbd>]</kbd> depth,
+<kbd>L</kbd> layers, <kbd>F</kbd> full screen,
 <kbd>S</kbd> start the storm, <kbd>R</kbd> reset. After 60 s idle it runs an attract loop.
 
 URL flags: `?mono` forces the flat renderer; `?attract=N` sets the idle timeout (s); `?view=twin|mg`;

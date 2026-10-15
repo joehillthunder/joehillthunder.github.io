@@ -9,6 +9,7 @@
 import { T } from './theme.js';
 import { Kit } from './kit.js';
 import * as TX from './textures.js';
+import { makeLabel, fmtA, fmtKW, PRESETS } from './layers.js';
 
 export const MG_ITEMS = {
   mg_pcc: { title: 'Point of common coupling (PCC) recloser', card: 'PCC', device: 'PCC' },
@@ -41,7 +42,70 @@ export class MicrogridTwin {
     this.flows = {};
     this.phase = {};
     this._build();
+    this._buildLayers();
     this.kit.enableShadows();
+    this.setLayers(PRESETS.default);
+  }
+
+  // ---- invisible layers: what each flow carries, AC vs DC, the island, the PCC's protection --------
+  _buildLayers() {
+    const THREE = this.THREE;
+    this.lg = {};
+    for (const id of ['amps', 'volts', 'fault', 'live', 'zones']) {
+      this.lg[id] = new THREE.Group();
+      this.root.add(this.lg[id]);
+    }
+    const at = (w, x, y, z, g, bg) => { const l = makeLabel(THREE, w, bg ? { bg } : undefined); l.sprite.position.set(x, y, z); this.lg[g].add(l.sprite); return l; };
+    this.labels = {
+      utility: at(0.17, -0.42, 0.33, -0.36, 'amps'),
+      bess: at(0.19, -0.37, 0.2, 0.14, 'amps'),
+      dc: at(0.15, -0.53, 0.15, 0.0, 'amps'),
+      pv: at(0.17, 0.44, 0.2, 0.13, 'amps'),
+      load: at(0.17, 0.5, 0.23, -0.24, 'amps'),
+      bus: at(0.17, 0.0, 0.17, -0.2, 'volts'),
+      zone: at(0.19, -0.08, 0.39, -0.33, 'zones'),
+      fault: at(0.19, -0.08, 0.22, -0.26, 'fault', 'rgba(60,10,10,0.9)'),
+    };
+    // Live overlay: the utility feeder, the campus bus, the battery yard.
+    const shell = (w, h, d, x, y, z) => {
+      const m = new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.12, depthWrite: false, toneMapped: false });
+      const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      o.position.set(x, y, z);
+      this.lg.live.add(o);
+      return m;
+    };
+    this.shells = { feeder: shell(0.76, 0.06, 0.12, -0.42, 0.26, -0.335), bus: shell(0.22, 0.12, 0.1, 0, 0.06, -0.27), yard: shell(0.66, 0.12, 0.4, -0.37, 0.07, -0.06) };
+    for (const g of Object.values(this.lg)) g.traverse((o) => (o.userData.noShadow = true));
+  }
+
+  setLayers(flags) {
+    for (const [id, g] of Object.entries(this.lg)) g.visible = !!flags[id];
+    this.particles.visible = !!flags.flow;
+  }
+
+  _updateLayers(state) {
+    const pcc = state.branches.PCC, bk = state.bess.kw, pv = state.pv.pv_mg, hosp = state.loads.ld_hosp;
+    // Three-phase current at 12.47 kV: I = P / (sqrt(3) x V).
+    const iMV = (kw) => fmtA(Math.abs(kw) / (Math.sqrt(3) * 12.47));
+    this.labels.utility.set(pcc && pcc.closed ? `Utility ${fmtKW(pcc.kw)}` : 'PCC open', pcc && pcc.closed ? '#c9c27a' : '#ffb74d',
+      pcc && pcc.closed ? `${fmtA(Math.abs(pcc.amps))} at 12.47 kV` : 'campus islanded');
+    this.labels.bess.set(`Battery ${fmtKW(bk)}`, bk > 20 ? '#66bb6a' : bk < -20 ? '#4fc3f7' : '#e6eaee',
+      `${bk > 20 ? 'discharging' : bk < -20 ? 'charging' : 'idle'} · ${iMV(bk)} AC`);
+    // The racks are DC; the inverters turn ~1000 V DC into 480 V AC (typical values for this class of system).
+    this.labels.dc.set(`DC ${fmtA(Math.abs(bk) / 1.0)}`, '#b388ff', 'rack side ≈ 1000 V DC');
+    this.labels.pv.set(`Solar ${fmtKW(pv ? pv.kw : 0)}`, '#66bb6a', `${iMV(pv ? pv.kw : 0)} AC`);
+    this.labels.load.set(`Hospital ${hosp && hosp.served ? fmtKW(hosp.kw) : 'OUT'}`, hosp && hosp.served ? '#e6eaee' : '#e53935', 'critical load');
+    const b = state.buses.mg;
+    this.labels.bus.set(b.energized ? `${b.vpu.toFixed(3)} pu` : '0 V · dead', b.energized ? '#26a69a' : '#6b747d',
+      `${state.islanded ? `island · ${state.kpi.freq.toFixed(2)} Hz` : 'tied to the grid'}`);
+    this.labels.zone.set('PCC zone', '#f06292', 'trips above 700 A, islands the campus');
+    const seen = (state.fci || {}).PCC;
+    this.labels.fault.sprite.visible = !!seen;
+    if (seen) this.labels.fault.set(`Fault ${fmtA(seen)}`, '#ff8a80', 'seen at the PCC');
+    const live = (on, m) => { m.color.setHex(on ? 0xff3b30 : 0x43a047); m.opacity = on ? 0.12 : 0.2; };
+    live(state.buses.f4 && state.buses.f4.energized, this.shells.feeder);
+    live(b.energized, this.shells.bus);
+    live(b.energized || Math.abs(bk) > 0 || state.bess.soc > 0, this.shells.yard);   // batteries are never truly dead
   }
 
   _build() {
@@ -328,6 +392,7 @@ export class MicrogridTwin {
     }
     this.particles.count = n;
     this.particles.instanceMatrix.needsUpdate = true;
+    this._updateLayers(state);
 
     const a = this.anchor(this.selected);
     this.ring.visible = !!a;

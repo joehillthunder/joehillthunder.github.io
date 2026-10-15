@@ -8,7 +8,8 @@
 // A depth slider applies to all of them (see applyDepth).
 
 import * as THREE from 'three';
-import { createInline3D, inline3dViewRigSupported } from '@displayxr/inline3d';
+import { createInline3D, inline3dViewRigSupported, inline3dOcclusionByDrawOrder } from '@displayxr/inline3d';
+import { GridLayers, LAYERS, PRESETS } from './layers.js';
 import { EdgeFeather, displayRig } from '@displayxr/inline3d/three';
 import { api, initApi, engine } from './api.js';
 import { GridScene, MAP_W, MAP_D } from './scene.js';
@@ -158,7 +159,85 @@ function sizeCanvas() {
 }
 addEventListener('resize', sizeCanvas);
 
-let grid, twin, mgTwin, mods = {};
+let grid, twin, mgTwin, gridLayers, mods = {};
+
+// ---- invisible layers ---------------------------------------------------------------------------
+const LAYER_KEY = 'energyGrid.layers';
+let layerFlags = { ...PRESETS.default };
+try {
+  const saved = JSON.parse(localStorage.getItem(LAYER_KEY));
+  if (saved && typeof saved === 'object') layerFlags = { ...layerFlags, ...saved };
+} catch { /* storage blocked or empty: defaults */ }
+
+function setLayers(flags) {
+  layerFlags = { ...layerFlags, ...flags };
+  try { localStorage.setItem(LAYER_KEY, JSON.stringify(layerFlags)); } catch { /* fine without */ }
+  gridLayers?.set(layerFlags);
+  twin?.setLayers(layerFlags);
+  mgTwin?.setLayers(layerFlags);
+  renderLayersPanel();
+}
+
+function renderLayersPanel() {
+  const el = $('#layers-pop');
+  const on = LAYERS.filter((l) => layerFlags[l.id]).length;
+  $('#btn-layers').textContent = `Layers ${on}/${LAYERS.length}`;
+  $('#btn-layers').classList.toggle('on', !el.hidden);
+  el.innerHTML = `<h3>Invisible layers <span class="fine">what you can't see on site</span></h3>
+    ${LAYERS.map((l) => `<label class="layer"><input type="checkbox" data-layer="${l.id}" ${layerFlags[l.id] ? 'checked' : ''}>
+      <span><b>${l.label}</b><small>${l.hint}</small></span></label>`).join('')}
+    <div class="row"><button class="btn" data-preset="training">Training: show all</button>
+      <button class="btn" data-preset="test">Test: hide all</button>
+      <button class="btn" data-preset="default">Default</button></div>`;
+}
+$('#layers-pop').addEventListener('change', (e) => {
+  const id = e.target.dataset.layer;
+  if (id) { touch(); setLayers({ [id]: e.target.checked }); }
+});
+$('#layers-pop').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-preset]')?.dataset.preset;
+  if (p) { touch(); setLayers(PRESETS[p]); toast(p === 'test' ? 'Test mode: hint layers hidden.' : p === 'training' ? 'Training mode: all layers shown.' : 'Default layers.', 'good', 3000); }
+});
+function toggleLayersPanel(force) {
+  const el = $('#layers-pop');
+  el.hidden = force === undefined ? !el.hidden : !force;
+  renderLayersPanel();
+  syncOverlays();
+}
+$('#btn-layers').onclick = () => { touch(); toggleLayersPanel(); };
+
+// ---- full screen: the 3D view fills the screen; panels float over it and stay interactive -------
+// The woven canvas is resized, never remounted. Browsers that cannot occlude a woven canvas by draw
+// order are told which 2D elements sit over it (handle.exclude), per the woven-canvas rules.
+let immersive = false;
+const OVERLAYS = ['#top', '#left', '#right', '#kpis', '#layers-pop', '#toast', '#scorecard', '#panel-tabs'];
+function syncOverlays() {
+  if (!handle || inline3dOcclusionByDrawOrder()) return;
+  for (const s of OVERLAYS) {
+    const el = $(s);
+    if (!el) continue;
+    if (immersive && !el.hidden) handle.exclude(el);
+    else handle.unexclude(el);
+  }
+}
+function setImmersive(on) {
+  immersive = on;
+  $('#app').classList.toggle('immersive', on);
+  $('#panel-tabs').hidden = !on;
+  $('#btn-full').textContent = on ? 'Exit full screen' : 'Full screen';
+  $('#btn-full').classList.toggle('on', on);
+  if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { /* still immersive in the window */ });
+  if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  requestAnimationFrame(() => { sizeCanvas(); syncOverlays(); });
+}
+$('#btn-full').onclick = () => { touch(); setImmersive(!immersive); };
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && immersive) setImmersive(false); });
+document.querySelectorAll('#panel-tabs button').forEach((b) => (b.onclick = () => {
+  touch();
+  $('#app').classList.toggle(`hide-${b.dataset.side}`);
+  b.classList.toggle('on', !$('#app').classList.contains(`hide-${b.dataset.side}`));
+  syncOverlays();
+}));
 const footprint = () => (view === 'map' ? { w: MAP_W, d: MAP_D, h: 0.16 } : mods[view].footprint);
 function frameSubject() {
   if (!grid) return;
@@ -213,8 +292,10 @@ function animate(dt) {
   subject.rotation.set(pose.tilt, pose.yaw, 0, 'XYZ');
   subject.updateMatrixWorld(true);
   subject.getWorldQuaternion(worldQuat);
-  if (view === 'map') grid.update(state, dt, worldQuat);
-  else mods[view].update(state, dt);
+  if (view === 'map') {
+    grid.update(state, dt, worldQuat);
+    gridLayers.update(state, dt);
+  } else mods[view].update(state, dt);
   // Daylight follows the clock.
   const h = state ? state.hour : 14;
   const sunUp = Math.max(0, Math.sin(((h - 6) / 13.5) * Math.PI));
@@ -613,6 +694,8 @@ addEventListener('keydown', (e) => {
   if (e.key === 'o' || e.key === 'O') setAngle('overview');
   if (e.key === 'e' || e.key === 'E') setAngle('eye');
   if (e.key === 't' || e.key === 'T') setAngle('top');
+  if (e.key === 'f' || e.key === 'F') setImmersive(!immersive);
+  if (e.key === 'l' || e.key === 'L') toggleLayersPanel();
   if (e.key === 'r' || e.key === 'R') { grid.setRisk(null); api.reset('free').then(poll); }
   if (e.key === 's' || e.key === 'S') startScenario();
 });
@@ -676,7 +759,11 @@ let oneline;
   grid = new GridScene(THREE, net);
   twin = new SubstationTwin(THREE);
   mgTwin = new MicrogridTwin(THREE);
+  gridLayers = new GridLayers(THREE, grid, net);
   mods = { map: grid, twin, mg: mgTwin };
+  setLayers(layerFlags);
+  if (params.has('layers')) setLayers(PRESETS[params.get('layers')] || PRESETS.training);
+  if (params.has('full')) setImmersive(true);
   oneline = new OneLine($('#oneline'), net, (id) => {
     touch();
     // In a module, a one-line click on that module's equipment selects it there; anything else
