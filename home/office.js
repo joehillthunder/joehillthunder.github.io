@@ -332,6 +332,37 @@ const BUILD = {
       });
     });
   },
+  '4dv'(g) {
+    // A round capture stage with a dancer made of splats, swaying as the clip loops.
+    const stage = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.3, 0.2, 24), new THREE.MeshLambertMaterial({ color: '#1b2330' }));
+    stage.position.y = 0.1;
+    stage.receiveShadow = true;
+    g.add(stage);
+    [-1, 1].forEach((s) => box(g, 0.08, 2.4, 0.08, '#333', s * 1.35, 0, -0.6));
+    box(g, 2.8, 0.08, 0.08, '#333', 0, 2.4, -0.6);
+    const n = 700, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      // head, torso and two legs, as rough point blobs
+      const part = i % 7, u = Math.random() * 6.28, r = Math.cbrt(Math.random());
+      let x, y, z;
+      if (part === 0) { x = Math.cos(u) * r * 0.16; y = 1.55 + rand(-0.16, 0.16); z = Math.sin(u) * r * 0.16; c.set('#f1c9a5'); }
+      else if (part < 4) { x = Math.cos(u) * r * 0.22; y = rand(0.85, 1.38); z = Math.sin(u) * r * 0.14; c.setHSL(0.5, 0.8, rand(0.45, 0.65)); }
+      else { const s = part < 6 ? -0.1 : 0.1; x = s + Math.cos(u) * r * 0.07; y = rand(0.2, 0.85); z = Math.sin(u) * r * 0.07; c.set('#2a3550'); }
+      pos.set([x, y, z], i * 3);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const dancer = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.07, vertexColors: true }));
+    dancer.position.y = 0.2;
+    g.add(dancer);
+    animators.push((t) => {
+      dancer.rotation.y = Math.sin(t * 0.9) * 1.2;
+      dancer.rotation.z = Math.sin(t * 2.2) * 0.12;
+      dancer.position.y = 0.2 + Math.abs(Math.sin(t * 2.2)) * 0.12;
+    });
+  },
   'dual-view'(g) {
     // A 3D display on a stand sending two coloured beams to two viewers: one picture each.
     box(g, 0.5, 0.9, 0.4, '#2a3340', 0, 0, -0.4);
