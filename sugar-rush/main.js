@@ -1,5 +1,6 @@
-// Sugar Rush — a candy-factory 3D platformer for glasses-free 3D displays (DisplayXR), and a
-// normal 3D game in 2D anywhere else.
+// Sugar Rush — a magical chocolate-factory 3D platformer for glasses-free 3D displays (DisplayXR),
+// and a normal 3D game in 2D anywhere else. Run and jump through the factory, gather sweets for
+// points, and hunt the five rare Golden Tickets: three open the Golden Gate at the fountain.
 //
 // DisplayXR wiring follows the SDK's samples/camera-rig: one inline-3D session, one woven
 // canvas, a CAMERA rig rebuilt every frame from the follow camera (the runtime offsets the eyes
@@ -9,7 +10,9 @@
 import * as THREE from 'three';
 import { createInline3D, inline3dDisplayModesSupported } from '@displayxr/inline3d';
 import { EyeCamera, cameraRigFromCamera } from '@displayxr/inline3d/three';
-import { buildWorld, updateWorld, PALETTE, START, FOUNTAIN, KILL_Y } from './world.js';
+import { buildWorld, updateWorld, PALETTE, START, FOUNTAIN, KILL_Y, RIVER_Y, TICKETS_TO_OPEN } from './world.js';
+import { createPlayer } from './player.js';
+import { glow } from './textures.js';
 import { createInput } from './input.js';
 import { sfx } from './sfx.js';
 
@@ -27,22 +30,33 @@ const MOVE_SPEED = 7.5;
 const GRAVITY = 26;
 const JUMP_V = 10;
 const GUMMY_V = 17;
+const CLOUD_V = 11;
 const DASH_V = 15;
 const DASH_TIME = 0.18;
 const DASH_COOLDOWN = 0.8;
 const COYOTE = 0.1;
+const CRUMBLE_AFTER = 0.55;
+const CRUMBLE_BACK = 3.5;
+const COMBO_WINDOW = 1.6;
 const CAM_OFFSET = new THREE.Vector3(0, 3.4, 7.8);
 const CAM_LOOK = new THREE.Vector3(0, 0.8, -5);
 const PLAYER_R = 0.4;
+const TICKETS = 5;
 
 // ---- renderer + scene ----------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(1); // the layer reports backing-store pixels (camera-rig sample)
 renderer.autoClear = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false; // rendered once per frame and shared by both eyes
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(PALETTE.sky);
-scene.fog = new THREE.Fog(PALETTE.sky, 60, 170);
+scene.fog = new THREE.Fog(PALETTE.haze, 45, 150);
+scene.environment = warmEnvironment();
 
 const world = buildWorld(THREE);
 scene.add(world.root);
@@ -50,47 +64,63 @@ scene.add(world.root);
 const appCam = new THREE.PerspectiveCamera(55, 16 / 9, 0.3, 400);
 scene.add(appCam); // in the scene: the eye cameras are parented under it
 
-// ---- the player (primitives only) --------------------------------------------------------------
-const player = new THREE.Group();
-{
-  const m = (c, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, emissive: e });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.45, 6, 14), m(0x9ff0d8));
-  body.position.y = 0.55;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 14), m(0xffd9b8));
-  head.position.y = 1.15;
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.31, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), m(0xc8642a));
-  hair.position.y = 1.18;
-  const goggles = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 8, 20), m(0x3fe0e8, 0x0d4a4e));
-  goggles.position.set(0, 1.28, 0);
-  goggles.rotation.x = Math.PI / 2.4;
-  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 8, 20), m(0xff9cc8));
-  scarf.position.y = 0.88;
-  scarf.rotation.x = Math.PI / 2;
-  player.add(body, head, hair, goggles, scarf);
+// A warm factory "sky" for reflections on chocolate, copper and foil: amber glow above, cocoa below.
+function warmEnvironment() {
+  const env = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(10, 48, 24);
+  const pos = geo.attributes.position, cols = [];
+  const top = new THREE.Color(0xffb27a), mid = new THREE.Color(0xa45a5a), low = new THREE.Color(0x2a140c);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / 10;
+    const c = y >= 0 ? mid.clone().lerp(top, Math.pow(y, 0.7)) : mid.clone().lerp(low, Math.min(1, -y * 2.5));
+    cols.push(c.r * 0.7, c.g * 0.7, c.b * 0.7);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  env.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  for (const [x, z] of [[-6, -3], [6, -6], [0, 7]]) {                     // window glows
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 3.6, 2.2), side: THREE.DoubleSide }));
+    w.position.set(x, 4, z);
+    w.lookAt(0, 0, 0);
+    env.add(w);
+  }
+  const pm = new THREE.PMREMGenerator(renderer);
+  const t = pm.fromScene(env, 0.03).texture;
+  pm.dispose();
+  return t;
 }
+
+// ---- the player ---------------------------------------------------------------------------------
+const hero = createPlayer(THREE);
+const player = hero.root;
+player.rotation.y = Math.PI; // back to the camera, facing into the factory
 scene.add(player);
 
 // ---- sparkle bursts (pop toward the viewer) ---------------------------------------------------
-const SPARKS = 96;
+const SPARKS = 160;
 const sparkGeo = new THREE.BufferGeometry();
 const sparkPos = new Float32Array(SPARKS * 3);
+const sparkCol = new Float32Array(SPARKS * 3);
 sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
-const sparkMat = new THREE.PointsMaterial({ color: PALETTE.gold, size: 0.22, transparent: true, depthWrite: false });
+sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCol, 3));
+const sparkMat = new THREE.PointsMaterial({ map: glow(), size: 0.42, vertexColors: true, transparent: true, depthWrite: false,
+  blending: THREE.AdditiveBlending, toneMapped: false });
 const sparkPoints = new THREE.Points(sparkGeo, sparkMat);
 sparkPoints.frustumCulled = false;
 scene.add(sparkPoints);
-const sparks = Array.from({ length: SPARKS }, () => ({ life: 0, p: new THREE.Vector3(), v: new THREE.Vector3() }));
+const sparks = Array.from({ length: SPARKS }, () => ({ life: 0, p: new THREE.Vector3(), v: new THREE.Vector3(), c: new THREE.Color() }));
 
-function burst(at) {
+function burst(at, color = PALETTE.gold, n = 40, toward = true) {
   const toCam = appCam.position.clone().sub(at).normalize();
-  let n = 0;
+  const c = new THREE.Color(color);
+  let made = 0;
   for (const s of sparks) {
     if (s.life > 0) continue;
     s.life = 0.9;
     s.p.copy(at);
-    s.v.copy(toCam).multiplyScalar(3 + Math.random() * 2.5)
-      .add(new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3, (Math.random() - 0.5) * 4));
-    if (++n >= 40) break;
+    s.c.copy(c).lerp(new THREE.Color(0xffffff), Math.random() * 0.5);
+    s.v.set((Math.random() - 0.5) * 4, Math.random() * 3, (Math.random() - 0.5) * 4);
+    if (toward) s.v.addScaledVector(toCam, 3 + Math.random() * 2.5);
+    if (++made >= n) break;
   }
 }
 
@@ -99,7 +129,11 @@ const G = {
   state: 'title', // title | play | paused | won | over
   difficulty: 'normal',
   lives: 3,
-  seals: 0,
+  score: 0,
+  sweets: 0,
+  tickets: 0,
+  combo: 0,
+  comboT: 0,
   time: 0,
   best: loadBest(),
   checkpoint: new THREE.Vector3(START.x, START.y, START.z),
@@ -115,22 +149,22 @@ const P = {
   dashT: 0,
   dashCd: 0,
   airDash: true,
-  facing: 0,
+  facing: Math.PI,
 };
 let convPush = 0; // 0..1, eases back to 0 — the gummy-pad "push" toward the viewer
 
 function loadBest() {
   try {
-    return Number(localStorage.getItem('sugar-rush-best')) || null;
+    return JSON.parse(localStorage.getItem('sugar-rush-best2')) || { score: 0, time: null };
   } catch {
-    return null;
+    return { score: 0, time: null };
   }
 }
-function saveBest(t) {
+function saveBest() {
   try {
-    localStorage.setItem('sugar-rush-best', String(t));
+    localStorage.setItem('sugar-rush-best2', JSON.stringify(G.best));
   } catch {
-    /* private mode: best time lasts the session */
+    /* private mode: the best lasts the session */
   }
 }
 
@@ -146,14 +180,29 @@ function resetPlayer(at) {
 function startGame(difficulty = G.difficulty) {
   G.difficulty = DIFFICULTY[difficulty] ? difficulty : 'normal';
   G.lives = DIFFICULTY[G.difficulty].lives;
-  G.seals = 0;
+  G.score = G.sweets = G.tickets = G.combo = 0;
+  G.comboT = 0;
   G.time = 0;
   G.invuln = 1;
   G.checkpoint.set(START.x, START.y, START.z);
-  for (const s of world.seals) {
+  for (const s of world.sweets) {
     s.taken = false;
     s.mesh.visible = true;
   }
+  for (const t of world.tickets) {
+    t.taken = false;
+    t.mesh.visible = true;
+  }
+  for (const p of world.platforms) {
+    restorePlatform(p);
+    p.reached = false;
+    if (p.flagMat) {
+      p.flagMat.color.setHex(0x8a6f86);
+      p.flagMat.emissive.setHex(0x000000);
+    }
+  }
+  reachCheckpoint(world.platforms[0]);
+  G.checkpoint.set(START.x, START.y, START.z);
   resetPlayer(G.checkpoint);
   G.state = 'play';
   sfx.unlock();
@@ -165,12 +214,14 @@ function loseLife() {
   if (G.invuln > 0) return;
   sfx.hurt();
   G.lives--;
+  G.combo = 0;
   if (G.lives <= 0) {
     G.state = 'over';
+    $('overScore').textContent = G.score.toLocaleString();
     ui.show('over');
   } else {
     resetPlayer(G.checkpoint);
-    G.invuln = 1.2;
+    G.invuln = 1.4;
   }
   hud();
 }
@@ -178,20 +229,69 @@ function loseLife() {
 function win() {
   G.state = 'won';
   sfx.win();
-  const t = G.time;
-  const record = !G.best || t < G.best;
-  if (record) {
-    G.best = t;
-    saveBest(t);
-  }
-  $('winTime').textContent = fmt(t);
-  $('winNote').textContent = record ? 'New best time!' : `Best: ${fmt(G.best)}`;
+  const timeBonus = Math.max(0, Math.round(3000 - G.time * 12));
+  const livesBonus = G.lives * 250;
+  const perfect = G.tickets === TICKETS ? 2000 : 0;
+  G.score += timeBonus + livesBonus + perfect;
+  const record = G.score > (G.best.score || 0);
+  if (record) G.best.score = G.score;
+  if (!G.best.time || G.time < G.best.time) G.best.time = G.time;
+  saveBest();
+  $('winTime').textContent = fmt(G.time);
+  $('winTickets').textContent = `${G.tickets} / ${TICKETS}`;
+  $('winBreakdown').innerHTML =
+    `<span>Sweets</span><b>${(G.score - timeBonus - livesBonus - perfect).toLocaleString()}</b>` +
+    `<span>Time bonus</span><b>+${timeBonus.toLocaleString()}</b>` +
+    `<span>Lives bonus</span><b>+${livesBonus.toLocaleString()}</b>` +
+    (perfect ? `<span>All 5 Golden Tickets!</span><b>+${perfect.toLocaleString()}</b>` : '');
+  $('winScore').textContent = G.score.toLocaleString();
+  $('winNote').textContent = record ? 'New high score!' : `High score: ${G.best.score.toLocaleString()}`;
   ui.show('won');
-  burst(new THREE.Vector3(FOUNTAIN.x, FOUNTAIN.y + 3, FOUNTAIN.z));
+  hud();
+  burst(new THREE.Vector3(FOUNTAIN.x, FOUNTAIN.y + 3, FOUNTAIN.z), PALETTE.gold, 80);
 }
 
 // ---- physics -------------------------------------------------------------------------------------
 const tmp = new THREE.Vector3();
+
+function inside(p, x, z, pad) {
+  if (p.shape === 'round') return Math.hypot(x - p.x, z - p.z) < p.w / 2 + pad;
+  return Math.abs(x - p.x) < p.w / 2 + pad && Math.abs(z - p.z) < p.d / 2 + pad;
+}
+
+function restorePlatform(p) {
+  p.solid = true;
+  p.crumbleT = -1;
+  p.respawnT = 0;
+  p.mesh.visible = true;
+  p.mesh.position.set(p.x, p.y, p.z);
+  p.mesh.rotation.set(0, 0, 0);
+}
+
+function stepPlatforms(dt) {
+  for (const p of world.platforms) {
+    if (p.type !== 'crumble') continue;
+    if (p.crumbleT >= 0 && p.solid) {
+      p.crumbleT += dt;
+      const shake = Math.min(1, p.crumbleT / CRUMBLE_AFTER) * 0.06;
+      p.mesh.position.set(p.x + (Math.random() - 0.5) * shake, p.y, p.z + (Math.random() - 0.5) * shake);
+      if (p.crumbleT > CRUMBLE_AFTER) {
+        p.solid = false;
+        p.respawnT = CRUMBLE_BACK;
+        p.fallV = 0;
+        sfx.crumble();
+        burst(new THREE.Vector3(p.x, p.y, p.z), 0xd9a35a, 18, false);
+      }
+    } else if (!p.solid) {
+      p.fallV += GRAVITY * 0.5 * dt;
+      p.mesh.position.y -= p.fallV * dt;
+      p.mesh.rotation.x += dt * 1.5;
+      p.mesh.visible = p.mesh.position.y > RIVER_Y - 1;
+      p.respawnT -= dt;
+      if (p.respawnT <= 0) restorePlatform(p);
+    }
+  }
+}
 
 function stepPlayer(dt, inp) {
   const k = DIFFICULTY[G.difficulty].hazard;
@@ -229,94 +329,164 @@ function stepPlayer(dt, inp) {
     P.dashCd = DASH_COOLDOWN;
     if (!P.onGround) P.airDash = false;
     sfx.dash();
+    burst(tmp.set(P.pos.x, P.pos.y + 0.6, P.pos.z).clone(), PALETTE.gummy, 12, false);
   }
 
-  // ride a moving platform
-  if (P.onGround && P.ground) P.pos.x += P.ground.dx;
+  // ride what you stand on: moving trays carry you, belts push you
+  if (P.onGround && P.ground) {
+    P.pos.x += P.ground.dx;
+    if (P.ground.type === 'conveyor') {
+      P.pos.x += P.ground.push[0] * dt;
+      P.pos.z += P.ground.push[1] * dt;
+    }
+  }
 
   const prevY = P.pos.y;
+  const wasGround = P.onGround;
+  const fallSpeed = -P.vel.y;
   P.pos.addScaledVector(P.vel, dt);
 
-  // collide with platform boxes: land on tops, get pushed out of sides
+  // collide with platforms: land on tops, get pushed out of sides
   P.onGround = false;
   for (const p of world.platforms) {
-    const hx = p.w / 2;
-    const hz = p.d / 2;
+    if (!p.solid) continue;
     const top = p.y;
-    const bottom = top - world.PLAT_H;
-    const inX = Math.abs(P.pos.x - p.x) < hx + PLAYER_R * 0.4;
-    const inZ = Math.abs(P.pos.z - p.z) < hz + PLAYER_R * 0.4;
-    if (inX && inZ && P.vel.y <= 0 && prevY >= top - 0.05 && P.pos.y <= top) {
+    const bottom = top - p.h;
+    if (inside(p, P.pos.x, P.pos.z, PLAYER_R * 0.4) && P.vel.y <= 0 && prevY >= top - 0.05 && P.pos.y <= top) {
       P.pos.y = top;
       P.vel.y = 0;
       P.onGround = true;
       P.ground = p;
       P.airDash = true;
+      if (!wasGround) hero.land(Math.min(1.5, fallSpeed / 12));
       if (p.type === 'gummy') {
         P.vel.y = GUMMY_V;
         P.onGround = false;
         convPush = 1;
         sfx.bounce();
         p.pad.scale.y = 0.4;
+      } else if (p.type === 'cloud') {
+        P.vel.y = CLOUD_V;
+        P.onGround = false;
+        sfx.cloud();
+        p.mesh.scale.set(1.08, 0.82, 1.08);
+      } else if (p.type === 'crumble' && p.crumbleT < 0) {
+        p.crumbleT = 0;
+        sfx.creak();
       }
+      if (p.checkpoint && !p.reached) reachCheckpoint(p);
       continue;
     }
-    // side push-out when the body overlaps the box below its top
-    const bodyLo = P.pos.y;
-    const bodyHi = P.pos.y + 1.4;
-    if (bodyLo < top - 0.05 && bodyHi > bottom) {
-      const ox = hx + PLAYER_R - Math.abs(P.pos.x - p.x);
-      const oz = hz + PLAYER_R - Math.abs(P.pos.z - p.z);
-      if (ox > 0 && oz > 0) {
-        if (ox < oz) {
-          P.pos.x += Math.sign(P.pos.x - p.x || 1) * ox;
-          P.vel.x = 0;
-        } else {
-          P.pos.z += Math.sign(P.pos.z - p.z || 1) * oz;
-          P.vel.z = 0;
+    // side push-out when the body overlaps the platform below its top
+    if (P.pos.y < top - 0.05 && P.pos.y + 1.4 > bottom) {
+      if (p.shape === 'round') {
+        const dx = P.pos.x - p.x, dz = P.pos.z - p.z, d = Math.hypot(dx, dz) || 1;
+        const over = p.w / 2 + PLAYER_R - d;
+        if (over > 0) {
+          P.pos.x += (dx / d) * over;
+          P.pos.z += (dz / d) * over;
+        }
+      } else {
+        const ox = p.w / 2 + PLAYER_R - Math.abs(P.pos.x - p.x);
+        const oz = p.d / 2 + PLAYER_R - Math.abs(P.pos.z - p.z);
+        if (ox > 0 && oz > 0) {
+          if (ox < oz) {
+            P.pos.x += Math.sign(P.pos.x - p.x || 1) * ox;
+            P.vel.x = 0;
+          } else {
+            P.pos.z += Math.sign(P.pos.z - p.z || 1) * oz;
+            P.vel.z = 0;
+          }
         }
       }
     }
   }
-  for (const p of world.platforms) if (p.pad) p.pad.scale.y += (1 - p.pad.scale.y) * Math.min(1, dt * 8);
+  for (const p of world.platforms) {
+    if (p.pad) p.pad.scale.y += (1 - p.pad.scale.y) * Math.min(1, dt * 8);
+    if (p.type === 'cloud') p.mesh.scale.lerp(tmp.set(1, 1, 1), Math.min(1, dt * 6));
+  }
 
   // hazards
   tmp.set(P.pos.x, P.pos.y + 0.7, P.pos.z);
-  for (const s of world.saws) if (tmp.distanceTo(s.mesh.position) < s.r + PLAYER_R) loseLife();
-  for (const g of world.gumballs) if (tmp.distanceTo(g.mesh.position) < g.r + PLAYER_R) loseLife();
+  for (const s of world.whisks) {
+    // the spinning arm is a segment through the hub; touching either half hurts
+    const ax = Math.cos(s.a), az = -Math.sin(s.a);
+    const rx = tmp.x - s.x, rz = tmp.z - s.z;
+    const along = Math.max(-s.arm, Math.min(s.arm, rx * ax + rz * az));
+    const d = Math.hypot(rx - ax * along, rz - az * along);
+    if (d < 0.45 && Math.abs(tmp.y - s.y) < 0.7) loseLife();
+  }
+  for (const g of world.jawbreakers) if (tmp.distanceTo(g.mesh.position) < g.r + PLAYER_R) loseLife();
+  for (const p of world.platforms) {
+    if (!p.vent || !p.vent.active) continue;
+    if (Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < 0.85 && P.pos.y < p.y + 3.2 && P.pos.y > p.y - 0.2) loseLife();
+  }
   if (P.pos.y < KILL_Y) {
+    sfx.splash();
+    burst(new THREE.Vector3(P.pos.x, RIVER_Y + 0.2, P.pos.z), 0x6b3a1f, 30, false);
     G.invuln = 0;
     loseLife();
   }
 
-  // seals: collecting one also moves the checkpoint there
-  for (const s of world.seals) {
-    if (s.taken || tmp.distanceTo(s.mesh.position) > 1.2) continue;
+  // sweets: chain them quickly for a combo multiplier
+  G.comboT = Math.max(0, G.comboT - dt);
+  if (G.comboT === 0) G.combo = 0;
+  for (const s of world.sweets) {
+    if (s.taken || tmp.distanceTo(s.mesh.position) > 0.85) continue;
     s.taken = true;
     s.mesh.visible = false;
-    G.seals++;
-    G.checkpoint.set(s.x, s.y - 1.2 + 0.01, s.z);
-    sfx.seal();
-    burst(s.mesh.position.clone());
+    G.combo = Math.min(5, G.combo + 1);
+    G.comboT = COMBO_WINDOW;
+    const mult = Math.max(1, G.combo);
+    G.score += s.value * mult;
+    G.sweets++;
+    sfx.sweet(G.combo, s.kind);
+    burst(s.mesh.position.clone(), s.color, s.kind === 'truffle' ? 26 : 12);
+    hud();
+  }
+  // Golden Tickets
+  for (const t of world.tickets) {
+    if (t.taken || tmp.distanceTo(t.mesh.position) > 1.3) continue;
+    t.taken = true;
+    t.mesh.visible = false;
+    G.tickets++;
+    G.score += 500;
+    sfx.ticket();
+    burst(t.mesh.position.clone(), PALETTE.gold, 60);
+    toast(G.tickets === TICKETS_TO_OPEN ? 'Golden Ticket! The Golden Gate is open!' : `Golden Ticket! ${G.tickets} of ${TICKETS}`);
     hud();
   }
 
-  // the fountain: only opens with all four seals
+  // the fountain: the Golden Gate needs tickets
   const df = Math.hypot(P.pos.x - FOUNTAIN.x, P.pos.z - FOUNTAIN.z);
   if (df < 3.6 && P.pos.y > FOUNTAIN.y - 0.5) {
-    if (G.seals >= 4) win();
+    if (G.tickets >= TICKETS_TO_OPEN) win();
     else if (G.hint <= 0) {
       sfx.locked();
       G.hint = 2.5;
-      toast(`The fountain needs all 4 seals (${G.seals}/4)`);
+      toast(`The Golden Gate needs ${TICKETS_TO_OPEN} Golden Tickets (${G.tickets}/${TICKETS_TO_OPEN}). Look off the path!`);
     }
   }
   G.hint = Math.max(0, G.hint - dt);
 
-  updateWorld(world, G.time, dt, k);
   player.position.copy(P.pos);
   player.rotation.y += (wrapAngle(P.facing - player.rotation.y)) * Math.min(1, dt * 12);
   player.visible = G.invuln <= 0 || Math.floor(G.invuln * 12) % 2 === 0;
+  hero.animate(dt, { speed: Math.hypot(P.vel.x, P.vel.z), air: !P.onGround, vy: P.vel.y, dashing: P.dashT > 0 });
+}
+
+function reachCheckpoint(p) {
+  p.reached = true;
+  G.checkpoint.set(p.x, p.y + 0.01, p.z);
+  if (p.flagMat) {
+    p.flagMat.color.setHex(PALETTE.pink);
+    p.flagMat.emissive.setHex(0xff3d7f);
+    p.flagMat.emissiveIntensity = 0.8;
+  }
+  if (G.state === 'play' && p.i !== 0) {
+    sfx.checkpoint();
+    toast('Checkpoint!');
+  }
 }
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -359,10 +529,18 @@ function stepCamera(dt, snap = false) {
       s.p.addScaledVector(s.v, dt);
       if (appCam.position.distanceTo(s.p) < convergence * 0.55) s.life = 0;
     }
-    if (s.life > 0) sparkPos.set([s.p.x, s.p.y, s.p.z], i * 3);
-    else sparkPos.set([0, -999, 0], i * 3);
+    if (s.life > 0) {
+      sparkPos.set([s.p.x, s.p.y, s.p.z], i * 3);
+      sparkCol.set([s.c.r, s.c.g, s.c.b], i * 3);
+    } else sparkPos.set([0, -999, 0], i * 3);
   }
   sparkGeo.attributes.position.needsUpdate = true;
+  sparkGeo.attributes.color.needsUpdate = true;
+
+  // the key light (and its shadow box) travels with the player
+  world.sun.position.set(P.pos.x + 9, P.pos.y + 20, P.pos.z + 6);
+  world.sun.target.position.set(P.pos.x, P.pos.y, P.pos.z - 6);
+  world.sun.target.updateMatrixWorld();
 }
 
 // ---- HUD + menus (plain DOM over the canvas: crisp, never woven) ------------------------------
@@ -373,9 +551,14 @@ const fmt = (t) => {
 };
 
 function hud() {
-  $('seals').textContent = `${'●'.repeat(G.seals)}${'○'.repeat(4 - G.seals)}`;
+  $('score').textContent = G.score.toLocaleString();
+  $('tickets').textContent = `${'🎫'.repeat(G.tickets)}${'·'.repeat(TICKETS - G.tickets)}`;
+  $('tickets').title = `Golden Tickets: ${G.tickets} of ${TICKETS} (${TICKETS_TO_OPEN} open the Golden Gate)`;
   $('lives').textContent = '♥'.repeat(Math.max(0, G.lives));
   $('timer').textContent = fmt(G.time);
+  const c = $('combo');
+  c.hidden = G.combo < 2;
+  c.textContent = `×${G.combo} combo`;
 }
 
 let toastTimer = 0;
@@ -384,13 +567,13 @@ function toast(msg) {
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), 2200);
+  toastTimer = setTimeout(() => (el.hidden = true), 2600);
 }
 
 const ui = {
   show(which) {
     for (const id of ['title', 'paused', 'won', 'over']) $(id).hidden = id !== which;
-    $('best').textContent = G.best ? `Best time: ${fmt(G.best)}` : '';
+    $('best').textContent = G.best.score ? `High score: ${G.best.score.toLocaleString()} · best time ${fmt(G.best.time)}` : '';
   },
 };
 
@@ -420,6 +603,7 @@ const input = createInput(canvas, { stick: $('stick'), knob: $('knob'), jumpBtn:
 let last = performance.now();
 let fpsAcc = 0;
 let fpsN = 0;
+let worldT = 0;
 
 function tick() {
   const now = performance.now();
@@ -430,14 +614,19 @@ function tick() {
   if (inp.pause) togglePause();
   if (inp.confirm && (G.state === 'title' || G.state === 'won' || G.state === 'over')) startGame($('difficulty').value);
 
+  if (G.state !== 'paused') worldT += dt;
   if (G.state === 'play') {
     G.time += dt;
+    stepPlatforms(dt);
     stepPlayer(dt, inp);
     $('timer').textContent = fmt(G.time);
-  } else {
-    updateWorld(world, now / 1000, dt, 1);
+    if (G.combo < 2 && !$('combo').hidden) hud();
+  } else if (G.state === 'title') {
+    hero.animate(dt, { speed: 0, air: false, vy: 0, dashing: false });
   }
+  if (G.state !== 'paused') updateWorld(world, worldT, dt, DIFFICULTY[G.difficulty].hazard, G.tickets);
   stepCamera(dt);
+  renderer.shadowMap.needsUpdate = true;
 
   if (DEV) {
     fpsAcc += dt;
@@ -543,10 +732,23 @@ function setupModeToggle(wall) {
 
 // ---- boot ------------------------------------------------------------------------------------------
 resetPlayer(G.checkpoint);
+reachCheckpoint(world.platforms[0]);
 stepCamera(0, true);
 hud();
 ui.show('title');
 if (DEV) $('fps').hidden = false;
+// Test flags: ?start skips the title; ?at=<platform index> starts the run there (screenshots, QA).
+{
+  const q = new URLSearchParams(location.search);
+  if (q.has('start') || q.has('at')) {
+    startGame();
+    const p = world.platforms[Number(q.get('at'))];
+    if (p) {
+      resetPlayer(new THREE.Vector3(p.x, p.y + 0.01, p.z + (p.shape === 'round' ? 0 : p.d / 2 - 0.6)));
+      stepCamera(0, true);
+    }
+  }
+}
 
 (async () => {
   const wall = await createInline3D({ lazy: false });
@@ -579,6 +781,6 @@ window.sugarRush = {
     $('difficulty').value = name;
     return true;
   },
-  show_score: () => ({ state: G.state, seals: G.seals, lives: G.lives, time: Number(G.time.toFixed(1)), best: G.best && Number(G.best.toFixed(1)), difficulty: G.difficulty }),
+  show_score: () => ({ state: G.state, score: G.score, sweets: G.sweets, tickets: G.tickets, lives: G.lives, time: Number(G.time.toFixed(1)), best: G.best, difficulty: G.difficulty }),
 };
 if (DEV) window.__sugar = { G, P, world, teleport: (x, y, z) => resetPlayer(new THREE.Vector3(x, y, z)) };

@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sugar Rush</title>
-<meta name="description" content="A candy-factory 3D platformer with real depth on glasses-free 3D displays (DisplayXR). Plays in 2D in any browser.">
+<meta name="description" content="A magical chocolate-factory 3D platformer: run and jump for sweets and rare Golden Tickets, with real depth on glasses-free 3D displays (DisplayXR). Plays in 2D in any browser.">
 <link rel="icon" href="data:,">
 <style>
   :root {
     color-scheme: dark;
-    --bg: #2a1633;
-    --ink: #fff7fb;
-    --muted: #e9cfe0;
-    --panel: rgba(26, 12, 32, 0.78);
+    --bg: #2b1420;
+    --ink: #fff7ee;
+    --muted: #ecd2c2;
+    --panel: rgba(40, 18, 10, 0.8);
     --gold: #ffc83d;
     --pink: #ff9cc8;
     --mint: #9ff0d8;
@@ -36,8 +36,15 @@
     align-items: flex-start; pointer-events: none; gap: 8px; }
   .plate { background: var(--panel); border-radius: 10px; padding: 6px 12px; pointer-events: auto;
     display: flex; gap: 14px; align-items: center; font-weight: 700; font-variant-numeric: tabular-nums; }
-  #seals { color: var(--gold); letter-spacing: 2px; }
+  #score { color: var(--ink); min-width: 4.5em; text-align: right; }
+  #tickets { color: var(--gold); letter-spacing: 1px; }
   #lives { color: var(--pink); }
+  #combo { color: var(--mint); font-size: 14px; }
+  #combo[hidden] { display: none; }
+  .breakdown { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; max-width: 300px; margin: 6px auto 4px;
+    text-align: left; font-variant-numeric: tabular-nums; }
+  .breakdown span { color: var(--muted); }
+  .bigscore { font-size: 40px; font-weight: 800; color: var(--gold); line-height: 1.1; }
   .btns { display: flex; gap: 6px; }
   .btns button, .card button, .card select { font: inherit; font-weight: 700; border: 0; border-radius: 8px;
     padding: 7px 12px; cursor: pointer; color: #2a1633; background: var(--mint); }
@@ -88,9 +95,11 @@
 
 <div class="hud">
   <div class="plate" aria-live="polite">
-    <span id="seals" title="Golden Confection Seals">○○○○</span>
+    <span id="score" title="Score">0</span>
+    <span id="tickets" title="Golden Tickets">·····</span>
     <span id="lives" title="Lives">♥♥♥</span>
     <span id="timer">0:00.0</span>
+    <span id="combo" hidden></span>
   </div>
   <div class="btns">
     <span class="plate" id="mode">…</span>
@@ -106,8 +115,10 @@
 
 <section class="card" id="title">
   <h1>Sugar Rush</h1>
-  <p>Race through the candy factory, bounce on gummy pads, grab all <b>4 Golden Seals</b>,
-     then reach the <b>Grand Sugar Fountain</b>.</p>
+  <p>Run and jump through a magical <b>chocolate factory</b>: across the chocolate river, the conveyor
+     hall, the crumbling wafer bridge and the gumdrop gardens. Chain sweets for combos and hunt the
+     <b>5 rare Golden Tickets</b> hidden off the path. Three open the <b>Golden Gate</b> at the
+     Grand Chocolate Fountain.</p>
   <div class="row">
     <select id="difficulty" aria-label="Difficulty">
       <option value="easy">Easy · 5 lives</option>
@@ -131,15 +142,17 @@
 </section>
 
 <section class="card" id="won" hidden>
-  <h2>Sweet victory!</h2>
-  <p>All 4 seals, and the fountain is yours in <b id="winTime">0:00.0</b>.</p>
+  <h2>Through the Golden Gate!</h2>
+  <p>The fountain is yours in <b id="winTime">0:00.0</b> with <b id="winTickets">0 / 5</b> Golden Tickets.</p>
+  <div class="breakdown" id="winBreakdown"></div>
+  <div class="bigscore" id="winScore">0</div>
   <div id="winNote"></div>
   <div class="row"><button class="go" data-start>Run again</button></div>
 </section>
 
 <section class="card" id="over" hidden>
   <h2>Out of lives</h2>
-  <p>The factory wins this time.</p>
+  <p>The factory wins this time. Score: <b id="overScore">0</b></p>
   <div class="row"><button class="go" data-start>Try again</button></div>
 </section>
 
