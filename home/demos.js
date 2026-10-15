@@ -49,6 +49,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-stem-lab',
         chatter: ['Carbon has four valence electrons', '45 degrees gives max range', 'That member is in compression!', 'The discs add up to 8 pi'],
       },
+      {
+        id: 'underwater',
+        name: 'Underwater Worlds',
+        desc: 'Swim ten underwater worlds: a coral reef, a kelp forest, under the Arctic ice, Lake Baikal, the flooded Amazon, the open ocean, a cenote cave, deep-sea vents, the Mariana Trench and legendary Atlantis. Photograph the creatures, learn real facts and take the quiz.',
+        url: 'displayxr-underwater/',
+        source: 'https://github.com/joehillthunder/displayxr-underwater',
+        chatter: ['A narwhal tusk is a tooth!', 'Down to 10,935 m in the sub', 'Found the giant clam', 'Swim through the halocline'],
+      },
     ],
   },
   {
