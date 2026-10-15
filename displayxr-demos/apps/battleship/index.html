@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Battleship 3D</title>
+<meta name="description" content="Two-player Battleship in glasses-free 3D: pass and play, online, or against the computer. Missiles, explosions and sinking ships rise out of the screen with DisplayXR; plays in 2D in any browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M6 38h52l-8 12H14z' fill='%2345c4ff'/%3E%3Crect x='22' y='26' width='18' height='12' fill='%23cfd8e3'/%3E%3Crect x='30' y='14' width='4' height='12' fill='%23cfd8e3'/%3E%3Ccircle cx='50' cy='18' r='7' fill='%23ff5a2a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #e8f1fb;
+    --muted: #9fb3c8;
+    --panel: rgba(8, 18, 32, 0.78);
+    --panel-strong: rgba(8, 18, 32, 0.92);
+    --line: rgba(120, 190, 255, 0.28);
+    --blue: #45c4ff;
+    --red: #ff6a4a;
+    --gold: #ffd23f;
+    --ok: #5dffb0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1424; color: var(--ink);
+    font: 600 16px/1.35 Rajdhani, "Segoe UI", system-ui, sans-serif; }
+  /* The woven canvas: no filters, opacity, borders or shadows on it or its ancestors. */
+  #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; outline: none; will-change: transform; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.45; }
+  kbd { display: inline-block; min-width: 1.5em; padding: 0 5px; border-radius: 5px; background: rgba(255,255,255,0.08); border: 1px solid var(--line);
+    font: 700 13px/1.5 ui-monospace, Consolas, monospace; text-align: center; }
+  .btn { border: 1px solid var(--line); background: rgba(69, 196, 255, 0.1); border-radius: 9px; padding: 7px 14px; letter-spacing: 0.04em; transition: background .15s, border-color .15s, transform .1s; }
+  .btn:hover:not(:disabled) { background: rgba(69, 196, 255, 0.24); border-color: var(--blue); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn.primary { background: linear-gradient(180deg, #ff7a3d, #e2432a); border-color: #ff9a6a; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  .btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #ff8d55, #f04f33); }
+  .chip { border: 1px solid var(--line); background: rgba(255,255,255,0.05); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+  .chip:hover { border-color: var(--blue); }
+  [hidden] { display: none !important; }
+
+  /* Boot cover: opaque until the first woven frame (never fades). */
+  #boot { position: fixed; inset: 0; z-index: 50; background: #0b1424; display: grid; place-items: center; }
+  #boot div { text-align: center; }
+  #boot h1 { font: 400 56px/1 "Black Ops One", Impact, sans-serif; letter-spacing: 0.06em; margin: 0 0 8px; color: #fff; }
+  #boot p { color: var(--muted); margin: 0; }
+
+  /* top bar */
+  #top { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; z-index: 5; pointer-events: none; }
+  #top > * { pointer-events: auto; }
+  #brand { padding: 8px 14px; display: flex; align-items: center; gap: 12px; }
+  #brand h1 { margin: 0; font: 400 24px/1 "Black Ops One", Impact, sans-serif; letter-spacing: 0.06em; }
+  #brand h1 span { color: var(--red); margin-left: 6px; }
+  #badge { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--muted); letter-spacing: .05em; }
+  #badge[data-kind="ok"] { background: rgba(93, 255, 176, 0.14); color: var(--ok); }
+  #turn { padding: 8px 20px; font: 400 22px/1.1 "Black Ops One", Impact, sans-serif; letter-spacing: 0.05em; text-align: center; max-width: 46vw; }
+  #turn small { display: block; font: 600 14px/1.3 Rajdhani, sans-serif; color: var(--muted); letter-spacing: .02em; }
+  #turn[data-tone="fire"] { border-color: rgba(255, 106, 74, 0.7); }
+  #turn[data-tone="fire"] b { color: var(--red); }
+  #turn[data-tone="wait"] b { color: var(--blue); }
+  #tools { padding: 7px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; justify-content: flex-end; }
+  #tools label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  #tools input[type=range] { width: 90px; accent-color: var(--blue); }
+
+  /* fleets */
+  .fleet { position: fixed; bottom: 12px; width: 230px; padding: 10px 12px; z-index: 4; }
+  #fleet-me { left: 12px; }
+  #fleet-foe { right: 12px; }
+  .fleet h3 { margin: 0 0 6px; font: 400 15px/1.2 "Black Ops One", Impact, sans-serif; letter-spacing: .06em; display: flex; justify-content: space-between; }
+  #fleet-me h3 { color: var(--blue); }
+  #fleet-foe h3 { color: var(--red); }
+  .fleet h3 small { font: 600 13px Rajdhani, sans-serif; color: var(--muted); letter-spacing: 0; }
+  .fleet ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .fleet li { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+  .fleet li.sunk { color: #ff7b6b; text-decoration: line-through; opacity: 0.8; }
+  .pips { display: flex; gap: 3px; }
+  .pips i { width: 12px; height: 8px; border-radius: 2px; background: rgba(69, 196, 255, 0.55); }
+  #fleet-foe .pips i { background: rgba(255, 255, 255, 0.25); }
+  .pips i.hit { background: #ff4a2a; box-shadow: 0 0 6px #ff4a2a; }
+  .fleet .stats { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+  /* placement */
+  #place { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 10px 14px; z-index: 6; display: grid; gap: 8px; max-width: calc(100vw - 24px); }
+  #place .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; }
+  #ship-chips button { border: 1px solid var(--line); background: rgba(255,255,255,0.04); border-radius: 9px; padding: 5px 10px; display: grid; gap: 3px; justify-items: center; min-width: 86px; }
+  #ship-chips button .pips i { background: var(--blue); }
+  #ship-chips button.sel { border-color: var(--gold); background: rgba(255, 210, 63, 0.14); }
+  #ship-chips button.done { opacity: 0.5; }
+  #ship-chips button.done.sel { opacity: 1; }
+  #place .help { font-size: 14px; color: var(--muted); text-align: center; }
+
+  #hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 14px; font-size: 14px; color: var(--muted); z-index: 3; white-space: nowrap; }
+
+  /* toast */
+  #toast { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); padding: 8px 18px; z-index: 20; font-size: 17px; pointer-events: none; border-color: var(--gold); }
+
+  /* dialogs: a centred card, no full-screen backdrop over the 3D */
+  .dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .dialog h2 { margin: 0 0 4px; font: 400 34px/1.05 "Black Ops One", Impact, sans-serif; letter-spacing: 0.05em; }
+  .dialog h2 span { color: var(--red); }
+  .dialog p { margin: 4px 0 12px; color: var(--muted); }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+  .mode { text-align: left; border: 1px solid var(--line); background: rgba(69, 196, 255, 0.06); border-radius: 12px; padding: 12px 14px; }
+  .mode:hover { border-color: var(--blue); background: rgba(69, 196, 255, 0.16); }
+  .mode b { display: block; font: 400 18px/1.2 "Black Ops One", Impact, sans-serif; letter-spacing: .04em; margin-bottom: 2px; }
+  .mode span { font-size: 14px; color: var(--muted); }
+  .mode.hot { border-color: rgba(255, 106, 74, 0.6); background: rgba(255, 106, 74, 0.1); }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; font-size: 15px; }
+  .opts label { display: grid; gap: 4px; color: var(--muted); }
+  .opts label.check { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; }
+  input[type=text], select { font: inherit; color: var(--ink); background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .dialog .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  .code { font: 400 44px/1 "Black Ops One", Impact, sans-serif; letter-spacing: 0.25em; color: var(--gold); text-align: center; margin: 10px 0; }
+  .status { font-size: 15px; color: var(--muted); min-height: 1.4em; }
+  .status.err { color: #ff8a7a; }
+  .linkrow { display: flex; gap: 8px; }
+  .linkrow input { flex: 1; min-width: 0; }
+  .results { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px 16px; margin: 10px 0; font-size: 16px; }
+  .results .h { color: var(--muted); font-size: 13px; }
+  .fine { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  @media (max-width: 760px) {
+    #brand h1 { font-size: 18px; }
+    #turn { font-size: 16px; max-width: 60vw; }
+    #tools label.depth { display: none; }
+    .fleet { width: 170px; font-size: 13px; padding: 8px; }
+    .fleet li { font-size: 13px; }
+    .pips i { width: 8px; }
+    .modes, .opts { grid-template-columns: 1fr; }
+    #top { flex-wrap: wrap; }
+  }
+  @media (max-width: 760px) { body.placing .fleet { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="stage" tabindex="0" aria-label="The battle at sea. Move over the enemy grid to aim, click to fire."></canvas>
+
+<div id="top">
+  <div id="brand" class="panel"><h1>BATTLESHIP<span>3D</span></h1><span id="badge">2D preview</span></div>
+  <div id="turn" class="panel" hidden role="status" aria-live="polite"></div>
+  <div id="tools" class="panel">
+    <label class="depth" title="How far things come out of and go into the 3D display">Depth <input id="depth" type="range" min="0" max="2" step="0.05" value="1"></label>
+    <button id="mode3d" class="chip" type="button" hidden>Switch to 2D</button>
+    <button id="mute" class="chip" type="button">Sound on</button>
+    <button id="menu-btn" class="chip" type="button">Menu</button>
+  </div>
+</div>
+
+<aside id="fleet-me" class="panel fleet" hidden><h3><span>Your fleet</span><small id="me-name"></small></h3><ul></ul><div class="stats"></div></aside>
+<aside id="fleet-foe" class="panel fleet" hidden><h3><span>Enemy fleet</span><small id="foe-name"></small></h3><ul></ul><div class="stats"></div></aside>
+
+<div id="place" class="panel" hidden>
+  <div class="row" id="ship-chips"></div>
+  <div class="row">
+    <button id="rotate" class="btn" type="button"><kbd>R</kbd> Rotate</button>
+    <button id="random" class="btn" type="button">Random</button>
+    <button id="clear" class="btn" type="button">Clear</button>
+    <button id="ready" class="btn primary" type="button" disabled>Ready for battle</button>
+  </div>
+  <div class="help">Click a square to drop the ship · <kbd>R</kbd> or right-click rotates · click a placed ship to move it</div>
+</div>
+
+<div id="hint" class="panel" hidden></div>
+<div id="toast" class="panel" hidden role="status" aria-live="polite"></div>
+
+<section id="menu" class="dialog" role="dialog" aria-labelledby="menu-title">
+  <h2 id="menu-title">BATTLESHIP <span>3D</span></h2>
+  <p>Hide your fleet, then take turns firing at the other side's waters. First to sink all five ships wins. On a 3D display, the missiles, fireballs and wreckage come out of the screen.</p>
+  <div class="modes">
+    <button class="mode hot" data-mode="local" type="button"><b>Pass &amp; Play</b><span>Two players on this screen. It hides your fleet while you swap.</span></button>
+    <button class="mode" data-mode="online" type="button"><b>Online</b><span>Two screens. Share a room code with a friend.</span></button>
+    <button class="mode" data-mode="ai" type="button"><b>vs Computer</b><span>Take on Admiral Byte.</span></button>
+    <button class="mode" data-mode="watch" type="button"><b>Watch</b><span>The computer plays both sides. Good for a demo screen.</span></button>
+  </div>
+  <div class="opts">
+    <label>Player 1 <input id="name1" type="text" maxlength="16" value="Player 1"></label>
+    <label>Player 2 <input id="name2" type="text" maxlength="16" value="Player 2"></label>
+    <label>Computer skill <select id="level"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></label>
+    <label class="check"><input id="bonus" type="checkbox"> A hit earns another shot</label>
+  </div>
+</section>
+
+<section id="online" class="dialog" role="dialog" aria-labelledby="online-title" hidden>
+  <h2 id="online-title">ONLINE <span>BATTLE</span></h2>
+  <div id="online-choose">
+    <p>One player hosts and shares the code; the other joins with it.</p>
+    <div class="modes">
+      <button class="mode hot" id="host" type="button"><b>Host a game</b><span>Get a room code to share.</span></button>
+      <div class="mode"><b>Join a game</b>
+        <div class="linkrow" style="margin-top:6px"><input id="join-code" type="text" maxlength="5" placeholder="CODE" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em"><button id="join" class="btn" type="button">Join</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="online-host" hidden>
+    <p>Give this code to your opponent, or send them the link.</p>
+    <div class="code" id="room-code">-----</div>
+    <div class="linkrow"><input id="room-link" type="text" readonly><button id="copy-link" class="btn" type="button">Copy link</button></div>
+  </div>
+  <div class="status" id="net-status"></div>
+  <div class="fine">Connects the two browsers directly (WebRTC) using the free public PeerJS broker to find each other. Each side keeps its fleet to itself.</div>
+  <div class="actions"><button id="online-back" class="btn" type="button">Back</button></div>
+</section>
+
+<section id="handoff" class="dialog" role="dialog" aria-labelledby="handoff-title" hidden>
+  <h2 id="handoff-title">PASS THE SCREEN</h2>
+  <p id="handoff-text"></p>
+  <div class="actions"><button id="handoff-go" class="btn primary" type="button">I'm ready</button></div>
+</section>
+
+<section id="end" class="dialog" role="dialog" aria-labelledby="end-title" hidden>
+  <h2 id="end-title">VICTORY</h2>
+  <p id="end-text"></p>
+  <div class="results" id="end-results"></div>
+  <div class="actions">
+    <button id="end-menu" class="btn" type="button">Menu</button>
+    <button id="end-rematch" class="btn primary" type="button">Rematch</button>
+  </div>
+</section>
+
+<div id="boot"><div><h1>BATTLESHIP 3D</h1><p>Loading the fleet…</p></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
