@@ -10,14 +10,23 @@ It lives in the `displayxr-demos/` folder of [`joehillthunder.github.io`](https:
 and is published by GitHub Pages at https://joehillthunder.github.io/displayxr-demos/, so everything here is
 public. Keys stay in `.env`, which is never committed.
 
-| Path | What | Status |
+## Apps
+
+| App | What | Status |
 |---|---|---|
-| `packages/core` | Display page, WebSocket bridge, agent adapters | not started |
-| `packages/importer` | `dxr-import`: Sketchfab, KitBash, Smithsonian | not started |
+| [Energy Grid](https://joehillthunder.github.io/displayxr-demos/apps/energy-grid/) (`apps/energy-grid`) | Future Grids Training: a digital twin of a 12.47 kV distribution grid and microgrid with live AC power flow, a storm-restoration exercise, a substation twin and a one-year what-if sweep | live |
+| [Music Visualizer](https://joehillthunder.github.io/displayxr-demos/apps/music-visualizer/) (`apps/music-visualizer`) | Beat-reactive visuals whose depth pulses with the music | live |
 | `apps/agent-voice` | Muse, Dot, Claude voice demo | not started |
 | `apps/aviation-coach` | | not started |
 | `apps/playground-port` | | not started |
 | `apps/world-gen` | World Labs Marble | not started |
+
+## Packages
+
+| Path | What | Status |
+|---|---|---|
+| `packages/core` | Display page, WebSocket bridge, agent adapters | not started |
+| `packages/importer` | `dxr-import`: Sketchfab, KitBash, Smithsonian | not started |
 
 ## Setup
 

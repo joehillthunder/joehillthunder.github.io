@@ -18,6 +18,8 @@ displayxr-demos/
   .env.example         ← every key any app reads; copy to .env (never committed)
   packages/core/       ← display page, WebSocket bridge, agent adapters
   packages/importer/   ← dxr-import (Sketchfab, KitBash, Smithsonian)
+  apps/energy-grid/    ← Future Grids Training (grid digital twin)
+  apps/music-visualizer/
   apps/agent-voice/    ← Muse, Dot, Claude voice demo
   apps/aviation-coach/
   apps/playground-port/
