@@ -495,6 +495,56 @@ const BUILD = {
       moon.position.set(e.x + Math.cos(t * 5) * 0.18, 1.25, e.z + Math.sin(t * 5) * 0.18);
     });
   },
+  'stem-lab'(g) {
+    // A classroom lab bench: four S-T-E-M blocks bobbing in turn, an atom, meshing gears and a sine
+    // wave on a chalkboard.
+    box(g, 4.2, 0.7, 2.2, '#2a3142', 0, 0, 0.2);
+    box(g, 4.0, 0.04, 2.0, '#e6e9ef', 0, 0.7, 0.2);
+    box(g, 3.6, 1.5, 0.08, '#1d3a2e', 0, 0.9, -1.0);
+    box(g, 3.8, 0.08, 0.14, '#8a6a45', 0, 0.86, -0.98);
+    const wave = new THREE.Group();
+    const wm = glow('#c38bff', 0.9);
+    for (let i = 0; i < 28; i++) {
+      const x = -1.5 + i * (3 / 27);
+      box(wave, 0.07, 0.07, 0.02, wm, x, 1.6 + Math.sin(i * 0.45) * 0.35, -0.95, { shadow: false });
+    }
+    g.add(wave);
+    const blocks = ['#4fd1a5', '#5aa9ff', '#ffb347', '#c38bff'].map((c, i) => box(g, 0.42, 0.42, 0.42, glow(c, 0.5), -1.35 + i * 0.9, 0.95, 0.75));
+    const atom = new THREE.Group();
+    atom.position.set(-1.3, 1.25, -0.1);
+    sphere(atom, 0.12, '#ff6b6b', 0, 0, 0, 14);
+    const orbits = [0, 1, 2].map((k) => {
+      const o = new THREE.Group();
+      o.rotation.set(k * 1.05, 0, k * 0.6);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.012, 6, 40), glow('#4fd1a5', 0.6));
+      const e = sphere(o, 0.045, glow('#5ad8ff', 1.2), 0.36, 0, 0, 8);
+      o.add(ring);
+      atom.add(o);
+      return { o, e, k };
+    });
+    g.add(atom);
+    box(g, 0.08, 0.5, 0.08, '#8a93a8', -1.3, 0.74, -0.1);
+    const gears = [[0.25, 0.9, '#c9ccd2', 1], [0.17, 1.33, '#d9a441', -1.47]].map(([r, x, c, k]) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.08, 12), mat(c));
+      m.rotation.x = Math.PI / 2;
+      m.position.set(x, 1.0 + r, -0.4);
+      m.castShadow = true;
+      g.add(m);
+      return { m, k };
+    });
+    animators.push((t) => {
+      blocks.forEach((b, i) => {
+        const up = Math.max(0, Math.sin(t * 2 - i * 0.9));
+        b.position.y = 0.95 + up * 0.25;
+        b.rotation.y = up * 0.6;
+        b.material.emissiveIntensity = 0.35 + up * 0.8;
+      });
+      orbits.forEach(({ e, k }) => e.position.set(Math.cos(t * (2 + k * 0.5)) * 0.36, Math.sin(t * (2 + k * 0.5)) * 0.36, 0));
+      atom.rotation.y = t * 0.4;
+      gears.forEach(({ m, k }) => (m.rotation.y = t * k));
+      wave.position.x = Math.sin(t * 0.8) * 0.05;
+    });
+  },
   'battle-school'(g) {
     // Left: a glass Battle Room with floating stars and a soldier jumping between them.
     const cube = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), new THREE.MeshStandardMaterial({ color: '#5fd0ff', transparent: true, opacity: 0.1, depthWrite: false }));
