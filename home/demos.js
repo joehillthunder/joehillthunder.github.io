@@ -20,10 +20,10 @@ export const WINGS = [
       {
         id: 'aviation',
         name: 'Aviation Coach',
-        desc: 'An AI instructor walks a trainee through a 100-hour aircraft engine inspection.',
+        desc: 'An AI instructor teaches four lessons in 3D: an engine 100-hour inspection, a preflight walk-around, landing gear and brakes, and the flight-control cables.',
         url: 'displayxr-aviation-coach/',
         source: 'https://github.com/joehillthunder/displayxr-aviation-coach',
-        chatter: ['Cylinder 3 torque check done', 'Magneto timing looks good', 'Next up: compression test', 'Safety wire on the oil filter'],
+        chatter: ['Cylinder 3 torque check done', 'Sumped the fuel, no water', 'Brake linings within limits', 'Turnbuckle safety wire OK'],
       },
     ],
   },
