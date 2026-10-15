@@ -609,6 +609,59 @@ const BUILD = {
       armies.forEach((a) => a.m.position.set(a.side * (1.2 - clash * 0.85), base + Math.abs(Math.sin(t * 8 + a.z * 9)) * 0.04, 0.55 + a.z));
     });
   },
+  'street-brawl'(g) {
+    // Two voxel fighters trade blows on a little stage and sparks pop at each hit; an arcade cabinet on the right.
+    box(g, 2.8, 0.25, 1.6, '#3a2a4a', -0.7, 0, 0);
+    box(g, 2.9, 0.04, 1.7, glow('#ff7ab8', 0.6), -0.7, 0.25, 0, { shadow: false });
+    const fighter = (c, belt, x, dir) => {
+      const f = new THREE.Group();
+      f.position.set(x, 0.29, 0);
+      g.add(f);
+      box(f, 0.12, 0.36, 0.1, '#2a2a33', 0, 0, -0.07);
+      box(f, 0.12, 0.36, 0.1, '#2a2a33', 0, 0, 0.07);
+      box(f, 0.2, 0.42, 0.32, c, 0, 0.36, 0);
+      box(f, 0.21, 0.06, 0.33, belt, 0, 0.38, 0);
+      box(f, 0.2, 0.2, 0.2, '#e0ac7e', 0, 0.8, 0);
+      const arm = new THREE.Group();
+      arm.position.set(0, 0.62, 0.1);
+      f.add(arm);
+      box(arm, 0.36, 0.09, 0.09, c, 0.18 * dir, 0, 0);
+      box(arm, 0.13, 0.13, 0.13, belt, 0.38 * dir, -0.02, 0);
+      return { f, arm, x };
+    };
+    const A = fighter('#f2f2f2', '#d02a1a', -1.15, 1);
+    const B = fighter('#ffe23a', '#1d1d2a', -0.25, -1);
+    const spark = box(g, 0.22, 0.22, 0.22, glow('#ffd23f', 2), -0.7, 0.9, 0, { shadow: false });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.03, 6, 20), glow('#ff4a2a', 1.6));
+    g.add(ring);
+    // arcade cabinet
+    box(g, 0.9, 1.7, 0.7, '#20142c', 1.45, 0, 0);
+    box(g, 0.94, 0.25, 0.74, glow('#ff4a2a', 0.8), 1.45, 1.7, 0, { shadow: false });
+    const screen = box(g, 0.7, 0.5, 0.04, glow('#3ab0ff', 1.0), 1.45, 1.05, 0.34, { shadow: false });
+    box(g, 0.9, 0.08, 0.35, '#2a1a3a', 1.45, 0.85, 0.45);
+    sphere(g, 0.05, glow('#ff4a2a', 1.2), 1.3, 0.97, 0.5, 8);
+    sphere(g, 0.05, glow('#ffd23f', 1.2), 1.55, 0.97, 0.5, 8);
+    animators.push((t) => {
+      const beat = t * 2.2, turn = Math.floor(beat) % 2, k = beat % 1;
+      const jab = Math.max(0, Math.sin(Math.min(1, k * 2.5) * Math.PI));
+      const atk = turn ? B : A, def = turn ? A : B;
+      A.f.position.x = A.x + Math.sin(t * 5) * 0.03 + (atk === A ? jab * 0.12 : -jab * 0.08);
+      B.f.position.x = B.x - Math.sin(t * 5) * 0.03 - (atk === B ? jab * 0.12 : -jab * 0.08);
+      A.arm.scale.x = 1 + (atk === A ? jab * 0.5 : 0);
+      B.arm.scale.x = 1 + (atk === B ? jab * 0.5 : 0);
+      A.f.rotation.z = def === A ? jab * 0.2 : 0;
+      B.f.rotation.z = def === B ? -jab * 0.2 : 0;
+      const hit = k > 0.28 && k < 0.55;
+      spark.visible = ring.visible = hit;
+      const s = hit ? 0.6 + (k - 0.28) * 4 : 0.01;
+      spark.scale.setScalar(0.22 * s);
+      spark.rotation.set(t * 7, t * 9, 0);
+      spark.position.set((A.f.position.x + B.f.position.x) / 2, 0.95 + (k - 0.28) * 0.6, (k - 0.28) * 1.2);
+      ring.position.copy(spark.position);
+      ring.scale.setScalar(s * 1.6);
+      screen.material.emissiveIntensity = 0.7 + Math.abs(Math.sin(t * 6)) * 0.6;
+    });
+  },
   music(g) {
     [-1.7, 1.7].forEach((x) => {
       box(g, 0.75, 1.6, 0.6, '#1d1d24', x, 0, 0);

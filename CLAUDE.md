@@ -14,7 +14,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 ## Current wings
 1. Training Center: Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D.
 2. AI Studio: Muse Voice, Dot Voice, Stereo Splat, Music Visualizer, Flight Lines.
-3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall.
+3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D (6 rooms, so set pieces render at about 2/3 scale).
 4. Spatial UI/UX: Dual View.
 
 ## Adding a demo
