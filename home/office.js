@@ -539,9 +539,37 @@ const tagLayer = document.createElement('div');
 tagLayer.className = 'tags';
 labelLayer.append(tagLayer);
 
+// The Agents wing is staffed by agents: black suit, white shirt, thin black tie, sunglasses,
+// slicked-back hair and an earpiece.
+const AGENT_NAMES = ['Gray', 'Stone', 'Vale', 'Cole', 'Reed', 'Hart', 'Lowe', 'Pike'];
+const SUIT = '#15171c', SUIT_PANTS = '#101115', AGENT_HAIR = '#121212';
+const LENS = new THREE.MeshPhongMaterial({ color: '#050506', specular: '#8a8f99', shininess: 90 });
+let agentCount = 0;
+
+function dressAgent(g) {
+  // White shirt in the jacket's V, with a thin black tie and its knot.
+  box(g, 0.2, 0.22, 0.02, '#f2f2ee', 0, 0.83, 0.175, { shadow: false });
+  box(g, 0.06, 0.34, 0.02, '#0a0a0c', 0, 0.62, 0.19, { shadow: false });
+  box(g, 0.085, 0.06, 0.025, '#0a0a0c', 0, 0.97, 0.19, { shadow: false });
+  // Lapels: the jacket closing over the shirt.
+  box(g, 0.08, 0.24, 0.02, SUIT, -0.11, 0.81, 0.18, { shadow: false });
+  box(g, 0.08, 0.24, 0.02, SUIT, 0.11, 0.81, 0.18, { shadow: false });
+  // Sunglasses: two dark lenses, a top bar and arms back to the ears.
+  box(g, 0.17, 0.1, 0.03, LENS, -0.1, 1.15, 0.215, { shadow: false });
+  box(g, 0.17, 0.1, 0.03, LENS, 0.1, 1.15, 0.215, { shadow: false });
+  box(g, 0.44, 0.03, 0.03, LENS, 0, 1.24, 0.215, { shadow: false });
+  box(g, 0.02, 0.03, 0.3, LENS, -0.225, 1.24, 0.07, { shadow: false });
+  box(g, 0.02, 0.03, 0.3, LENS, 0.225, 1.24, 0.07, { shadow: false });
+  // Earpiece with its cord down into the collar.
+  box(g, 0.05, 0.06, 0.05, '#e6ddd0', 0.235, 1.12, 0.02, { shadow: false });
+  box(g, 0.015, 0.2, 0.015, '#cdd5db', 0.235, 0.92, -0.01, { shadow: false });
+}
+
 function makePerson(name, home) {
   const g = new THREE.Group();
-  const shirt = pick(SHIRT), pants = pick(PANTS), skin = pick(SKIN), hair = pick(HAIR);
+  const agent = home !== 'hall' && home.wing.id === 'agents';
+  if (agent) name = 'Agent ' + AGENT_NAMES[agentCount++ % AGENT_NAMES.length];
+  const shirt = agent ? SUIT : pick(SHIRT), pants = agent ? SUIT_PANTS : pick(PANTS), skin = pick(SKIN), hair = agent ? AGENT_HAIR : pick(HAIR);
   const limb = (x, y, w, h, c) => {
     const p = new THREE.Group();
     p.position.set(x, y, 0);
@@ -553,10 +581,17 @@ function makePerson(name, home) {
   box(g, 0.58, 0.55, 0.34, shirt, 0, 0.5, 0);
   const armL = limb(-0.38, 1.02, 0.16, 0.48, shirt), armR = limb(0.38, 1.02, 0.16, 0.48, shirt);
   box(g, 0.44, 0.4, 0.4, skin, 0, 1.05, 0);
-  box(g, 0.47, 0.13, 0.43, hair, 0, 1.4, 0);
-  box(g, 0.47, 0.25, 0.1, hair, 0, 1.2, -0.18);
-  box(g, 0.06, 0.06, 0.02, '#1d1d1d', -0.1, 1.2, 0.205, { shadow: false });
-  box(g, 0.06, 0.06, 0.02, '#1d1d1d', 0.1, 1.2, 0.205, { shadow: false });
+  if (agent) {
+    // Short, slicked back: a thin cap and a neat back, no fringe.
+    box(g, 0.46, 0.08, 0.42, hair, 0, 1.42, -0.005);
+    box(g, 0.46, 0.14, 0.08, hair, 0, 1.3, -0.17);
+    dressAgent(g);
+  } else {
+    box(g, 0.47, 0.13, 0.43, hair, 0, 1.4, 0);
+    box(g, 0.47, 0.25, 0.1, hair, 0, 1.2, -0.18);
+    box(g, 0.06, 0.06, 0.02, '#1d1d1d', -0.1, 1.2, 0.205, { shadow: false });
+    box(g, 0.06, 0.06, 0.02, '#1d1d1d', 0.1, 1.2, 0.205, { shadow: false });
+  }
   g.scale.setScalar(0.9);
   g.userData.person = true;
   scene.add(g);
