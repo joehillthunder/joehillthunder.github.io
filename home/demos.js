@@ -28,11 +28,11 @@ export const WINGS = [
     ],
   },
   {
-    id: 'ai',
-    name: 'AI Studio',
-    blurb: 'Talk to an agent and what it shows you appears on the display in real depth.',
-    floor: ['#4a3566', '#422f5c'],
-    accent: '#c08bff',
+    id: 'agents',
+    name: 'Agents',
+    blurb: 'Talk to an AI agent (Muse, an OpenAI dot, Claude) and what it shows you appears on the display in real depth.',
+    floor: ['#16241b', '#122017'],
+    accent: '#3dff7a',
     demos: [
       {
         id: 'muse',
