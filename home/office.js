@@ -1365,16 +1365,6 @@ async function startWoven() {
   const slider = document.getElementById('depth');
   slider.value = depth;
   slider.addEventListener('input', () => { depth = Number(slider.value); applyDepth(); });
-
-  // Reading the cards below the hero: put the panel in real 2D for sharp text, and back to 3D when
-  // the office scrolls into view (the SDK eases the disparity in and out).
-  let stereoOn = true;
-  new IntersectionObserver(([e]) => {
-    const want = e.intersectionRatio >= 0.25;
-    if (want === stereoOn) return;
-    stereoOn = want;
-    dxr.setStereoEnabled(want).catch(() => {});
-  }, { threshold: [0, 0.25, 0.5] }).observe(hero);
 }
 
 function backToFlat() {

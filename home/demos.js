@@ -1,5 +1,4 @@
-// Every DisplayXR demo on the site, grouped by topic. The office scene and the card list
-// below it both read from here, so adding a demo means adding one entry.
+// Every DisplayXR demo on the site, grouped by topic. The office scene reads from here, so adding a demo means adding one entry.
 
 export const WINGS = [
   {

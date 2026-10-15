@@ -4,8 +4,8 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 
 ## Repo layout and policy
 - **Hub only.** New demos get their own `displayxr-<name>` repo, served at `joehillthunder.github.io/displayxr-<name>/`, and the hub just links to them. Some older demos still live in folders here (`sugar-rush/`, `stereo-splat/`, `displayxr-demos/apps/energy-grid`, …). They're being split out with `git subtree split` plus redirect stubs; don't add new demos as folders.
-- `index.html`: the hero canvas, plus a card directory below it.
-- `home/demos.js`: `WINGS`, the single source for both the office and the cards. Each wing has `{ id, name, blurb, floor[2], accent, demos[] }`, and each demo has `{ id, name, desc, url, source, chatter[4] }`.
+- `index.html`: the office canvas, full screen with nothing below it (room plaques are the only navigation).
+- `home/demos.js`: `WINGS`, the single source for the office. Each wing has `{ id, name, blurb, floor[2], accent, demos[] }`, and each demo has `{ id, name, desc, url, source, chatter[4] }`.
 - `home/office.js`: the three.js 0.161 scene, loaded through the jsDelivr import map. The building is 40 × 28 m with four quadrant wings in `WINGS` order: back-left, back-right, front-left, front-right. A wing's rooms split its 18 m evenly.
   - `BUILD[demo.id](g, r)` is the room's set piece. Use `box`, `sphere` and `glow` and push per-frame animation to `animators`.
   - Set pieces are sized for rooms about 4.5 m wide and shrink automatically in narrower rooms. About 5 rooms per wing is the practical maximum.
