@@ -1,0 +1,5 @@
+# Python build and test leftovers from the gadget bridge
+__pycache__/
+*.egg-info/
+gadget/build/
+.pytest_cache/

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "muse-avatar"
+version = "0.1.0"
+description = "A 3D Muse avatar for glasses-free 3D displays: an extension of the Muse Linux gadget"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+# musegadget is Meta's Linux Device SDK, already installed in /opt/musegadget/venv
+# by its install.sh; this package is installed into that same venv.
+dependencies = ["websockets>=13"]
+
+[project.scripts]
+muse-avatar = "muse_avatar.__main__:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
