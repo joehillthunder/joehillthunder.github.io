@@ -144,42 +144,10 @@ export const WINGS = [
   {
     id: 'spatial-ui',
     name: 'Spatial UI/UX',
-    blurb: "Apple, Google and Samsung design languages on each company's current devices, plus three spatial UI concepts per brand in real depth.",
+    blurb: 'Interface experiments that use the tracked, glasses-free display: a different picture for each viewer.',
     floor: ['#2f5a45', '#2a503d'],
     accent: '#6fe0a4',
     demos: [
-      {
-        id: 'apple-ui',
-        name: 'Apple UI',
-        desc: 'Liquid Glass on nine current Apple devices, from iPhone 18 Pro and iPhone Duo to Vision Pro, plus three spatial concepts: glass layers, a volumetric Dynamic Island and visionOS-style ornaments.',
-        url: 'displayxr-spatial-ui/?brand=apple',
-        source: 'https://github.com/joehillthunder/displayxr-spatial-ui',
-        chatter: ['The dock floats in front of the glass', 'Island stack: music on top', 'Ornaments float, windows sink', 'Liquid Glass, now with real depth'],
-      },
-      {
-        id: 'google-ui',
-        name: 'Google UI',
-        desc: 'Material 3 Expressive on the Pixel 11 lineup, Pixel Watch, Chromebook, Google TV, Nest Hub and Android XR glasses, plus three spatial concepts: real elevation, shape-morph tiles and a Gemini space.',
-        url: 'displayxr-spatial-ui/?brand=google',
-        source: 'https://github.com/joehillthunder/displayxr-spatial-ui',
-        chatter: ['Elevation level 5 is really closer', 'That tile morphed into a cookie', 'Gemini fanned the answers out', 'Dynamic color from the wallpaper'],
-      },
-      {
-        id: 'samsung-ui',
-        name: 'Samsung UI',
-        desc: 'One UI 9 on the Galaxy S26 Ultra, Z Fold8, Z Flip8, Watch, Tab, Book, Neo QLED and Galaxy XR, plus three spatial concepts: a Now Bar deck, Edge Panels in depth and a 3D SmartThings map.',
-        url: 'displayxr-spatial-ui/?brand=samsung',
-        source: 'https://github.com/joehillthunder/displayxr-spatial-ui',
-        chatter: ['Now Bar deck, timer on top', 'Edge panel fanned out', 'Vacuum is mapping the kitchen', 'Fold it open for two panes'],
-      },
-      {
-        id: 'buttons',
-        name: '3D Buttons',
-        desc: 'Web buttons, tiles and a dock that rise out of the glass on hover.',
-        url: 'https://azbleia.github.io/ui-samples/',
-        source: 'https://github.com/azbleia',
-        chatter: ['These buttons rise out of the glass', 'Pop-out or recessed? Pick one', 'Tuning the hover depth', 'Dock icons in real depth'],
-      },
       {
         id: 'dual-view',
         name: 'Dual View',
