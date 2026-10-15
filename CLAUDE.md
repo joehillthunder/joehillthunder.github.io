@@ -15,7 +15,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 1. Training Center: Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, Flight Lines.
 2. AI Studio: Muse Voice, Dot Voice, Stereo Splat, Music Visualizer.
 3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall.
-4. Spatial UI/UX: Apple UI, Google UI, Samsung UI (all from `displayxr-spatial-ui/?brand=…`) 3D Buttons (azbleia.github.io/ui-samples) and Dual View.
+4. Spatial UI/UX: Apple UI, Google UI, Samsung UI (all from `displayxr-spatial-ui/?brand=…`) 3D Buttons (azbleia.github.io/ui-samples), Dual View and Privacy Display.
 
 ## Adding a demo
 1. Add an entry to the right wing in `home/demos.js`.
