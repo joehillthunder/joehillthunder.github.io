@@ -188,6 +188,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-dual-view',
         chatter: ['I see the map, you see the movie', 'Close one eye: A. Other eye: B', 'Two card hands, one screen', 'Menu in English for me, Español for you'],
       },
+      {
+        id: 'privacy',
+        name: 'Privacy Display',
+        desc: "Samsung's Privacy Display, rebuilt on eye tracking: private content shows only to the tracked owner inside a viewing cone, and stereo-only secrets look like noise to one eye, a bystander or a camera.",
+        url: 'displayxr-privacy-display/',
+        source: 'https://github.com/joehillthunder/displayxr-privacy-display',
+        chatter: ['Leaned in and it locked', 'Only my two eyes see the balance', 'One eye? Just noise', 'Keypad shuffled again'],
+      },
     ],
   },
 ];

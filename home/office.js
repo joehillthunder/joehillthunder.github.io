@@ -678,6 +678,40 @@ const BUILD = {
       });
     });
   },
+  privacy(g) {
+    // A 3D display with a green privacy cone over its owner. A bystander leans in from the side:
+    // the screen and the cone turn red and lock until they step back.
+    box(g, 2.4, 0.7, 1.0, '#3a3f4a', 0, 0, -0.5);
+    box(g, 0.14, 0.5, 0.14, '#222730', 0, 0.7, -0.75);
+    box(g, 1.7, 1.0, 0.08, '#14171f', 0, 1.2, -0.75);
+    const screen = glow('#6fe0a4', 0.8);
+    box(g, 1.56, 0.86, 0.02, screen, 0, 1.27, -0.7, { shadow: false });
+    const lock = box(g, 0.22, 0.18, 0.04, glow('#ffffff', 0.9), 0, 1.6, -0.67, { shadow: false });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85, 2.0, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#6fe0a4', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+    cone.rotation.x = -Math.PI / 2;               // apex at the screen, base at the owner
+    cone.position.set(0, 1.6, 0.3);
+    g.add(cone);
+    const owner = new THREE.Group();
+    owner.position.set(0, 0, 1.3);
+    g.add(owner);
+    box(owner, 0.42, 0.78, 0.3, '#3e7bff', 0, 0, 0);
+    sphere(owner, 0.21, '#f1c9a5', 0, 1.0, 0, 12);
+    const peeker = new THREE.Group();
+    g.add(peeker);
+    box(peeker, 0.4, 0.75, 0.28, '#9a6bff', 0, 0, 0);
+    sphere(peeker, 0.2, '#e0b48f', 0, 0.97, 0, 12);
+    const green = new THREE.Color('#6fe0a4'), red = new THREE.Color('#ff5d5d');
+    animators.push((t) => {
+      const p = (t % 8) / 8;                       // leans in for 40-75% of each loop
+      const lean = p > 0.4 && p < 0.75 ? Math.min(1, (p - 0.4) * 12, (0.75 - p) * 12) : 0;
+      peeker.position.set(1.7 - lean * 0.7, 0, 0.9 - lean * 0.2);
+      peeker.rotation.z = lean * 0.25;
+      const c = green.clone().lerp(red, lean);
+      screen.color.copy(c); screen.emissive.copy(c);
+      cone.material.color.copy(c);
+      lock.visible = lean > 0.5;
+    });
+  },
   buttons(g) {
     box(g, 3, 2, 0.15, '#1b2330', 0, 0.2, -0.3);
     const cols = ['#6fe0a4', '#4fd8ff', '#ffd34d', '#ff7ab8', '#c08bff', '#ff6b3b'];
