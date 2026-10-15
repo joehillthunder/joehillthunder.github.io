@@ -30,7 +30,12 @@ Fountain; find all five for a Perfect bonus.
 | Fizzy Dash | Shift / right click | X / RB / RT | DASH |
 | Pause | Esc / P | Start | Pause button |
 
-**Scoring:** wrapped candy 10, lollipop 25, truffle 50. Chain sweets within 1.6 s for a combo of up to
+**Blueberries:** three glowing blueberries hide just off the path (on a candy beside the foyer, over
+the river by the Wafer Bridge, beside the first kettle). Grab one and a blueberry bubble flies you
+further along the factory: to the Conveyor Hall, the Kettle Tower, or the fountain plaza. It's a
+shortcut with a price: you skip that stretch's sweets and its Golden Ticket.
+
+**Scoring:** blueberry 100, wrapped candy 10, lollipop 25, truffle 50. Chain sweets within 1.6 s for a combo of up to
 ×5. Golden Ticket 500. At the gate: a time bonus, 250 per life left, and 2,000 for all five tickets.
 Lollipop flags are checkpoints. Lives: Easy 5, Normal 3, Hard 2 (Hard also speeds up hazards). Your high
 score and best time are saved in this browser.
@@ -65,7 +70,8 @@ the camera rig's eye separation. The player stays on the screen plane at any set
   set), `player.js` (the animated candy apprentice), `textures.js` (every texture, drawn on canvases),
   `input.js` (keyboard, mouse, touch, gamepad), `sfx.js` (Web Audio).
 - `?dev` shows an fps counter and exposes a test hook. `?start` skips the title; `?at=<n>` starts
-  the run on platform `n` of the course (for screenshots and QA).
+  the run on platform `n` of the course; `?simulate=<s>` then runs the game `s` seconds with no input
+  before the first frame (for screenshots and QA: headless Chrome does not advance the animation loop).
 - Agent hook: `window.sugarRush.start_game(difficulty)`, `.set_difficulty('easy'|'normal'|'hard')`
   and `.show_score()`. These are not on a network bridge yet.
 - Three.js 0.180.0 from jsDelivr. The DisplayXR SDK is the copy vendored for Stereo Splat

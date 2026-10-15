@@ -48,6 +48,8 @@ export const sfx = {
   },
   ticket: () => [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.3, { type: 'triangle', gain: 0.11, delay: i * 0.08 })),
   checkpoint: () => [587, 880].forEach((f, i) => tone(f, 0.18, { type: 'sine', gain: 0.1, delay: i * 0.09 })),
+  warp: () => { tone(260, 0.9, { type: 'sine', gain: 0.12, slide: 900 }); tone(520, 0.9, { type: 'triangle', gain: 0.05, slide: 1400, delay: 0.1 }); },
+  pop: () => tone(900, 0.12, { type: 'sine', gain: 0.12, slide: -600 }),
   cloud: () => tone(330, 0.3, { type: 'sine', gain: 0.12, slide: 330 }),
   creak: () => tone(140, 0.3, { type: 'sawtooth', gain: 0.03, slide: -40 }),
   crumble: () => tone(90, 0.35, { type: 'square', gain: 0.05, slide: -50 }),

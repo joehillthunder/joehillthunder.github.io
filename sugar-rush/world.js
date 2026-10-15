@@ -79,6 +79,16 @@ const COURSE = [
   P(0, 13.2, -157.5, 3, 3, 'bar'),
   // The Grand Chocolate Fountain
   P(0, 13.4, -168, 13, 13, 'marble', 'plain', { checkpoint: true, h: 1.4, noTrail: true }),
+  // Added after the course was laid out (appended so the indices above stay put):
+  R(6.4, 0.6, -5, 1.1, 'fondant', 'plain', { main: false, tint: PALETTE.lilac }),                         // 34: blueberry 1
+];
+
+// Blueberries: grab one and a bubble carries you further along the course. A shortcut with a
+// price: you skip that stretch's sweets and its Golden Ticket. [x, y, z, destination platform]
+const BLUEBERRIES = [
+  [6.4, 1.9, -5, 9],          // Foyer side candy → Conveyor Hall checkpoint
+  [-4.6, 6.9, -79, 25],       // over the river by the Wafer Bridge → Kettle Tower checkpoint
+  [5.6, 12.9, -134, 33],      // beside the first kettle → the fountain plaza
 ];
 
 // The five Golden Tickets sit above these platforms (index into COURSE).
@@ -540,6 +550,38 @@ export function buildWorld(THREE) {
     return { i, mesh: g, card, halo, x: p.x, y, z: p.z, taken: false };
   });
 
+  // Blueberries: deep-blue gloss with a dusty bloom, a star-shaped crown, a leaf and a blue halo.
+  const berryMat = std({ color: 0x3346b8, roughness: 0.32, metalness: 0.05, emissive: 0x0d1450, emissiveIntensity: 0.6, envMapIntensity: 1.2 });
+  const crownMat = std({ color: 0x2a1f44, roughness: 0.6 });
+  const leafMat = std({ color: 0x4f9a4a, roughness: 0.5, side: THREE.DoubleSide });
+  const berryHalo = new THREE.SpriteMaterial({ map: TX.glow(), color: 0x7f9cff, transparent: true, opacity: 0.6, depthWrite: false });
+  const blueberries = BLUEBERRIES.map(([x, y, z, dest], i) => {
+    const g = new THREE.Group();
+    const berry = shadow(new THREE.Mesh(new THREE.SphereGeometry(0.38, 28, 20), berryMat));
+    berry.scale.y = 0.92;
+    g.add(berry);
+    for (let k = 0; k < 5; k++) {
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), crownMat);
+      const a = (k / 5) * Math.PI * 2;
+      tip.position.set(Math.cos(a) * 0.09, 0.36, Math.sin(a) * 0.09);
+      tip.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6);
+      g.add(tip);
+    }
+    const leaf = new THREE.Mesh(new THREE.CircleGeometry(0.16, 12), leafMat);
+    leaf.scale.set(1, 0.45, 1);
+    leaf.position.set(0.12, 0.4, 0);
+    leaf.rotation.set(-0.5, 0.4, 0.6);
+    g.add(leaf);
+    const halo = new THREE.Sprite(berryHalo.clone());
+    halo.scale.set(1.8, 1.8, 1);
+    g.add(halo);
+    g.position.set(x, y, z);
+    root.add(g);
+    const d = platforms[dest];
+    return { i, mesh: g, halo, x, y, z, taken: false,
+      to: { x: d.x, y: d.y + 0.01, z: d.z + (d.shape === 'round' ? 0 : d.d / 2 - 1.2) }, dest };
+  });
+
   // ---- the Grand Chocolate Fountain and the Golden Gate ------------------------------------------------
   const fountain = new THREE.Group();
   const plate = std({ color: 0xfff7ee, map: rep(TX.marble(), 1, 1), roughness: 0.15 });
@@ -617,7 +659,7 @@ export function buildWorld(THREE) {
   }
 
   return {
-    root, sun, platforms, posts, sweets, tickets, whisks, jawbreakers, fountain, spout, doors, gate,
+    root, sun, platforms, posts, sweets, tickets, blueberries, whisks, jawbreakers, fountain, spout, doors, gate,
     river: { map: riverMap, normal: riverNormal }, falls, fountainFlows, kettles, gears, dust, steamMat,
     PLAT_H,
   };
@@ -689,6 +731,12 @@ export function updateWorld(w, t, dt, k, ticketsHeld = 0) {
     tk.card.rotation.z = Math.sin(t * 2 + tk.i) * 0.15;
     tk.mesh.position.y = tk.y + Math.sin(t * 1.8 + tk.i) * 0.15;
     tk.halo.material.opacity = 0.5 + Math.sin(t * 3 + tk.i) * 0.2;
+  }
+  for (const b of w.blueberries) {
+    if (b.taken) continue;
+    b.mesh.rotation.y = t * 1.2 + b.i;
+    b.mesh.position.y = b.y + Math.sin(t * 2.2 + b.i * 2) * 0.14;
+    b.halo.material.opacity = 0.45 + Math.sin(t * 3.4 + b.i) * 0.2;
   }
   w.spout.position.y = 2.75 + Math.sin(t * 3) * 0.1;
   // Chocolate flows: the river runs toward the viewer; falls and fountain pour down.
