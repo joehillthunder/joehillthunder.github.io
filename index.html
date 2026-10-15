@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DisplayXR Demos</title>
+  <meta name="description" content="Joe Hill's DisplayXR demos: web apps in glasses-free 3D on Leia displays, and in 2D in any browser.">
+  <style>
+    :root {
+      --bg: #12151c;
+      --panel: #1b2029;
+      --panel-2: #222835;
+      --line: #2f3746;
+      --text: #ebe7df;
+      --muted: #a6a39b;
+      --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    a { color: inherit; }
+
+    /* ---------- hero ---------- */
+    .hero {
+      position: relative;
+      height: min(92vh, 900px);
+      min-height: 540px;
+      overflow: hidden;
+      background: linear-gradient(#8ec1e2, #c7e2ef 55%, #d9ecf2);
+    }
+    #office { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .labels > *, .tags > * { position: absolute; left: 0; top: 0; will-change: transform; }
+
+    .plaque {
+      pointer-events: auto;
+      margin: 0;
+      translate: -50% -100%;
+      padding: 3px 9px 4px;
+      background: rgba(20, 22, 28, .78);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-left: 3px solid var(--accent, #999);
+      border-radius: 3px;
+      font: 600 11px/1.15 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: #ece8de;
+      white-space: nowrap;
+      text-align: center;
+      transition: background .15s, color .15s, scale .15s;
+    }
+    .plaque small { display: block; font-size: 8.5px; font-weight: 500; letter-spacing: .14em; color: var(--accent); opacity: .85; }
+    .plaque.hot, .plaque:hover, .plaque:focus-visible {
+      background: rgba(20, 22, 28, .95);
+      color: #fff;
+      scale: 1.08;
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .plaque.hot span::after, .plaque:hover span::after { content: " \2192"; }
+    .plaque-static { pointer-events: none; opacity: .7; border-left-color: #888; }
+
+    .tag {
+      translate: -50% -100%;
+      padding: 0 4px;
+      background: rgba(20, 22, 28, .7);
+      border-radius: 2px;
+      font: 600 8.5px/1.4 var(--mono);
+      color: #e6e2d8;
+      white-space: nowrap;
+    }
+    .bubble {
+      translate: -50% -100%;
+      max-width: 190px;
+      padding: 5px 9px;
+      background: #fbf8f1;
+      color: #2a2620;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+      font: 500 11px/1.3 var(--mono);
+      text-align: center;
+      animation: pop .25s ease-out;
+      width: max-content;
+    }
+    .bubble::after {
+      content: "";
+      position: absolute;
+      left: 50%; bottom: -5px;
+      margin-left: -5px;
+      border: 5px solid transparent;
+      border-bottom: 0;
+      border-top-color: #fbf8f1;
+    }
+    @keyframes pop { from { opacity: 0; scale: .7; } }
+
+    .hero-title {
+      position: absolute; left: 24px; top: 20px;
+      max-width: 340px;
+      padding: 14px 16px;
+      background: rgba(18, 21, 28, .72);
+      border-radius: 8px;
+      backdrop-filter: blur(6px);
+    }
+    .hero-title h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: .01em; }
+    .hero-title p { margin: 0; color: #cfcbc2; font-size: 13.5px; }
+    .eyebrow { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: #9fb7c9 !important; margin-bottom: 4px !important; }
+
+    .feed, .legend {
+      position: absolute; bottom: 16px;
+      padding: 10px 12px;
+      background: rgba(18, 21, 28, .8);
+      border-radius: 6px;
+      font: 11.5px/1.45 var(--mono);
+      color: #d6d2c8;
+    }
+    .feed { left: 16px; width: min(440px, calc(100% - 32px)); }
+    .feed h2, .legend h2 { margin: 0 0 4px; font-size: 10px; letter-spacing: .16em; color: #8f9aa8; font-weight: 600; }
+    .feed ol { list-style: none; margin: 0; padding: 0; min-height: 3.6em; }
+    .feed li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: pop .3s ease-out; }
+    .feed b { color: var(--accent); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; margin-right: 4px; }
+    .legend { right: 16px; max-width: 280px; }
+    .legend p { margin: 0; }
+
+    .hero.narrow .tag { display: none; }
+    .hero.narrow .legend { display: none; }
+    .hero.narrow .plaque { font-size: 9px; padding: 2px 6px; }
+    .hero.narrow .plaque small { display: none; }
+    .hero.narrow .hero-title { left: 16px; right: 16px; top: 12px; max-width: none; padding: 10px 12px; }
+    .hero.narrow .hero-title h1 { font-size: 18px; }
+    .hero.narrow .bubble { font-size: 10px; max-width: 150px; }
+    .hero.no-webgl #office, .hero.no-webgl .labels, .hero.no-webgl .feed, .hero.no-webgl .legend { display: none; }
+    @media (max-width: 699px) { .hero { height: 78vh; min-height: 480px; } }
+
+    /* ---------- directory ---------- */
+    main { max-width: 1100px; margin: 0 auto; padding: 48px 16px 24px; }
+    .intro { max-width: 680px; color: var(--muted); margin: 0 0 36px; }
+    .intro strong { color: var(--text); }
+    .wing { margin: 0 0 40px; }
+    .wing h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; font-size: 20px; }
+    .wing h2::before { content: ""; width: 12px; height: 12px; border-radius: 2px; background: var(--accent); flex: none; align-self: center; }
+    .wing > p { margin: 0 0 16px; color: var(--muted); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .card {
+      display: flex; flex-direction: column;
+      padding: 16px 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--accent);
+      border-radius: 8px;
+      transition: background .15s, transform .15s;
+    }
+    .card:hover { background: var(--panel-2); transform: translateY(-2px); }
+    .card h3 { margin: 0 0 6px; font-size: 17px; }
+    .card p { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; flex: 1; }
+    .card .links { display: flex; gap: 16px; font-size: 14px; }
+    .card .open { font-weight: 600; color: var(--accent); text-decoration: none; }
+    .card .open:hover { text-decoration: underline; }
+    .card .src { color: var(--muted); }
+    footer { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <header class="hero" id="hq">
+    <canvas id="office" aria-label="An animated office where each DisplayXR demo is a room" role="img"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="hero-title">
+      <p class="eyebrow">Joe Hill · DisplayXR</p>
+      <h1>DisplayXR Demos</h1>
+      <p>Glasses-free 3D on Leia displays. Click a room's name to step inside.</p>
+    </div>
+    <aside class="feed" aria-live="off"><h2>ACTIVITY</h2><ol id="feed"></ol></aside>
+    <aside class="legend">
+      <h2>HOW TO VIEW</h2>
+      <p>Open a demo in the DisplayXR Browser on a 3D display for real depth. Every demo also runs in 2D in any browser.</p>
+    </aside>
+  </header>
+
+  <main>
+    <p class="intro">Each room is a web app built on the <strong>DisplayXR inline-3D SDK</strong>. On a glasses-free 3D display it renders in depth; everywhere else it falls back to 2D.</p>
+    <div id="directory"></div>
+  </main>
+  <footer>
+    More: <a href="displayxr-demos/">displayxr-demos monorepo</a> · <a href="https://github.com/joehillthunder">github.com/joehillthunder</a>
+  </footer>
+
+  <script type="module">
+    import { WINGS } from './home/demos.js';
+    const dir = document.getElementById('directory');
+    const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    dir.innerHTML = WINGS.map((w) => `
+      <section class="wing" id="${w.id}" style="--accent:${w.accent}">
+        <h2>${esc(w.name)}</h2>
+        <p>${esc(w.blurb)}</p>
+        <div class="cards">${w.demos.map((d) => `
+          <article class="card">
+            <h3>${esc(d.name)}</h3>
+            <p>${esc(d.desc)}</p>
+            <div class="links"><a class="open" href="${d.url}">Open demo →</a><a class="src" href="${d.source}">Source</a></div>
+          </article>`).join('')}
+        </div>
+      </section>`).join('');
+  </script>
+  <script type="module" src="home/office.js"></script>
+</body>
+</html>
