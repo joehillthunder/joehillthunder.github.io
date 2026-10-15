@@ -147,6 +147,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-aetherfall',
         chatter: ['Build an extractor on that geyser!', 'Our hero hit level 3', 'The Aether Wyrm is awake', 'Ironfang raiders at the ford!'],
       },
+      {
+        id: 'street-brawl',
+        name: 'Street Brawl 3D',
+        desc: 'A street fighting game with ten fighters, specials and supers: 1 vs 1, vs bot, or a nine-stage arcade ladder to the Demon Master. Sparks, shockwaves and POW! words fly out of the screen.',
+        url: 'displayxr-street-brawl/',
+        source: 'https://github.com/joehillthunder/displayxr-street-brawl',
+        chatter: ['Rising Flame, KO!', 'Down plus special for the uppercut', 'Stage 9: Oni Kaze is brutal', 'That POW came right out of the glass'],
+      },
     ],
   },
   {
