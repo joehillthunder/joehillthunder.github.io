@@ -15,10 +15,21 @@
     </div>
     <nav class="views" aria-label="Views">
       <button data-view="map" class="on"><kbd>1</kbd> Grid map</button>
-      <button data-view="twin"><kbd>2</kbd> Substation twin</button>
-      <button id="btn-whatif"><kbd>3</kbd> What-if: one year</button>
+      <button data-view="twin"><kbd>2</kbd> Substation</button>
+      <button data-view="mg"><kbd>3</kbd> Microgrid yard</button>
+      <button id="btn-whatif"><kbd>4</kbd> What-if</button>
       <button id="btn-reset"><kbd>R</kbd> Reset</button>
     </nav>
+    <nav class="angles" aria-label="Camera">
+      <button data-angle="overview" class="on"><kbd>O</kbd>Overview</button>
+      <button data-angle="eye"><kbd>E</kbd>Eye level</button>
+      <button data-angle="top"><kbd>T</kbd>Top</button>
+    </nav>
+    <label id="depth-wrap" class="depth">
+      <span>3D depth</span>
+      <input id="depth" type="range" min="0" max="200" step="5" value="100" aria-label="3D depth">
+      <output id="depth-val">100%</output>
+    </label>
     <div class="clock"><span id="clock">--:--</span><span id="mode-tag" class="tag">Explore</span></div>
   </header>
 

@@ -3,14 +3,21 @@
 // Units: the network's (x, z) positions span about 1.5 x 0.6 "map units"; heights are in the same
 // units. app.js scales the whole diorama into the virtual display, so nothing here knows about
 // metres or the screen.
+//
+// Realism comes from procedural textures (textures.js) and geometry detail (kit.js): terrain,
+// roads, trees, three-phase conductors on lattice towers and wood poles, textured buildings whose
+// windows light when the customer has power. Colour that carries meaning (ISA-101) is unchanged.
 
 import { T } from './theme.js';
+import { Kit } from './kit.js';
+import * as TX from './textures.js';
 
 const H_TX = 0.065;     // transmission conductor height
 const H_DIST = 0.03;    // distribution conductor height
 // Map compaction: bus positions are pulled together so equipment reads larger relative to the map.
 export const K = 0.72;
 export const MAP_W = 1.26, MAP_D = 0.66;
+const SLAB_H = 0.05;    // diorama base thickness (soil cross-section on the sides)
 
 // Deterministic pseudo-random, so the town looks the same every run.
 function rng(seed) {
@@ -23,21 +30,24 @@ export class GridScene {
     this.THREE = THREE;
     this.net = net;
     this.root = new THREE.Group();        // the diorama; app.js poses and scales it
-    this.pickables = [];
+    this.kit = new Kit(THREE, this.root);
+    this.pickables = this.kit.pickables;
     this.lines = {};                       // branch id -> {curve, tube, mat, len, ...}
     this.markers = {};                     // branch id -> status marker group
     this.fciFlags = {};
-    this.loadMats = {};                    // load id -> window material
-    this.loadBodies = {};
+    this.loadMats = {};                    // load id -> [window/facade materials]
     this.billboards = [];
     this.spinners = [];
+    this.plumes = [];
     this.pvMats = {};
     this.matCache = new Map();
     this.particlePhase = {};
+    this.occupied = [];                    // [x, z, r] footprints trees must avoid
     this.selected = null;
     this.riskBars = {};
     this.time = 0;
     this._build();
+    this.kit.enableShadows();
   }
 
   // ---- helpers ------------------------------------------------------------------------------
@@ -75,28 +85,56 @@ export class GridScene {
     return new this.THREE.Vector3(p[0] * K, 0, p[1] * K);
   }
 
+  // A building facade whose windows glow when the load is served.
+  facadeMat(kind, repeat = [1, 1], tint = 0xffffff) {
+    const F = TX.facade(kind);
+    const map = F.map.clone(), em = F.emissive.clone();
+    for (const t of [map, em]) { t.repeat.set(repeat[0], repeat[1]); t.needsUpdate = true; }
+    const m = new this.THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: T.window, emissiveIntensity: 0.9,
+      color: tint, roughness: 0.8, metalness: 0.05 });
+    m.userData.facade = true;
+    return m;
+  }
+
+  addLoadMat(id, m) {
+    (this.loadMats[id] ||= []).push(m);
+    return m;
+  }
+
+  // A flat strip along a curve: roads, river, banks. u runs along the strip.
+  ribbon(points, width, material, y, uPerUnit) {
+    const THREE = this.THREE;
+    const curve = new THREE.CatmullRomCurve3(points);
+    const n = Math.max(8, Math.round(curve.getLength() / 0.006));
+    const pos = [], uv = [], idx = [];
+    let dist = 0, prev = null;
+    for (let i = 0; i <= n; i++) {
+      const p = curve.getPointAt(i / n), t = curve.getTangentAt(i / n);
+      if (prev) dist += p.distanceTo(prev);
+      prev = p;
+      const px = -t.z, pz = t.x, l = Math.hypot(px, pz) || 1;
+      pos.push(p.x + (px / l) * width / 2, y, p.z + (pz / l) * width / 2, p.x - (px / l) * width / 2, y, p.z - (pz / l) * width / 2);
+      uv.push(dist * uPerUnit, 1, dist * uPerUnit, 0);
+      if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    // Strips are built clockwise from above; make sure the normal points up.
+    if (g.attributes.normal.getY(0) < 0) {
+      g.setIndex(idx.map((v, i) => idx[i - (i % 3) + (2 - (i % 3))]));
+      g.computeVertexNormals();
+    }
+    const mesh = new THREE.Mesh(g, material);
+    this.root.add(mesh);
+    return mesh;
+  }
+
   // ---- build --------------------------------------------------------------------------------
   _build() {
-    const THREE = this.THREE;
-    // Table slab and terrain accents.
-    const slab = this.box(MAP_W, 0.03, MAP_D, this.mat(T.slab), 0, -0.015, 0);
-    slab.receiveShadow = true;
-    this.box(MAP_W + 0.02, 0.012, MAP_D + 0.02, this.mat(T.slabEdge), 0, -0.033, 0);
-    // A river across the map for orientation.
-    const river = new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.62, 0.001, 0.31), new THREE.Vector3(-0.3, 0.001, 0.29),
-        new THREE.Vector3(0.0, 0.001, 0.312), new THREE.Vector3(0.3, 0.001, 0.305),
-        new THREE.Vector3(0.62, 0.001, 0.29)]), 40, 0.014, 6, false),
-      this.mat(T.water, { roughness: 0.3 }));
-    river.scale.y = 0.08;
-    this.root.add(river);
-    // Faint district grid.
-    const grid = new THREE.GridHelper(MAP_W, 28, 0x3a434c, 0x30373f);
-    grid.position.y = 0.0005;
-    grid.scale.z = MAP_D / MAP_W;
-    this.root.add(grid);
-
+    this._buildTerrain();
     this._buildBulk();
     this._buildSubstation();
     for (const [id, b] of Object.entries(this.net.branches)) {
@@ -106,72 +144,142 @@ export class GridScene {
     this._buildLoads();
     this._buildPV();
     this._buildMicrogrid();
+    this._buildRoads();
+    this._buildTrees();
     this._buildParticles();
     this._buildEffects();
   }
 
+  _buildTerrain() {
+    const THREE = this.THREE, kit = this.kit;
+    // Diorama base: grass on top, a soil cross-section on the sides.
+    const soil = kit.surface('soil', [10, 1]);
+    const top = kit.surface('grass', [7, 3.6]);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(MAP_W, SLAB_H, MAP_D), [soil, soil, top, soil, soil, soil]);
+    slab.position.y = -SLAB_H / 2;
+    this.root.add(slab);
+    this.box(MAP_W + 0.016, 0.008, MAP_D + 0.016, this.mat(0x23292f, { roughness: 0.6 }), 0, -SLAB_H - 0.004, 0);
+    // River across the front, with darker banks.
+    const rp = [[-0.63, 0.31], [-0.3, 0.29], [0.0, 0.312], [0.3, 0.305], [0.63, 0.29]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+    this.ribbon(rp, 0.05, this.mat(0x4a4030, { roughness: 1 }), 0.0004, 10);
+    this.ribbon(rp, 0.03, kit.surface('water', [1, 1]), 0.0009, 12);
+    this.occupied.push(...rp.map((p) => [p.x, p.z, 0.04]));
+    // Farm fields in the open corners.
+    for (const [x0, z0, x1, z1, rot] of [[0.43, -0.31, 0.61, -0.17, 0], [-0.61, 0.1, -0.4, 0.24, 0.3], [-0.31, -0.31, -0.15, -0.21, 1.4]]) {
+      const w = x1 - x0, d = z1 - z0;
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), kit.surface('crops', [w * 6, d * 6]));
+      f.rotation.set(-Math.PI / 2, 0, rot * 0.1);
+      f.position.set((x0 + x1) / 2, 0.0006, (z0 + z1) / 2);
+      this.root.add(f);
+      this.occupied.push([(x0 + x1) / 2, (z0 + z1) / 2, Math.max(w, d) * 0.6]);
+    }
+  }
+
   _buildBulk() {
+    const THREE = this.THREE, kit = this.kit;
     const p = this.busPos('bulk');
-    const g = new this.THREE.Group();
+    const g = new THREE.Group();
     g.position.copy(p);
     this.root.add(g);
-    // Gas plant: turbine hall + two stacks.
-    this.pick(this.box(0.08, 0.035, 0.05, this.mat(T.equipDark), -0.02, 0.0175, 0.02, g), 'bulk');
-    this.pick(this.cyl(0.006, 0.008, 0.09, this.mat(T.equip), 0.03, 0.045, 0.03, g), 'bulk');
-    this.pick(this.cyl(0.006, 0.008, 0.09, this.mat(T.equip), 0.045, 0.045, 0.018, g), 'bulk');
+    this.occupied.push([p.x, p.z + 0.02, 0.1]);
+    const it = 'bulk';
+    // Combined-cycle gas plant: pad, turbine hall, two heat-recovery boilers with stacks.
+    kit.box(0.15, 0.003, 0.1, kit.surface('concrete', [4, 3]), -0.02, 0.0015, 0.03, it, g);
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.035),
+      [kit.corrugated(0x9ba4ab, [3, 1]), kit.corrugated(0x9ba4ab, [3, 1]), kit.surface('flatroof', [2, 1]),
+        kit.corrugated(0x9ba4ab, [3, 1]), kit.corrugated(0x9ba4ab, [6, 1]), kit.corrugated(0x9ba4ab, [6, 1])]);
+    hall.position.set(-0.025, 0.015, 0.032);
+    g.add(this.pick(hall, it));
+    for (const z of [0.018, 0.046]) {
+      kit.box(0.034, 0.04, 0.013, kit.painted(0x7e878e), 0.022, 0.02, z, it, g);
+      kit.cyl(0.0045, 0.005, 0.1, kit.painted(0xb4b9bd, [1, 3]), 0.045, 0.05, z, it, g, 14);
+      kit.cyl(0.0047, 0.0047, 0.006, this.mat(0xb03a2e), 0.045, 0.094, z, null, g, 14);
+      const plume = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0xe9eef2, transparent: true, opacity: 0.0, depthWrite: false, roughness: 1 }));
+      plume.position.set(0.045, 0.105, z);
+      g.add(plume);
+      this.plumes.push({ mesh: plume, x: 0.045, y: 0.105, z, rate: 0.6, size: 0.6 });
+    }
+    // Hyperbolic cooling tower with a steam plume.
+    const prof = [];
+    for (let i = 0; i <= 12; i++) {
+      const y = (i / 12) * 0.07, t = (y - 0.05) / 0.03;
+      prof.push(new THREE.Vector2(0.018 * Math.sqrt(1 + t * t), y));
+    }
+    const tower = new THREE.Mesh(new THREE.LatheGeometry(prof, 32),
+      kit.surface('concrete', [6, 2], { side: THREE.DoubleSide }));
+    tower.position.set(-0.085, 0, 0.065);
+    g.add(this.pick(tower, it));
+    for (let k = 0; k < 4; k++) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.016, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xf2f5f7, transparent: true, opacity: 0.0, depthWrite: false, roughness: 1 }));
+      g.add(s);
+      this.plumes.push({ mesh: s, x: -0.085, y: 0.075, z: 0.065, rate: 0.35, size: 1, phase: k / 4 });
+    }
     // Wind farm on the ridge behind.
+    const white = this.mat(0xe4e8ec, { roughness: 0.5 });
     for (let i = 0; i < 4; i++) {
-      const t = new this.THREE.Group();
+      const t = new THREE.Group();
       t.position.set(-0.05 + i * 0.045, 0, -0.07 + (i % 2) * 0.02);
       g.add(t);
-      this.cyl(0.0012, 0.0024, 0.1, this.mat(0xd7dde3), 0, 0.05, 0, t);
-      const hub = new this.THREE.Group();
-      hub.position.set(0, 0.1, 0.004);
+      this.pick(this.cyl(0.0011, 0.0024, 0.1, white, 0, 0.05, 0, t, 10), it);
+      this.box(0.004, 0.0035, 0.009, white, 0, 0.101, -0.001, t);
+      const hub = new THREE.Group();
+      hub.position.set(0, 0.101, 0.0045);
       t.add(hub);
+      this.cyl(0.0018, 0.0018, 0.002, white, 0, 0, 0, hub, 10).rotation.x = Math.PI / 2;
       for (let k = 0; k < 3; k++) {
-        const blade = this.box(0.0025, 0.045, 0.0008, this.mat(0xe8edf1), 0, 0.022, 0, new this.THREE.Group());
-        const arm = blade.parent;
+        const arm = new THREE.Group();
         arm.rotation.z = (k * 2 * Math.PI) / 3;
         hub.add(arm);
+        const blade = this.cyl(0.0006, 0.0018, 0.045, white, 0, 0.0235, 0, arm, 6);
+        blade.scale.z = 0.35;
       }
       this.spinners.push({ obj: hub, speed: 1.6 + i * 0.2 });
-      this.pick(t.children[0], 'bulk');
     }
   }
 
   _buildSubstation() {
+    const THREE = this.THREE, kit = this.kit;
     const a = this.busPos('sub_hv'), b = this.busPos('sub_lv');
     const c = a.clone().add(b).multiplyScalar(0.5);
-    const g = new this.THREE.Group();
+    const g = new THREE.Group();
     g.position.copy(c);
     this.root.add(g);
     this.subGroup = g;
-    // Gravel pad + fence posts.
-    this.pick(this.box(0.16, 0.004, 0.12, this.mat(0x3b4148), 0, 0.002, 0, g), 'sub_lv');
-    const fence = this.mat(0x6b747d);
-    for (let i = 0; i <= 8; i++) {
-      for (const z of [-0.06, 0.06]) this.box(0.0012, 0.012, 0.0012, fence, -0.08 + i * 0.02, 0.006, z, g);
-    }
-    for (let i = 0; i <= 6; i++) {
-      for (const x of [-0.08, 0.08]) this.box(0.0012, 0.012, 0.0012, fence, x, 0.006, -0.06 + i * 0.02, g);
-    }
-    // Power transformer: tank, radiators, bushings.
-    const tank = this.box(0.04, 0.032, 0.03, this.mat(0x7c868f, { metalness: 0.3 }), -0.01, 0.02, 0, g);
-    this.pick(tank, 'XFMR');
-    for (let i = 0; i < 5; i++) this.pick(this.box(0.002, 0.026, 0.016, this.mat(0x6a737b), -0.035 - i * 0.0035, 0.018, 0, g), 'XFMR');
+    this.occupied.push([c.x, c.z, 0.11]);
+    // Gravel yard, chain-link fence and a warning sign at the gate.
+    this.pick(kit.box(0.16, 0.004, 0.12, kit.surface('gravel', [3, 2.2]), 0, 0.002, 0, null, g), 'sub_lv');
+    const F = 0.013;
+    kit.fence([-0.08, -0.06], [0.08, -0.06], F, 'sub_lv', g, 0.02);
+    kit.fence([0.08, -0.06], [0.08, 0.06], F, 'sub_lv', g, 0.02);
+    kit.fence([0.08, 0.06], [-0.08, 0.06], F, 'sub_lv', g, 0.02);
+    kit.fence([-0.08, 0.06], [-0.08, -0.06], F, 'sub_lv', g, 0.02);
+    kit.plaque(TX.sign('DANGER', ['HIGH VOLTAGE', 'KEEP OUT']), 0.016, 0.01, 0.03, 0.007, 0.0606, 'sub_lv', g);
+    // Power transformer: textured tank on a concrete pad, radiator banks, conservator, bushings.
+    kit.box(0.06, 0.003, 0.046, kit.surface('concrete'), -0.01, 0.0055, 0, 'XFMR', g);
+    const tank = kit.box(0.04, 0.03, 0.028, kit.painted(0x8d969d), -0.01, 0.022, 0, 'XFMR', g);
+    for (const z of [-0.019, 0.019]) kit.box(0.032, 0.024, 0.008, kit.corrugated(0x7f888f, [6, 1]), -0.01, 0.02, z, 'XFMR', g);
+    const cons = kit.cyl(0.004, 0.004, 0.026, kit.painted(0x8d969d), -0.016, 0.043, -0.008, 'XFMR', g, 12);
+    cons.rotation.z = Math.PI / 2;
     for (let i = 0; i < 3; i++) {
-      this.cyl(0.0018, 0.0026, 0.02, this.mat(0xb8714a), -0.02 + i * 0.01, 0.046, -0.008, g, 8);  // HV bushings
-      this.cyl(0.0014, 0.002, 0.01, this.mat(0xb8714a), -0.02 + i * 0.01, 0.041, 0.01, g, 8);    // LV bushings
+      kit.insulator(-0.022 + i * 0.01, 0.037, 0.004, 0.018, 0.0022, 'XFMR', { parent: g });   // HV bushings
+      kit.insulator(-0.002 + i * 0.006, 0.037, -0.006, 0.008, 0.0016, 'XFMR', { parent: g }); // LV bushings
     }
     this.xfmrTank = tank;
-    // HV steel structure.
-    const steel = this.mat(0x9aa3ab, { metalness: 0.5 });
-    for (const x of [-0.06, -0.035]) this.box(0.002, 0.06, 0.002, steel, x - 0.01, 0.03, -0.04, g);
-    this.box(0.03, 0.002, 0.002, steel, -0.0575, 0.06, -0.04, g);
-    // LV switchgear lineup (feeder breakers live here).
-    this.box(0.05, 0.022, 0.016, this.mat(0x737d86), 0.045, 0.011, 0.025, g);
-    // Control house.
-    this.box(0.035, 0.02, 0.025, this.mat(0x59626b), 0.05, 0.01, -0.03, g);
+    // HV dead-end structure where the line lands (lattice columns + beam).
+    const galv = kit.surface('galv');
+    kit.lattice(-0.07, -0.06, 0.06, 0.0035, 0.0025, galv, 'sub_hv', g, 3, 0.0012);
+    kit.lattice(-0.07, -0.02, 0.06, 0.0035, 0.0025, galv, 'sub_hv', g, 3, 0.0012);
+    kit.strut([-0.07, 0.06, -0.064], [-0.07, 0.06, -0.016], 0.002, galv, 'sub_hv', g);
+    // LV bus on short steel stands, switchgear lineup, control house.
+    for (const x of [0.02, 0.06]) kit.lattice(x, 0.0, 0.026, 0.0025, 0.002, galv, 'sub_lv', g, 2, 0.001);
+    kit.strut([0.02, 0.027, 0], [0.06, 0.027, 0], 0.0018, this.mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 }), 'sub_lv', g);
+    kit.box(0.05, 0.022, 0.016, kit.painted(0x9aa2a8, [2, 1]), 0.045, 0.011, 0.025, 'sub_lv', g);
+    const house = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.02, 0.025),
+      [kit.painted(0xb7ab92), kit.painted(0xb7ab92), kit.surface('flatroof'), kit.painted(0xb7ab92), kit.painted(0xb7ab92), kit.painted(0xb7ab92)]);
+    house.position.set(0.05, 0.01, -0.03);
+    g.add(this.pick(house, 'sub_lv'));
   }
 
   _branchCurve(id, b) {
@@ -190,42 +298,71 @@ export class GridScene {
     const spans = Math.max(1, Math.round(len / (b.kind === 'tline' ? 0.09 : 0.055)));
     const supports = [];
     for (let i = 0; i <= spans; i++) supports.push(A.clone().lerp(B, i / spans).setY(h));
-    const pts = [];
     const sag = b.kind === 'tline' ? 0.012 : 0.006;
-    for (let i = 0; i < spans; i++) {
-      pts.push(supports[i]);
-      pts.push(supports[i].clone().lerp(supports[i + 1], 0.5).setY(h - sag));
-    }
-    pts.push(supports[spans]);
-    return { curve: new THREE.CatmullRomCurve3(pts), supports, len, h };
+    const along = (off) => {
+      const pts = [];
+      for (let i = 0; i < spans; i++) {
+        pts.push(supports[i].clone().add(off));
+        pts.push(supports[i].clone().lerp(supports[i + 1], 0.5).setY(h - sag).add(off));
+      }
+      pts.push(supports[spans].clone().add(off));
+      return new THREE.CatmullRomCurve3(pts);
+    };
+    const dir = B.clone().sub(A).setY(0).normalize();
+    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+    return { curve: along(new THREE.Vector3()), along, supports, len, h, dir, perp };
   }
 
   _buildBranch(id, b) {
-    const THREE = this.THREE;
-    const { curve, supports, len, h } = this._branchCurve(id, b);
+    const THREE = this.THREE, kit = this.kit;
+    const { curve, along, supports, len, h, dir, perp } = this._branchCurve(id, b);
     const tint = b.kind === 'tline' ? T.kv115 : T.kv12;
-    const mat = this.mat(tint, { unique: true, roughness: 0.5, emissive: tint, emissiveIntensity: 0.15 });
-    const r = b.kind === 'tline' ? 0.0022 : 0.0015;
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(16, supports.length * 8), r, 6, false), mat);
-    this.root.add(tube);
+    const mat = this.mat(tint, { unique: true, roughness: 0.4, metalness: 0.5, emissive: tint, emissiveIntensity: 0.15 });
+    const r = b.kind === 'tline' ? 0.0014 : 0.001;
+    const spread = b.kind === 'tline' ? 0.011 : 0.0055;
+    // Three phase conductors; all share the status material so colour still means state.
+    let tube = null;
+    for (const k of [-1, 0, 1]) {
+      const c = k === 0 ? curve : along(perp.clone().multiplyScalar(k * spread));
+      const t = new THREE.Mesh(new THREE.TubeGeometry(c, Math.max(16, supports.length * 8), r, 6, false), mat);
+      t.userData.noShadow = true;
+      this.root.add(t);
+      if (k === 0) tube = t;
+    }
     // Fat invisible tube for picking: thin wires are hard to hit.
-    const hit = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.012, 6, false),
+    const hit = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.014, 6, false),
       new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
     this.root.add(this.pick(hit, id));
+    for (let i = 1; i < 16; i++) {
+      const p = curve.getPointAt(i / 16);
+      this.occupied.push([p.x, p.z, 0.016]);
+    }
 
-    // Supports: lattice towers for transmission, wood poles for distribution.
+    const yaw = -Math.atan2(dir.z, dir.x);
     if (b.kind === 'tline') {
-      const steel = this.mat(0x9aa3ab, { metalness: 0.5 });
+      // Galvanized lattice towers with a crossarm and three insulator strings.
+      const galv = kit.surface('galv');
       for (const s of supports.slice(1, -1)) {
-        this.cyl(0.0018, 0.0065, h, steel, s.x, h / 2, s.z, this.root, 4);
-        this.box(0.03, 0.0016, 0.0016, steel, s.x, h, s.z);
+        const tw = kit.lattice(s.x, s.z, h + 0.006, 0.006, 0.0018, galv, id, this.root, 4, 0.0011);
+        tw.rotation.y = yaw;
+        kit.strut([0, h + 0.006, -0.015], [0, h + 0.006, 0.015], 0.0016, galv, id, tw);
+        for (const k of [-1, 0, 1]) kit.insulator(0, h, k * spread, 0.006, 0.0011, null, { color: 0x6f8a94, parent: tw, sheds: 5 });
       }
     } else if (b.kind === 'line') {
-      const wood = this.mat(0x7a6650);
-      for (const s of supports.slice(1, -1)) {
-        this.cyl(0.0011, 0.0014, h + 0.004, wood, s.x, (h + 0.004) / 2, s.z, this.root, 6);
-        this.box(0.014, 0.0012, 0.0012, wood, s.x, h + 0.001, s.z);
-      }
+      // Wood poles with a crossarm, pin insulators, and a pole-top transformer every few spans.
+      const wood = kit.surface('wood', [1, 4]);
+      supports.slice(1, -1).forEach((s, i) => {
+        const pole = new THREE.Group();
+        pole.position.set(s.x, 0, s.z);
+        pole.rotation.y = yaw;
+        this.root.add(pole);
+        kit.cyl(0.0011, 0.0015, h + 0.005, wood, 0, (h + 0.005) / 2, 0, id, pole, 8);
+        kit.box(0.0014, 0.0014, 0.015, wood, 0, h - 0.0005, 0, id, pole);
+        for (const k of [-1, 0, 1]) kit.insulator(0, h - 0.0005, k * spread, 0.0028, 0.0009, null, { color: 0x6f7f74, parent: pole, sheds: 2 });
+        if (i % 3 === 1) {
+          kit.cyl(0.0022, 0.0022, 0.005, kit.painted(0x8a9399), 0.0025, h - 0.008, 0, id, pole, 10);
+        }
+      });
     }
     // Switching devices: a status marker. Shape carries state: filled = closed, hollow = open.
     if (b.kind === 'breaker' || b.kind === 'switch') {
@@ -244,9 +381,10 @@ export class GridScene {
       const fill = this.box(S - W, S - W, 0.0015, fillMat, 0, 0, 0, g);
       const hit = this.box(S * 1.6, S * 1.6, 0.004, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }), 0, 0, 0, g);
       this.pick(hit, id);
+      g.traverse((o) => (o.userData.noShadow = true));
       // Pole + device box under the marker.
-      this.cyl(0.0011, 0.0014, h, this.mat(0x7a6650), at.x, h / 2, at.z, this.root, 6);
-      this.pick(this.box(0.006, 0.006, 0.006, this.mat(T.equipDark), at.x, h + 0.002, at.z), id);
+      this.cyl(0.0011, 0.0014, h, kit.surface('wood', [1, 4]), at.x, h / 2, at.z, this.root, 8);
+      this.pick(this.box(0.006, 0.006, 0.006, kit.painted(0x6a737a), at.x, h + 0.002, at.z), id);
       this.markers[id] = { g, frame, fill, frameMat, fillMat };
       this.billboards.push(g);
     }
@@ -268,102 +406,184 @@ export class GridScene {
   }
 
   _buildLoads() {
-    const THREE = this.THREE;
+    const THREE = this.THREE, kit = this.kit;
+    const roofMat = kit.surface('shingles', [2, 2]);
+    const flat = kit.surface('flatroof');
     for (const [id, ld] of Object.entries(this.net.loads)) {
       if (ld.kind === 'critical') continue; // the microgrid builds its own
       const c = this.busPos(ld.bus);
       const r = rng(id.length * 7919 + ld.kw);
-      const winMat = this.mat(T.window, { unique: true, emissive: T.window, emissiveIntensity: 0.8 });
-      const bodyMat = this.mat(ld.kind === 'commercial' ? 0x6f7881 : 0x8a8478, { unique: true });
-      const roofMat = this.mat(0x5a4d45);
-      this.loadMats[id] = winMat;
-      this.loadBodies[id] = bodyMat;
-      const n = ld.kind === 'commercial' ? 6 : 12;
       const side = ld.bus.startsWith('g') ? -1 : 1;     // feeder 2 towns sit north of their line
-      for (let i = 0; i < n; i++) {
-        const x = c.x - 0.065 + r() * 0.13;
-        const z = c.z + side * (0.035 + r() * 0.065);
-        if (ld.kind === 'commercial') {
-          const h = 0.018 + r() * 0.03;
-          const w = 0.012 + r() * 0.01;
-          const b = this.box(w, h, w, bodyMat, x, h / 2, z);
-          this.pick(b, id);
-          for (let k = 1; k * 0.008 < h; k++) this.box(w * 1.02, 0.0025, w * 1.02, winMat, x, k * 0.008, z);
-        } else {
-          const b = this.box(0.012, 0.009, 0.0105, bodyMat, x, 0.0045, z);
-          b.rotation.y = r() * 0.6;
-          this.pick(b, id);
+      if (ld.kind === 'commercial') {
+        for (let i = 0; i < 6; i++) {
+          const x = c.x - 0.065 + r() * 0.13, z = c.z + side * (0.04 + r() * 0.06);
+          const h = 0.018 + r() * 0.03, w = 0.013 + r() * 0.01;
+          const kind = i % 2 ? 'shop' : 'office';
+          const floors = Math.max(1, Math.round(h / 0.008));
+          const m = this.addLoadMat(id, this.facadeMat(kind, [1, floors / 4]));
+          const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), [m, m, flat, flat, m, m]);
+          b.position.set(x, h / 2, z);
+          this.root.add(this.pick(b, id));
+          kit.box(w * 0.35, 0.003, w * 0.3, kit.painted(0x9aa1a6), x, h + 0.0015, z, id);   // rooftop unit
+          this.occupied.push([x, z, w * 0.75]);
+        }
+      } else {
+        const tints = [0xffffff, 0xe8dccb, 0xd5dde2];
+        const mats = tints.map((t) => this.addLoadMat(id, this.facadeMat('home', [1, 1], t)));
+        for (let i = 0; i < 12; i++) {
+          const x = c.x - 0.065 + r() * 0.13, z = c.z + side * (0.035 + r() * 0.065);
+          const ry = r() * 0.6;
+          const m = mats[i % 3];
+          const b = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.009, 0.0105), m);
+          b.position.set(x, 0.0045, z);
+          b.rotation.y = ry;
+          this.root.add(this.pick(b, id));
           const roof = new THREE.Mesh(new THREE.ConeGeometry(0.0098, 0.006, 4), roofMat);
           roof.position.set(x, 0.012, z);
-          roof.rotation.y = Math.PI / 4 + b.rotation.y;
-          this.root.add(roof);
-          this.box(0.005, 0.0033, 0.0108, winMat, x, 0.0048, z).rotation.y = b.rotation.y;
+          roof.rotation.y = Math.PI / 4 + ry;
+          this.root.add(this.pick(roof, id));
+          this.occupied.push([x, z, 0.011]);
         }
       }
     }
   }
 
   _buildPV() {
-    const THREE = this.THREE;
+    const THREE = this.THREE, kit = this.kit;
     const c = this.busPos('g1');
-    const pmat = this.mat(0x1f3550, { unique: true, metalness: 0.4, roughness: 0.35, emissive: 0x2a5d9c, emissiveIntensity: 0.3 });
+    const cells = TX.pvCells();
+    const pmat = new THREE.MeshStandardMaterial({ map: cells, metalness: 0.5, roughness: 0.28, emissive: 0x2a5d9c, emissiveIntensity: 0.3 });
     this.pvMats.pv_farm = pmat;
     const geo = new THREE.BoxGeometry(0.016, 0.001, 0.008);
     const rows = 6, cols = 9;
     const inst = new THREE.InstancedMesh(geo, pmat, rows * cols);
+    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0006, 0.0006, 0.006, 5), kit.surface('galv'), rows * cols);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5, 0, 0));
+    const one = new THREE.Vector3(1, 1, 1), qi = new THREE.Quaternion();
     let k = 0;
     for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
-      m.compose(new THREE.Vector3(c.x + 0.02 + j * 0.019, 0.006, c.z - 0.06 - i * 0.013), q, new THREE.Vector3(1, 1, 1));
-      inst.setMatrixAt(k++, m);
+      const x = c.x + 0.02 + j * 0.019, z = c.z - 0.06 - i * 0.013;
+      m.compose(new THREE.Vector3(x, 0.006, z), q, one);
+      inst.setMatrixAt(k, m);
+      m.compose(new THREE.Vector3(x, 0.003, z), qi, one);
+      posts.setMatrixAt(k++, m);
     }
-    this.root.add(this.pick(inst, 'pv_farm'));
+    this.root.add(this.pick(inst, 'pv_farm'), posts);
+    // Inverter skid + gravel access strip.
+    kit.box(0.012, 0.008, 0.008, kit.surface('concrete'), c.x + 0.2, 0.004, c.z - 0.09, 'pv_farm');
+    kit.box(0.009, 0.007, 0.006, this.kit.decal(TX.louvre(0x8f989e)), c.x + 0.2, 0.0115, c.z - 0.09, 'pv_farm');
+    this.occupied.push([c.x + 0.1, c.z - 0.093, 0.11]);
   }
 
   _buildMicrogrid() {
-    const THREE = this.THREE;
+    const THREE = this.THREE, kit = this.kit;
     const c = this.busPos('mg');
     const g = new THREE.Group();
     g.position.copy(c);
     this.root.add(g);
     this.mgGroup = g;
-    this.pick(this.box(0.2, 0.003, 0.15, this.mat(0x2f3a36), 0.03, 0.0015, 0.01, g), 'mg');
-    const crit = (id, w, h, d, x, z, color) => {
-      const win = this.mat(T.window, { unique: true, emissive: T.window, emissiveIntensity: 0.8 });
-      const body = this.mat(color, { unique: true });
-      this.loadMats[id] = win;
-      this.loadBodies[id] = body;
-      this.pick(this.box(w, h, d, body, x, h / 2, z, g), id);
-      for (let k = 1; k * 0.009 < h; k++) this.box(w * 1.02, 0.003, d * 1.02, win, x, k * 0.009, z, g);
+    this.occupied.push([c.x + 0.03, c.z + 0.01, 0.13]);
+    // Campus: parking lot, lawns, critical buildings.
+    this.pick(kit.box(0.2, 0.003, 0.15, kit.surface('grass', [2, 1.5]), 0.03, 0.0015, 0.01, null, g), 'mg');
+    kit.box(0.15, 0.0008, 0.035, this.mat(0x3c4146, { roughness: 0.9 }), -0.0, 0.0034, 0.048, null, g);
+    const crit = (id, kind, w, h, d, x, z) => {
+      const m = this.addLoadMat(id, this.facadeMat(kind, [Math.max(1, w / 0.03), Math.max(1, h / 0.03)]));
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [m, m, kit.surface('flatroof'), m, m, m]);
+      b.position.set(x, h / 2, z);
+      g.add(this.pick(b, id));
+      return b;
     };
-    crit('ld_hosp', 0.05, 0.04, 0.035, -0.02, -0.03, 0xb9c0c6);         // hospital
-    this.box(0.012, 0.012, 0.012, this.mat(0xb9c0c6), -0.02, 0.046, -0.03, g); // rooftop plant
-    crit('ld_fire', 0.022, 0.014, 0.018, 0.045, -0.045, 0x8f7f73);       // fire station
-    // Water treatment: clarifier tanks.
-    const wmat = this.mat(0x7f8a92);
-    this.loadMats.ld_water = this.mat(0x4fa3c7, { unique: true, emissive: 0x4fa3c7, emissiveIntensity: 0.6 });
-    this.loadBodies.ld_water = wmat;
+    crit('ld_hosp', 'hospital', 0.05, 0.04, 0.035, -0.02, -0.03);
+    kit.box(0.014, 0.01, 0.014, kit.painted(0xb9c0c6), -0.035, 0.045, -0.035, 'ld_hosp', g);           // rooftop plant
+    const pad = kit.plaque(TX.helipad(), 0.018, 0.018, -0.008, 0.0405, -0.024, 'ld_hosp', g);
+    pad.rotation.x = -Math.PI / 2;
+    crit('ld_fire', 'station', 0.024, 0.016, 0.02, 0.045, -0.045);
+    // Water treatment: concrete clarifiers with water that glows blue when served.
+    const wmat = kit.surface('concrete');
+    this.addLoadMat('ld_water', this.mat(0x4fa3c7, { unique: true, emissive: 0x4fa3c7, emissiveIntensity: 0.6, roughness: 0.2 }));
     for (const [x, z] of [[0.08, 0.02], [0.105, 0.045], [0.08, 0.06]]) {
-      this.pick(this.cyl(0.012, 0.012, 0.008, wmat, x, 0.004, z, g), 'ld_water');
-      this.cyl(0.0105, 0.0105, 0.0005, this.loadMats.ld_water, x, 0.0083, z, g);
+      this.pick(this.cyl(0.012, 0.012, 0.008, wmat, x, 0.004, z, g, 24), 'ld_water');
+      this.cyl(0.0105, 0.0105, 0.0005, this.loadMats.ld_water[0], x, 0.0083, z, g, 24);
     }
-    // Carport solar.
-    const pmat = this.mat(0x1f3550, { unique: true, metalness: 0.4, roughness: 0.35, emissive: 0x2a5d9c, emissiveIntensity: 0.3 });
+    // Carport solar over the parking lot, with cars underneath.
+    const pmat = new THREE.MeshStandardMaterial({ map: TX.pvCells(), metalness: 0.5, roughness: 0.28, emissive: 0x2a5d9c, emissiveIntensity: 0.3 });
     this.pvMats.pv_mg = pmat;
+    const carCols = [0x8e2b2b, 0xd7d9db, 0x2c3e50, 0x5d6d7e, 0xc0a062];
     for (let i = 0; i < 4; i++) {
-      const p = this.box(0.03, 0.0012, 0.014, pmat, -0.06 + i * 0.032, 0.012, 0.045, g);
+      const x = -0.06 + i * 0.032;
+      const p = this.box(0.03, 0.0012, 0.014, pmat, x, 0.012, 0.045, g);
       p.rotation.x = -0.25;
       this.pick(p, 'pv_mg');
-      this.cyl(0.0008, 0.0008, 0.011, this.mat(0x9aa3ab), -0.06 + i * 0.032, 0.0055, 0.045, g, 4);
+      this.cyl(0.0008, 0.0008, 0.011, kit.surface('galv'), x, 0.0055, 0.045, g, 6);
+      for (const dx of [-0.008, 0.008]) {
+        const car = this.box(0.0055, 0.003, 0.009, this.mat(carCols[(i * 2 + (dx > 0)) % 5], { metalness: 0.6, roughness: 0.35 }), x + dx, 0.005, 0.05, g);
+        car.userData.noShadow = false;
+      }
     }
     // Battery containers + SOC gauge.
-    const bmat = this.mat(0xd9dee2);
-    this.pick(this.box(0.03, 0.012, 0.012, bmat, 0.0, 0.006, 0.075, g), 'bess');
-    this.pick(this.box(0.03, 0.012, 0.012, bmat, 0.035, 0.006, 0.075, g), 'bess');
+    const cont = kit.corrugated(0xd9dee2, [4, 1]);
+    this.pick(kit.box(0.03, 0.012, 0.012, cont, 0.0, 0.006, 0.075, null, g), 'bess');
+    this.pick(kit.box(0.03, 0.012, 0.012, cont, 0.035, 0.006, 0.075, null, g), 'bess');
+    kit.box(0.005, 0.003, 0.006, kit.decal(TX.louvre(0xbfc5c9)), -0.017, 0.007, 0.075, 'bess', g);
     this.box(0.004, 0.045, 0.004, this.mat(0x3a4148), 0.06, 0.0225, 0.075, g);
     this.socMat = this.mat(T.renew, { unique: true, emissive: T.renew, emissiveIntensity: 0.6 });
     this.socBar = this.box(0.0052, 0.045, 0.0052, this.socMat, 0.06, 0.0225, 0.075, g);
+    this.socBar.userData.noShadow = true;
     this.socBarBase = 0.045;
+  }
+
+  _buildRoads() {
+    const THREE = this.THREE;
+    const m = this.kit.surface('road');
+    const off = (id, dx, dz) => this.busPos(id).add(new THREE.Vector3(dx, 0, dz));
+    const paths = [
+      [off('sub_lv', 0.09, 0.07), off('f1', 0, 0.03), off('f2', 0, 0.026), off('f2a', 0, 0.022), off('f3a', 0, 0.024),
+        off('f3', 0, 0.03), off('f4', 0, 0.034), off('mg', -0.06, 0.07)],
+      [off('sub_lv', 0.1, -0.04), off('g1', -0.03, -0.035), off('g1', 0.12, -0.035), off('g2', 0, -0.03), off('g2', 0.17, -0.06)],
+      [off('sub_hv', -0.05, 0.05), off('bulk', 0.08, 0.11), off('bulk', -0.02, 0.11)],
+    ];
+    for (const p of paths) {
+      this.ribbon(p, 0.012, m, 0.0012, 18);
+      for (const v of p) this.occupied.push([v.x, v.z, 0.012]);
+      const curve = new THREE.CatmullRomCurve3(p);
+      for (let i = 0; i <= 30; i++) { const q = curve.getPointAt(i / 30); this.occupied.push([q.x, q.z, 0.011]); }
+    }
+  }
+
+  _buildTrees() {
+    const THREE = this.THREE;
+    const r = rng(7);
+    const N = 420;
+    const crownC = new THREE.InstancedMesh(new THREE.ConeGeometry(0.0055, 0.016, 7), new THREE.MeshStandardMaterial({ roughness: 0.9 }), N);
+    const crownD = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.0065, 1), new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), N);
+    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0007, 0.0011, 0.007, 5), this.mat(0x4f3b2a), N * 2);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+    const col = new THREE.Color();
+    let nc = 0, nd = 0, nt = 0;
+    const free = (x, z) => this.occupied.every(([ox, oz, or]) => (x - ox) ** 2 + (z - oz) ** 2 > (or + 0.006) ** 2);
+    for (let tries = 0; tries < 6000 && nc + nd < N; tries++) {
+      const x = (r() - 0.5) * (MAP_W - 0.04), z = (r() - 0.5) * (MAP_D - 0.04);
+      if (!free(x, z)) continue;
+      const k = 0.7 + r() * 0.6;
+      q.setFromEuler(new THREE.Euler(0, r() * 6.28, 0));
+      s.set(k, k, k);
+      p.set(x, 0.0035 * k, z);
+      trunks.setMatrixAt(nt++, m.compose(p, q, s));
+      if (r() < 0.45) {
+        p.set(x, 0.0035 * k * 2 + 0.006 * k, z);
+        crownC.setMatrixAt(nc, m.compose(p, q, s));
+        crownC.setColorAt(nc++, col.setHSL(0.3 + r() * 0.04, 0.35, 0.18 + r() * 0.06));
+      } else {
+        p.set(x, 0.0035 * k * 2 + 0.004 * k, z);
+        crownD.setMatrixAt(nd, m.compose(p, q, s));
+        crownD.setColorAt(nd++, col.setHSL(0.22 + r() * 0.08, 0.38, 0.24 + r() * 0.08));
+      }
+      this.occupied.push([x, z, 0.004]);
+    }
+    crownC.count = nc;
+    crownD.count = nd;
+    trunks.count = nt;
+    this.root.add(crownC, crownD, trunks);
   }
 
   _buildParticles() {
@@ -373,6 +593,7 @@ export class GridScene {
     this.particles = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0032, 8, 6), mat, this.maxParticles);
     this.particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.particles.count = 0;
+    this.particles.frustumCulled = false;
     this.root.add(this.particles);
     this._m4 = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
@@ -446,7 +667,11 @@ export class GridScene {
 
   setRisk(results) {
     const THREE = this.THREE;
-    for (const bar of Object.values(this.riskBars)) this.root.remove(bar);
+    for (const bar of Object.values(this.riskBars)) {
+      this.root.remove(bar);
+      const i = this.pickables.indexOf(bar);
+      if (i >= 0) this.pickables.splice(i, 1);
+    }
     this.riskBars = {};
     this.risk = results;
     if (!results) return;
@@ -481,11 +706,19 @@ export class GridScene {
       const frac = pv ? Math.min(1, pv.kw / (this.net.pv[id].kw || 1)) : 0;
       m.emissiveIntensity = 0.1 + 0.7 * frac;
     }
-    // Windows: lit when the customer has power.
-    for (const [id, m] of Object.entries(this.loadMats)) {
+    // Windows: lit when the customer has power. Facades keep their texture and only lose the glow.
+    const night = state.hour < 6.5 || state.hour > 19 ? 1 : 0.55;
+    for (const [id, mats] of Object.entries(this.loadMats)) {
       const on = state.loads[id] ? state.loads[id].served : false;
-      m.emissiveIntensity = on ? 0.85 : 0.0;
-      m.color.setHex(on ? (id === 'ld_water' ? 0x4fa3c7 : T.window) : T.dead);
+      for (const m of mats) {
+        if (m.userData.facade) {
+          m.emissiveIntensity = on ? 0.9 * night : 0.0;
+          m.color.setHex(on ? 0xffffff : 0x8a8f94);
+        } else {
+          m.emissiveIntensity = on ? 0.85 : 0.0;
+          m.color.setHex(on ? (id === 'ld_water' ? 0x4fa3c7 : T.window) : T.dead);
+        }
+      }
     }
     // Conductors: voltage-class tint when energized, dark when dead, alarm colours when loaded.
     for (const [id, L] of Object.entries(this.lines)) {
@@ -549,6 +782,13 @@ export class GridScene {
     for (const c of this.clouds.children) {
       c.position.x += c.userData.vx * dt;
       if (c.position.x > 0.65) c.position.x = -0.65;
+    }
+    // Steam from the plant: puffs rise, grow and fade on a loop.
+    for (const p of this.plumes) {
+      const u = ((t * p.rate) + (p.phase || 0)) % 1;
+      p.mesh.position.set(p.x + u * 0.03, p.y + u * 0.05 * p.size, p.z - u * 0.01);
+      p.mesh.scale.setScalar((0.5 + u * 1.4) * p.size);
+      p.mesh.material.opacity = 0.45 * Math.sin(u * Math.PI) * (p.size < 1 ? 0.6 : 1);
     }
     // Wind turbines.
     for (const s of this.spinners) s.obj.rotation.z -= s.speed * dt;
