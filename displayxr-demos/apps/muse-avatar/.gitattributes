@@ -1,0 +1,2 @@
+# The installer runs on the Pi: keep LF even in a Windows checkout.
+*.sh text eol=lf
