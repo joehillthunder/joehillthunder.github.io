@@ -25,6 +25,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-aviation-coach',
         chatter: ['Cylinder 3 torque check done', 'Sumped the fuel, no water', 'Brake linings within limits', 'Turnbuckle safety wire OK'],
       },
+      {
+        id: 'mission-planner',
+        name: 'Mission Planner',
+        desc: 'ATAK-style mission planning in 3D: plan routes, overwatch and landing zones on an aerial map, fly an ISR drone, walk the ground and switch to thermal or see-through sensors. Six graded missions.',
+        url: 'displayxr-mission-planner/',
+        source: 'https://github.com/joehillthunder/displayxr-mission-planner',
+        chatter: ['Route via the ford, 4% exposed', 'IR shows three warm rooms', 'HLZ slope under 7 degrees', 'Going to ground at Bridge 7'],
+      },
     ],
   },
   {

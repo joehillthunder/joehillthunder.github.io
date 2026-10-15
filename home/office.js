@@ -262,6 +262,37 @@ const BUILD = {
       plane.rotation.z = Math.sin(t * 0.8) * 0.02;
     });
   },
+  'mission-planner'(g) {
+    // A planning sand table: hills, a river, a route, a hostile marker, and an ISR drone overhead.
+    box(g, 3.6, 0.72, 2.2, '#3b3f46', 0, 0, 0);
+    box(g, 3.4, 0.05, 2.0, '#4d6b3a', 0, 0.72, 0);
+    [[-1.1, -0.5, 0.35, '#6f8a4a'], [-0.7, -0.6, 0.22, '#7c8f55'], [0.9, 0.5, 0.28, '#8a8a5a'], [1.2, -0.55, 0.42, '#6a7f45'], [1.35, -0.35, 0.25, '#7c8f55']].forEach(([x, z, h, c]) => box(g, 0.6, h, 0.55, c, x, 0.76, z));
+    box(g, 0.14, 0.02, 2.0, glow('#3a7fb8', 0.4), -0.15, 0.77, 0, { shadow: false }).rotation.y = 0.25;
+    for (let i = 0; i < 6; i++) box(g, 0.16, 0.06, 0.12, '#d8cbb0', 0.45 + (i % 3) * 0.2, 0.77, -0.15 + Math.floor(i / 3) * 0.2);
+    const route = glow('#4fd8ff', 0.9);
+    [[-1.4, 0.8, -0.5, 0.35], [-0.5, 0.35, 0.3, -0.3], [0.3, -0.3, 0.6, -0.05]].forEach(([ax, az, bx, bz]) => {
+      const len = Math.hypot(bx - ax, bz - az);
+      const m = box(g, len, 0.03, 0.05, route, (ax + bx) / 2, 0.8, (az + bz) / 2, { shadow: false });
+      m.rotation.y = -Math.atan2(bz - az, bx - ax);
+    });
+    const marker = box(g, 0.22, 0.22, 0.22, glow('#ff5c5c', 0.9), 0.55, 1.25, 0, { shadow: false });
+    marker.rotation.set(0, Math.PI / 4, Math.PI / 4);
+    const drone = new THREE.Group();
+    g.add(drone);
+    box(drone, 0.5, 0.08, 0.14, '#cfd6de', 0, 0, 0);
+    box(drone, 0.12, 0.05, 0.9, '#cfd6de', 0.05, 0.02, 0);
+    box(drone, 0.1, 0.18, 0.3, '#cfd6de', -0.22, 0.05, 0);
+    const eye = box(drone, 0.07, 0.07, 0.07, glow('#ffffff', 1), 0.16, -0.08, 0, { shadow: false });
+    animators.push((t) => {
+      const a = t * 0.5;
+      drone.position.set(0.55 + Math.cos(a) * 1.2, 2.3, Math.sin(a) * 0.8);
+      drone.rotation.y = -a - Math.PI / 2;
+      marker.position.y = 1.2 + Math.sin(t * 2) * 0.08;
+      marker.rotation.y = t;
+      route.emissiveIntensity = 0.6 + 0.4 * Math.sin(t * 3);
+      eye.material.emissiveIntensity = Math.sin(t * 6) > 0 ? 1.4 : 0.3;
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
