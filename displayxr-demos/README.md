@@ -16,7 +16,7 @@ public. Keys stay in `.env`, which is never committed.
 |---|---|---|
 | [Energy Grid](https://joehillthunder.github.io/displayxr-demos/apps/energy-grid/) (`apps/energy-grid`) | Future Grids Training: a digital twin of a 12.47 kV distribution grid and microgrid with live AC power flow, a storm-restoration exercise, a substation twin and a one-year what-if sweep | live |
 | [Music Visualizer](https://joehillthunder.github.io/displayxr-demos/apps/music-visualizer/) (`apps/music-visualizer`) | Beat-reactive visuals whose depth pulses with the music | live |
-| [Battleship 3D](https://joehillthunder.github.io/displayxr-demos/apps/battleship/) (`apps/battleship`) | Two-player Battleship at sea (pass and play, online, vs computer) with missiles, explosions and sinking ships out of the screen | live |
+| [Battleship 3D](https://joehillthunder.github.io/displayxr-battleship/) ([own repo](https://github.com/joehillthunder/displayxr-battleship); `apps/battleship` is a redirect) | Two-player Battleship at sea (pass and play, online, vs computer) with missiles, explosions and sinking ships out of the screen | live |
 | `apps/agent-voice` | Muse, Dot, Claude voice demo | not started |
 | `apps/aviation-coach` | | not started |
 | `apps/playground-port` | | not started |
