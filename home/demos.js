@@ -168,7 +168,7 @@ export const WINGS = [
   {
     id: 'spatial-ui',
     name: 'Spatial UI/UX',
-    blurb: 'Interface experiments that use the tracked, glasses-free display: a different picture for each viewer.',
+    blurb: 'Experiments that use the tracked, glasses-free display: a different picture for each viewer, and volumetric video you can look around.',
     floor: ['#2f5a45', '#2a503d'],
     accent: '#6fe0a4',
     demos: [
@@ -179,6 +179,14 @@ export const WINGS = [
         url: 'displayxr-dual-view/',
         source: 'https://github.com/joehillthunder/displayxr-dual-view',
         chatter: ['I see the map, you see the movie', 'Close one eye: A. Other eye: B', 'Two card hands, one screen', 'Menu in English for me, Español for you'],
+      },
+      {
+        id: '4dv',
+        name: '4DV Volumetric',
+        desc: '4DV.ai volumetric video in glasses-free 3D: orbit a dancer, a horse or a badminton rally while it plays (Windows app).',
+        url: 'displayxr-4dv/',
+        source: 'https://github.com/joehillthunder/displayxr-4dv',
+        chatter: ['The dancer is volumetric!', 'Lean left, see her side', 'Turntable on the horse clip', 'Turn the 3D strength up'],
       },
     ],
   },
