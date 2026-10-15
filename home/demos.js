@@ -44,7 +44,7 @@ export const WINGS = [
       {
         id: 'stem-lab',
         name: 'STEM Lab 3D',
-        desc: 'Twelve hands-on high-school labs in 3D: build atoms, unzip DNA, launch projectiles, wire a binary adder, route packets, mix RGB light, load a truss bridge, run a four-stroke engine, mesh gears, and explore surfaces, the unit circle and solids of revolution. Each with a quiz.',
+        desc: 'Sixteen hands-on high-school labs in 3D: build atoms, unzip DNA, follow blood through a beating heart, wire a binary adder, tour an AI data center, load a truss bridge, run an engine, watch a car differential turn, and see matrices bend space. Each with a quiz.',
         url: 'displayxr-stem-lab/',
         source: 'https://github.com/joehillthunder/displayxr-stem-lab',
         chatter: ['Carbon has four valence electrons', '45 degrees gives max range', 'That member is in compression!', 'The discs add up to 8 pi'],
