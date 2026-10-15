@@ -50,6 +50,15 @@ Two formats, from the same mesh:
   value pulls points toward the subject along their camera rays, so the mesh still lines up with the photo
   from the capture camera. Depth edges: stretch to fill the gaps a single viewpoint cannot see, or cut them.
 
+**3D video.** **Record 3D video** records the 3D camera with `cam.record()` (`@displayxr/inline3d/camera`). That gives a
+side-by-side WebM with the stereo record (baseline, FOV, convergence) in its Tags. **Load photo or video…** also takes
+side-by-side WebM or MP4 files, read like photos: `_2x1` in the name, a DisplayXR stereo tag, wider than 2.5:1, or the layout
+picker. The clip plays in 3D on the splat tile through `splat.setVideo()` (the SDK's screen-locked video plane), with
+play/pause and a seek bar. **Splat this frame** turns the frame on screen into a stereo pair and builds a splat from it,
+exactly like a photo. **Back to splat** restores the splat. With no splat yet, the clip's first frame is splatted first,
+because the tile only exists once a splat is on it. A half side-by-side clip (Acer SpatialLabs Eyes) plays squeezed:
+`setVideo` sizes each eye from the frame. Its splats are unsqueezed as usual.
+
 You can also load photos:
 
 - **Side-by-side JPEG or PNG**, full or half width (`_2x1` in the name, or set the layout).

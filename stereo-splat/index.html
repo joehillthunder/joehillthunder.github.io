@@ -71,6 +71,9 @@
   label.num { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
   label.num[hidden] { display: none; }
   #stereoDepth { width: 110px; cursor: pointer; }
+  #vidSeek { flex: 1; min-width: 120px; cursor: pointer; }
+  #videoControls[hidden] { display: none; }
+  button.rec { background: #d93a3a; border-color: #d93a3a; color: #fff; font-weight: 600; }
   .status { color: var(--muted); font-size: 13px; min-height: 1.5em; margin-top: 8px; }
 
   .results { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 22px; }
@@ -120,10 +123,12 @@
       </div>
       <div class="controls">
         <button class="primary" id="capture" disabled>Take 3D photo</button>
-        <label class="file">Load photo…<input type="file" id="file" accept="image/*,.heic,.heif"></label>
+        <button id="record" disabled>Record 3D video</button>
+        <label class="file">Load photo or video…<input type="file" id="file" accept="image/*,.heic,.heif,video/*,.webm,.mp4,.mov"></label>
       </div>
       <div class="status" id="liveStatus">The preview auto-converges: it keeps your face at the screen plane.</div>
-      <div class="status">Photos can be side-by-side JPEG/PNG (left eye on the left) or an iPhone / Vision Pro spatial photo (.heic).</div>
+      <div class="status">Photos can be side-by-side JPEG/PNG (left eye on the left) or an iPhone / Vision Pro spatial photo (.heic).
+        Videos can be side-by-side WebM or MP4, like the clips <em>Record 3D video</em> makes.</div>
     </section>
 
     <section class="panel">
@@ -135,6 +140,13 @@
           <span id="splatCoverText">Take a 3D photo to build one.</span>
           <div class="bar" id="splatBar" hidden><i></i></div>
         </div></div>
+      </div>
+      <div class="controls" id="videoControls" hidden>
+        <button id="vidPlay">Pause</button>
+        <input type="range" id="vidSeek" min="0" max="1000" step="1" value="0" aria-label="Video position">
+        <output id="vidTime" class="num">0:00</output>
+        <button class="primary" id="vidSplat" title="Build a Gaussian splat from the video frame on screen">Splat this frame</button>
+        <button id="vidExit">Back to splat</button>
       </div>
       <div class="controls">
         <select id="splatModel" aria-label="Splat model" title="Apple SHARP predicts Gaussians from the left eye on the GPU (0.66 GB download on first use, then cached) and is scaled to the stereo depth. Stereo makes one Gaussian per pixel from the depth map.">
@@ -205,7 +217,9 @@
     The SHARP weights are under Apple's research-only model license.
     <code>splat-transform</code> writes the <code>.sog</code>. The page adds a DisplayXR <code>camera</code>
     block to its <code>meta.json</code>, so the viewer reopens the splat from the camera that took it.
-    The preview is mirrored like a selfie. The splat is not mirrored: it is what the camera saw.</p>
+    The preview is mirrored like a selfie. The splat is not mirrored: it is what the camera saw.
+    <em>Record 3D video</em> saves the camera's side-by-side stream as a WebM with its stereo record. A recorded or loaded
+    clip plays in 3D on the splat tile, and <em>Splat this frame</em> builds a splat from the moment on screen.</p>
 </div>
 
 <script type="importmap">

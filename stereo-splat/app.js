@@ -9,7 +9,7 @@
 //   @displayxr/inline3d/splat/playcanvas  the splat as an inline-3D window (camera rig from the block)
 
 import { sharedInline3D } from '@displayxr/inline3d';
-import { openCamera, addCameraView, readJpegStereoMeta } from '@displayxr/inline3d/camera';
+import { openCamera, addCameraView, readJpegStereoMeta, readWebmStereoMeta } from '@displayxr/inline3d/camera';
 import { addSplat } from '@displayxr/inline3d/splat/playcanvas';
 import { encodeSog, cameraBlock, zipStored } from './sog.js';
 import { buildObj, buildGlb } from './mesh.js';
@@ -38,6 +38,7 @@ const ui = {
   splatModel: $('splatModel'),
   baseline: $('baseline'), fov: $('fov'),
   results: $('results'), depth: $('depth'), stats: $('stats'), downloads: $('downloads'),
+  record: $('record'), videoControls: $('videoControls'), vidPlay: $('vidPlay'), vidSeek: $('vidSeek'), vidTime: $('vidTime'), vidSplat: $('vidSplat'), vidExit: $('vidExit'),
   exportObj: $('exportObj'), exportGlb: $('exportGlb'), meshDetail: $('meshDetail'), meshEdges: $('meshEdges'), meshDepth: $('meshDepth'), exportStatus: $('exportStatus'),
 };
 
@@ -89,7 +90,7 @@ const LAYOUT_NAMES = { sbs: 'full side-by-side', 'half-sbs': 'half side-by-side'
  */
 async function startCamera(choice = 'auto') {
   closeCamera();
-  ui.capture.disabled = true;
+  ui.capture.disabled = ui.record.disabled = true;
   ui.liveCover.hidden = false;
   const layout = ui.layout.value;
   try {
@@ -208,9 +209,12 @@ async function startCamera(choice = 'auto') {
     ui.kind.textContent = 'Camera disconnected';
     ui.facts.textContent = 'It was unplugged, revoked, or taken by another app.';
     ui.capture.disabled = true;
+    if (recording) ui.record.click(); // keep what was recorded so far
+    ui.record.disabled = true;
   });
 
   ui.capture.disabled = !stereo;
+  ui.record.disabled = !stereo || typeof MediaRecorder !== 'function';
   ui.liveStatus.textContent = stereo
     ? 'The preview auto-converges: it keeps your face at the screen plane.'
     : 'This camera is 2D, so there is no depth to build a splat from. Connect a stereo camera, pick a side-by-side layout, or load a photo.';
@@ -267,6 +271,7 @@ ui.file.addEventListener('change', async () => {
   if (!f || busy) return;
   try {
     const bytes = new Uint8Array(await f.arrayBuffer());
+    if (isVideoFile(f)) return await loadClipFile(f, bytes);
     if (isHeif(bytes)) {
       progress('Opening spatial photo', 'Decoding both eyes (HEVC, about 2 MB of decoder on first use)', null);
       const sp = await decodeSpatialPhoto(bytes);
@@ -324,6 +329,203 @@ ui.file.addEventListener('change', async () => {
 
 ui.rebuild.addEventListener('click', () => lastPair && !busy && build().catch(fail));
 ui.reset.addEventListener('click', () => splat?.resetPose());
+
+// ── 3D video: record or load a side-by-side clip, play it in 3D on the splat tile ─────────
+//
+// The clip plays on the SAME tile as the splat (the SDK's splat.setVideo: a screen-locked plane on
+// the display rig, each eye its own half). "Splat this frame" turns the frame on screen into a
+// stereo pair and builds a splat from it, like a photo.
+
+/** `{ url, blob, name, eyeAspect, convergencePx, source, video }`, the clip on hand; null = none. */
+let clip = null;
+let videoOn = null; // splat.setVideo's handle while the clip is on the tile
+let recording = null; // `{ rec, t0, timer }` while the camera records
+
+const isVideoFile = (f) => /^video\//.test(f.type) || /\.(webm|mkv|mp4|m4v|mov)$/i.test(f.name);
+const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/** A muted, looping <video> for `url` with its first frame decoded and a usable duration. */
+async function openVideo(url) {
+  const v = Object.assign(document.createElement('video'), { muted: true, loop: true, playsInline: true, preload: 'auto' });
+  const once = (ev, ms) => new Promise((res) => {
+    const t = ms ? setTimeout(res, ms) : 0;
+    v.addEventListener(ev, () => { clearTimeout(t); res(); }, { once: true });
+  });
+  const loaded = new Promise((res, rej) => {
+    v.addEventListener('loadeddata', res, { once: true });
+    v.addEventListener('error', () => rej(new Error('This browser cannot play that video.')), { once: true });
+  });
+  v.src = url;
+  await loaded;
+  // A MediaRecorder WebM has no duration in its header: seeking past the end makes the browser find it.
+  if (!Number.isFinite(v.duration)) {
+    const known = once('durationchange', 4000);
+    v.currentTime = 1e9;
+    await known;
+    const back = once('seeked', 2000);
+    v.currentTime = 0;
+    await back;
+  }
+  return v;
+}
+
+function dropClip() {
+  if (!clip) return;
+  clip.video.pause();
+  clip.video.removeAttribute('src');
+  clip.video.load();
+  URL.revokeObjectURL(clip.url);
+  clip = null;
+}
+
+/** Put `c` on the splat tile (the tile is created from the clip's first frame if there is none). */
+async function showClip(c) {
+  await exitVideo();
+  dropClip();
+  clip = c;
+  if (!splat) await splatFrame({ keepVideo: true });
+  videoOn = await splat.setVideo(c.video, { format: 'sbs', loop: true, muted: true, autoplay: true });
+  ui.videoControls.hidden = false;
+  ui.vidPlay.textContent = 'Pause';
+  ui.splatStatus.textContent = `3D video: ${c.source}. Pause on a moment and splat it.`;
+  if (lastReport) report(lastReport);
+}
+
+/** Take the clip off the tile; the splat comes back as it was. */
+async function exitVideo() {
+  if (!videoOn) return;
+  videoOn = null;
+  clip?.video.pause();
+  ui.videoControls.hidden = true;
+  await splat.setVideo(null);
+}
+
+/** The clip's frame on screen → `lastPair` → a splat. */
+async function splatFrame({ keepVideo = false } = {}) {
+  const v = clip.video;
+  v.pause();
+  ui.vidPlay.textContent = 'Play';
+  const bitmap = await createImageBitmap(v);
+  const c = new OffscreenCanvas(bitmap.width, bitmap.height);
+  c.getContext('2d').drawImage(bitmap, 0, 0);
+  const t = v.currentTime || 0;
+  lastPair = {
+    bitmap,
+    rawEyeWidth: bitmap.width / 2,
+    height: bitmap.height,
+    eyeAspect: clip.eyeAspect,
+    convergencePx: clip.convergencePx,
+    blob: await c.convertToBlob({ type: 'image/jpeg', quality: 0.95 }),
+    name: `${baseName(clip)}_t${t.toFixed(1)}s_2x1.jpg`,
+    source: `${clip.source}, frame at ${clock(t)}.${Math.floor((t % 1) * 10)}`,
+  };
+  if (!keepVideo) await exitVideo();
+  await build();
+}
+
+ui.record.addEventListener('click', async () => {
+  if (!recording) {
+    if (!cam || profile?.format !== 'sbs') return;
+    try {
+      recording = { rec: cam.record(), t0: performance.now(), profile };
+    } catch (err) {
+      fail(err);
+      return;
+    }
+    ui.record.classList.add('rec');
+    ui.capture.disabled = ui.device.disabled = ui.layout.disabled = true;
+    const tick = () => (ui.record.textContent = `Stop recording ${clock((performance.now() - recording.t0) / 1000)}`);
+    tick();
+    recording.timer = setInterval(tick, 250);
+    return;
+  }
+  const r = recording;
+  recording = null;
+  clearInterval(r.timer);
+  ui.record.classList.remove('rec');
+  ui.record.disabled = true;
+  ui.record.textContent = 'Saving…';
+  try {
+    const out = await r.rec.stop();
+    if (!out.blob.size) throw new Error('The recording came out empty.');
+    const url = URL.createObjectURL(out.blob);
+    await showClip({
+      url,
+      blob: out.blob,
+      name: out.suggestedName,
+      eyeAspect: r.profile.eyeAspect,
+      convergencePx: out.convergencePx,
+      source: `3D video from ${r.profile.name} (${(out.durationMs / 1000).toFixed(1)} s)`,
+      video: await openVideo(url),
+    });
+  } catch (err) {
+    fail(err);
+  } finally {
+    ui.record.textContent = 'Record 3D video';
+    ui.record.disabled = !(profile?.format === 'sbs');
+    ui.capture.disabled = !(profile?.format === 'sbs');
+    ui.device.disabled = ui.layout.disabled = false;
+  }
+});
+
+/** A side-by-side video file: read like a photo (layout, baseline, FOV from its stereo tags). */
+async function loadClipFile(f, bytes) {
+  const meta = /webm|matroska/.test(f.type) || /\.(webm|mkv)$/i.test(f.name) ? readWebmStereoMeta(bytes) : null;
+  const url = URL.createObjectURL(f);
+  let video;
+  try {
+    video = await openVideo(url);
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    throw err;
+  }
+  const W = video.videoWidth;
+  const H = video.videoHeight;
+  const forced = ui.layout.value === 'sbs' || ui.layout.value === 'half-sbs';
+  if (!(forced || meta?.layout === 'sbs' || /_2x1\./i.test(f.name) || W / H > 2.5)) {
+    URL.revokeObjectURL(url);
+    throw new Error('That video is not side-by-side. Use a stereo video with the left eye on the left (or set the layout above).');
+  }
+  if (meta?.baselineMm) ui.baseline.value = meta.baselineMm;
+  if (meta?.horizontalFovDeg) ui.fov.value = meta.horizontalFovDeg;
+  if (!ui.baseline.value) ui.baseline.value = DEFAULT_BASELINE_MM;
+  if (!ui.fov.value) ui.fov.value = DEFAULT_FOV_DEG;
+  const eyeAspect = eyeAspectOf(W, H, forced ? ui.layout.value : 'auto');
+  const half = eyeAspect === W / H;
+  await showClip({
+    url,
+    blob: f,
+    name: f.name,
+    eyeAspect,
+    convergencePx: meta?.convergencePx ?? null,
+    source: `Side-by-side video (${half ? 'half' : 'full'} width, ${clock(video.duration || 0)})`,
+    video,
+  });
+}
+
+ui.vidPlay.addEventListener('click', () => {
+  const v = clip?.video;
+  if (!v) return;
+  if (v.paused) v.play().catch(() => {});
+  else v.pause();
+  ui.vidPlay.textContent = v.paused ? 'Play' : 'Pause';
+});
+ui.vidSeek.addEventListener('input', () => {
+  const v = clip?.video;
+  if (v && Number.isFinite(v.duration)) v.currentTime = (Number(ui.vidSeek.value) / 1000) * v.duration;
+});
+ui.vidSplat.addEventListener('click', () => clip && !busy && splatFrame().catch(fail));
+ui.vidExit.addEventListener('click', () => exitVideo().catch(fail));
+// The position readout, every frame while the clip is on the tile.
+(function vidClock() {
+  requestAnimationFrame(vidClock);
+  const v = videoOn && clip?.video;
+  if (!v) return;
+  const d = Number.isFinite(v.duration) ? v.duration : 0;
+  if (document.activeElement !== ui.vidSeek && d) ui.vidSeek.value = String(Math.round((v.currentTime / d) * 1000));
+  ui.vidTime.textContent = `${clock(v.currentTime)} / ${clock(d)}`;
+  ui.vidSplat.disabled = busy;
+})();
 
 // 3D depth: the splat's eye separation RELATIVE to the capture's own (setStereo's ipdScale), so 100%
 // is true to the photo whatever its baseline. Sticky across setSource; remembered per browser.
@@ -525,6 +727,7 @@ async function showSplat(sog) {
     ui.splatCover.hidden = true; // hard cut
     ui.reset.disabled = false;
   } else {
+    await exitVideo(); // the SDK refuses setSource while a video holds the tile
     await splat.setSource(sog, { fadeMs: 600, resetPose: true });
   }
 }
@@ -560,7 +763,10 @@ function ramp(t) {
   return stops[i].map((v, k) => Math.round(v + (stops[i + 1][k] - v) * f));
 }
 
-function report({ res, model, baselineM, fovDeg, sog, ms }) {
+let lastReport = null; // report()'s arguments, so a new clip can add its download link
+function report(args) {
+  lastReport = args;
+  const { res, model, baselineM, fovDeg, sog, ms } = args;
   const m = (v) => (v >= 1 ? `${v.toFixed(2)} m` : `${Math.round(v * 100)} cm`);
   const s = (t) => `${(t / 1000).toFixed(1)} s`;
   const rows = [
@@ -588,6 +794,7 @@ function report({ res, model, baselineM, fovDeg, sog, ms }) {
     link(new Blob([sog], { type: 'application/octet-stream' }), `${base}.sog`, `Download splat (${base}.sog)`),
     link(lastPair.blob, `${base}_2x1.jpg`, `Download stereo photo (${base}_2x1.jpg)`),
   );
+  if (clip) ui.downloads.append(link(clip.blob, clip.name, `Download 3D video (${clip.name})`));
 }
 
 function baseName(pair) {
@@ -662,4 +869,4 @@ ui.exportGlb.addEventListener('click', () => exportMesh('glb'));
 
 const q = new URLSearchParams(location.search);
 startCamera(q.get('camera') === 'mono' ? 'mono' : 'stereo');
-Object.assign(window, { __wall: wall, __cam: () => cam, __view: () => view, __splat: () => splat });
+Object.assign(window, { __wall: wall, __cam: () => cam, __view: () => view, __splat: () => splat, __video: () => videoOn });
