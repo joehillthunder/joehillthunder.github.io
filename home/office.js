@@ -495,6 +495,58 @@ const BUILD = {
       moon.position.set(e.x + Math.cos(t * 5) * 0.18, 1.25, e.z + Math.sin(t * 5) * 0.18);
     });
   },
+  underwater(g) {
+    // An aquarium on a stand: sand, coral, a kelp frond, fish circling, a turtle, a little diver
+    // and bubbles rising to the top.
+    box(g, 4.0, 0.7, 2.0, '#2a3142', 0, 0, 0);
+    box(g, 3.8, 0.12, 1.8, '#e6d6a8', 0, 0.7, 0);
+    const glass = new THREE.MeshLambertMaterial({ color: '#5fd0ff', transparent: true, opacity: 0.22, emissive: '#0a6a9a', emissiveIntensity: 0.35, depthWrite: false });
+    box(g, 3.9, 1.6, 1.9, glass, 0, 0.7, 0, { shadow: false });
+    box(g, 4.0, 0.08, 2.0, '#2a3142', 0, 2.3, 0);
+    [[-1.3, 0.3, '#ff7ab0', 0.28], [-0.9, -0.4, '#ffd060', 0.2], [1.2, 0.2, '#c080ff', 0.26], [0.6, -0.5, '#ff9050', 0.18]].forEach(([x, z, c, r]) => sphere(g, r, c, x, 0.82, z, 10));
+    const kelp = [];
+    for (let i = 0; i < 6; i++) kelp.push(box(g, 0.08, 0.22, 0.03, '#7a9a2a', 1.6, 0.82 + i * 0.22, 0.5, { shadow: false }));
+    const fishCols = ['#ff7a14', '#1a4ae0', '#ffe23a', '#4ae0d0', '#ff7a14', '#ffe23a'];
+    const fish = fishCols.map((c, i) => {
+      const f = new THREE.Group();
+      sphere(f, 0.09, glow(c, 0.25), 0, 0, 0, 8).scale.set(1.5, 1, 0.6);
+      const tail = box(f, 0.03, 0.12, 0.1, c, -0.16, -0.06, 0, { shadow: false });
+      f.userData = { r: 0.9 + (i % 3) * 0.3, y: 1.2 + (i % 4) * 0.2, w: 0.7 + i * 0.12, o: i * 1.1, tail };
+      g.add(f);
+      return f;
+    });
+    const turtle = new THREE.Group();
+    sphere(turtle, 0.2, '#6b5a32', 0, 0, 0, 10).scale.set(1.2, 0.45, 1);
+    sphere(turtle, 0.07, '#7b6a48', 0.25, 0, 0, 8);
+    g.add(turtle);
+    const diver = new THREE.Group();
+    box(diver, 0.1, 0.1, 0.28, '#1c2430', -0.05, -0.05, 0, { shadow: false });
+    sphere(diver, 0.06, '#f0c8a0', 0, 0, 0.17, 8);
+    box(diver, 0.08, 0.05, 0.03, glow('#9fe8ff', 0.6), 0, 0.0, 0.22, { shadow: false });
+    box(diver, 0.06, 0.12, 0.05, '#ffd21a', 0, 0.05, -0.05, { shadow: false });
+    box(diver, 0.14, 0.02, 0.12, '#ffd21a', 0, -0.03, -0.25, { shadow: false });
+    g.add(diver);
+    const bubbles = [];
+    for (let i = 0; i < 10; i++) bubbles.push({ m: sphere(g, 0.03, glow('#eaffff', 0.6), 0, 0, 0, 6), o: i / 10 });
+    animators.push((t) => {
+      fish.forEach((f) => {
+        const u = f.userData, a = t * u.w + u.o;
+        f.position.set(Math.cos(a) * u.r, u.y + Math.sin(a * 2) * 0.06, Math.sin(a) * u.r * 0.55);
+        f.rotation.y = -a - Math.PI / 2;
+        u.tail.rotation.y = Math.sin(t * 12 + u.o) * 0.5;
+      });
+      const ta = t * 0.35;
+      turtle.position.set(Math.cos(ta) * 0.7, 1.55 + Math.sin(t * 0.8) * 0.08, Math.sin(ta) * 0.35);
+      turtle.rotation.y = -ta - Math.PI / 2;
+      diver.position.set(Math.sin(t * 0.25) * 1.2, 1.25, -0.2 + Math.cos(t * 0.3) * 0.3);
+      diver.rotation.y = Math.cos(t * 0.25) > 0 ? Math.PI / 2 : -Math.PI / 2;
+      kelp.forEach((k, i) => { k.position.x = 1.6 + Math.sin(t * 1.2 + i * 0.5) * 0.04 * i; });
+      bubbles.forEach((b) => {
+        const k = (t * 0.25 + b.o) % 1;
+        b.m.position.set(diver.position.x + Math.sin(k * 12 + b.o * 9) * 0.05, 1.3 + k * 0.95, diver.position.z);
+      });
+    });
+  },
   'stem-lab'(g) {
     // A classroom lab bench: four S-T-E-M blocks bobbing in turn, an atom, meshing gears and a sine
     // wave on a chalkboard.
