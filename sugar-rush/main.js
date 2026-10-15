@@ -473,7 +473,7 @@ function onXRFrame(views, layer) {
   const vps = views.map((v) => layer.getViewport(v));
   if (vps.some((vp) => !vp || vp.width <= 0 || vp.height <= 0)) return;
 
-  handle.setViewRig(cameraRigFromCamera(THREE, appCam, { convergence, attach: true, out: rigOut }));
+  handle.setViewRig(cameraRigFromCamera(THREE, appCam, { convergence, ipdFactor: depth, attach: true, out: rigOut }));
 
   renderer.clear();
   renderer.setScissorTest(true);
@@ -494,6 +494,33 @@ function onMonoFrame() {
   renderer.clear();
   renderer.setViewport(0, 0, size.x, size.y);
   renderer.render(scene, appCam);
+}
+
+// ---- depth slider -----------------------------------------------------------------------------
+// 0-200% of the designed depth: the camera rig's ipdFactor (absolute on a camera rig, so 1 = true
+// eye separation). Convergence is untouched, so the player stays on the screen plane at any depth.
+// At 200% the comfort product (DESIGN.md) is still about 0.12, far inside the limit of 1.
+let depth = 1;
+try {
+  const v = parseFloat(localStorage.getItem('sugar-rush-depth'));
+  if (v >= 0 && v <= 2) depth = v;
+} catch { /* storage blocked: default depth */ }
+function setDepth(d) {
+  depth = Math.round(Math.min(2, Math.max(0, d)) * 20) / 20;
+  try { localStorage.setItem('sugar-rush-depth', String(depth)); } catch { /* fine without */ }
+  $('depth').value = String(Math.round(depth * 100));
+  $('depthVal').textContent = `${Math.round(depth * 100)}%`;
+}
+function setupDepth() {
+  $('depthWrap').hidden = false;
+  setDepth(depth);
+  const slider = $('depth');
+  slider.addEventListener('input', () => setDepth(Number(slider.value) / 100));
+  slider.addEventListener('change', () => slider.blur()); // hand the arrow keys back to the game
+  addEventListener('keydown', (e) => {
+    if (e.key === '[') setDepth(depth - 0.1);
+    if (e.key === ']') setDepth(depth + 0.1);
+  });
 }
 
 // ---- 2D/3D switch (display-modes sample: setStereoEnabled + renderingmodechange) ------------
@@ -534,10 +561,11 @@ if (DEV) $('fps').hidden = false;
   sizeToCanvas();
   for (const eye of eyes) appCam.add(eye.camera); // attach: eyes read the view as a rig-local pose
   handle = wall.addScene(canvas, onXRFrame, {
-    viewRig: cameraRigFromCamera(THREE, appCam, { convergence, attach: true, out: rigOut }),
+    viewRig: cameraRigFromCamera(THREE, appCam, { convergence, ipdFactor: depth, attach: true, out: rigOut }),
   });
   $('mode').textContent = '3D';
   setupModeToggle(wall);
+  setupDepth();
   await handle.firstWoven; // keep the cover on until the first woven frame, then cut it
   $('cover').hidden = true;
 })();

@@ -27,6 +27,9 @@ difficulty: Easy 5, Normal 3, Hard 2. Your best time is saved in this browser.
 The player sits on the screen plane, the course recedes behind it, and seal sparkles and gummy-pad
 launches come toward you. The full depth map table is in [`DESIGN.md`](DESIGN.md).
 
+On a 3D display a **Depth** slider (0–200%, keys <kbd>[</kbd> <kbd>]</kbd>, remembered per browser) scales
+the camera rig's eye separation. The player stays on the screen plane at any setting.
+
 ## Hardware
 
 - **For 3D:** a Leia SR glasses-free 3D display, on Windows, with the DisplayXR runtime and the
