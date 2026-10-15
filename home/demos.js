@@ -75,6 +75,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-playground-port',
         chatter: ['Level 2 ported to 3D', 'That platform really pops', 'Who left the ball pit open?', 'Physics feels right now'],
       },
+      {
+        id: 'battle-school',
+        name: 'Battle School',
+        desc: "A game inspired by Ender's Game: zero-g battles in the Battle Room, Ender's command console with the fleet as a hologram, and flying a fighter in the war itself.",
+        url: 'displayxr-battle-school/',
+        source: 'https://github.com/joehillthunder/displayxr-battle-school',
+        chatter: ["The enemy's gate is down", 'Little Doctor away!', 'Bean, take the flank', 'Tab back to the console'],
+      },
     ],
   },
   {

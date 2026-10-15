@@ -345,6 +345,35 @@ const BUILD = {
       ball.scale.y = ball.position.y < 0.4 ? 0.8 : 1;
     });
   },
+  'battle-school'(g) {
+    // Left: a glass Battle Room with floating stars and a soldier jumping between them.
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), new THREE.MeshStandardMaterial({ color: '#5fd0ff', transparent: true, opacity: 0.1, depthWrite: false }));
+    cube.position.set(-1.5, 1.3, 0);
+    cube.add(new THREE.LineSegments(new THREE.EdgesGeometry(cube.geometry), new THREE.LineBasicMaterial({ color: '#5fd0ff' })));
+    g.add(cube);
+    const stars = [[-2.2, 0.6, -0.5], [-0.9, 1.0, 0.5], [-1.9, 1.8, 0.4], [-1.0, 2.0, -0.6]];
+    stars.forEach(([x, y, z]) => box(g, 0.3, 0.3, 0.3, glow('#c9d6ea', 0.25), x, y - 0.15, z));
+    const kid = box(g, 0.12, 0.22, 0.12, glow('#ff8a2a', 0.5), 0, 0, 0, { shadow: false });
+    // Right: the simulator table with a hologram dogfight over it.
+    box(g, 1.3, 0.8, 1.3, '#1a2130', 1.6, 0, 0);
+    box(g, 1.4, 0.04, 1.4, glow('#5fd0ff', 0.9), 1.6, 0.8, 0, { shadow: false });
+    const ships = [];
+    for (let i = 0; i < 9; i++) {
+      const c = i < 4 ? '#5fd0ff' : '#ff5a6a';
+      ships.push({ m: box(g, 0.09, 0.05, 0.16, glow(c, 1.2), 0, 0, 0, { shadow: false }), r: 0.25 + (i % 4) * 0.12, o: i * 0.9, s: i < 4 ? 1.4 : -0.9, h: 1.05 + (i % 3) * 0.18 });
+    }
+    animators.push((t) => {
+      const seg = (t * 0.7) % stars.length, i = Math.floor(seg), f = seg - i;
+      const a = stars[i], b = stars[(i + 1) % stars.length];
+      kid.position.set(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f + 0.05, a[2] + (b[2] - a[2]) * f);
+      kid.rotation.z = t * 3;
+      ships.forEach((s) => {
+        const ang = t * s.s + s.o;
+        s.m.position.set(1.6 + Math.cos(ang) * s.r, s.h + Math.sin(t * 1.3 + s.o) * 0.06, Math.sin(ang) * s.r);
+        s.m.rotation.y = -ang + (s.s > 0 ? 0 : Math.PI);
+      });
+    });
+  },
   music(g) {
     [-1.7, 1.7].forEach((x) => {
       box(g, 0.75, 1.6, 0.6, '#1d1d24', x, 0, 0);
