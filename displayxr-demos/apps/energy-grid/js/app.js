@@ -3,13 +3,18 @@
 // 3D: one persistent woven canvas (DisplayXR inline-3D, display rig). The diorama is the SUBJECT:
 // the user turns and zooms it under a fixed portal, and the runtime places the eyes. In any other
 // browser the same scene renders mono, so the page also works as a plain 2D demo.
+//
+// Three 3D modules share that canvas: the grid map, the substation twin and the microgrid yard.
+// A depth slider applies to all of them (see applyDepth).
 
 import * as THREE from 'three';
-import { createInline3D } from '@displayxr/inline3d';
-import { EdgeFeather } from '@displayxr/inline3d/three';
+import { createInline3D, inline3dViewRigSupported } from '@displayxr/inline3d';
+import { EdgeFeather, displayRig } from '@displayxr/inline3d/three';
 import { api, initApi, engine } from './api.js';
 import { GridScene, MAP_W, MAP_D } from './scene.js';
 import { SubstationTwin, TWIN_ITEMS } from './twin.js';
+import { MicrogridTwin, MG_ITEMS } from './microgrid.js';
+import { initTextures } from './textures.js';
 import { OneLine } from './oneline.js';
 import { T } from './theme.js';
 
@@ -22,21 +27,115 @@ let net, cards, state = null, view = 'map', selected = null;
 let lastInput = performance.now(), attract = false, attractCaption = 0;
 let lastToastT = 0, debriefShown = false, lastStepShown = -1;
 
+// Each module's default pose. tilt 0 = eye level, PI/2 = straight down.
+const VIEWS = {
+  map: { tilt: 0.98, yaw: -0.18, label: 'Grid map' },
+  twin: { tilt: 0.62, yaw: -0.35, label: 'Substation twin' },
+  mg: { tilt: 0.7, yaw: -0.25, label: 'Microgrid yard' },
+};
+// Camera presets, the same in every module.
+const ANGLES = {
+  overview: (v) => ({ tilt: VIEWS[v].tilt, yaw: VIEWS[v].yaw, zoom: 1 }),
+  eye: (v) => ({ tilt: 0.16, yaw: VIEWS[v].yaw, zoom: v === 'map' ? 1.9 : 1.45 }),
+  top: (v) => ({ tilt: 1.45, yaw: 0, zoom: 1 }),
+};
+// Ids that appear in both a module and the one-line: one-line clicks select the module's version.
+const ALIAS = {
+  twin: { BKR_F1: 'twin_f1', BKR_F2: 'twin_f2', XFMR: 'twin_xfmr', TL1: 'twin_line', sub_lv: 'twin_bus', sub_hv: 'twin_line' },
+  mg: { PCC: 'mg_pcc', bess: 'mg_bess', pv_mg: 'mg_pv', mg: 'mg_bus', ld_hosp: 'ld_hosp' },
+};
+const MG_DEVICES = new Set(['mg', 'bess', 'pv_mg', 'PCC', 'ld_hosp', 'ld_fire', 'ld_water']);
+const SUB_DEVICES = new Set(['XFMR', 'sub_lv', 'sub_hv']);
+
 // ---- 3D setup ----------------------------------------------------------------------------------
 const canvas = $('#grid3d');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(1);              // getViewport() is in backing-store pixels (see hello-cube)
 renderer.autoClear = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;  // rendered once per frame, shared by both eyes
+initTextures(THREE);
 const scene = new THREE.Scene();
-scene.add(new THREE.HemisphereLight(0xcfdcff, 0x1a2230, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 1.3);
-sun.position.set(-0.4, 1.0, 0.6);
-scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xcfdcff, 0x2a2620, 0.5));
+scene.environment = skyEnvironment();
 
-const subject = new THREE.Group();      // turned + scaled by the user
-scene.add(subject);
+// depthGroup stretches the scene along the viewing axis (the depth slider); subject is turned and
+// scaled by the user; stage holds the current module. The sun rides on the subject so lighting and
+// shadows stay fixed to the model however it is turned.
+const depthGroup = new THREE.Group();
+scene.add(depthGroup);
+const subject = new THREE.Group();
+depthGroup.add(subject);
+const stage = new THREE.Group();
+subject.add(stage);
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.5);
+sun.position.set(-0.45, 1.1, 0.65);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0003;
+subject.add(sun, sun.target);
 const pose = { yaw: -0.18, tilt: 0.98, zoom: 1, yawTarget: -0.18, tiltTarget: 0.98 };
+
+// A soft sky for image-based lighting: blue above, warm ground below, a bright sun patch. Gives
+// metal and glass something to reflect without loading an HDR file.
+function skyEnvironment() {
+  const env = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(10, 48, 24);
+  const pos = geo.attributes.position, cols = [];
+  const zenith = new THREE.Color(0x5577a0), horizon = new THREE.Color(0xb9c8d8), ground = new THREE.Color(0x4a443a);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / 10;
+    const c = y >= 0 ? horizon.clone().lerp(zenith, Math.pow(y, 0.6)) : horizon.clone().lerp(ground, Math.min(1, -y * 3));
+    cols.push(c.r * 0.8, c.g * 0.8, c.b * 0.8);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  env.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const disc = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 4.8) }));
+  disc.position.set(-4, 7, 5);
+  env.add(disc);
+  const pm = new THREE.PMREMGenerator(renderer);
+  const tex = pm.fromScene(env, 0.02).texture;
+  pm.dispose();
+  return tex;
+}
+
+// ---- depth slider ------------------------------------------------------------------------------
+// 0-200%. Below 100% the eyes move closer together (the runtime's comfort dial on the display rig:
+// ipdFactor in [0, 1]). Above 100% the scene itself is stretched along the viewing axis, so the same
+// eye separation shows more depth. On a browser without view-rig support the stretch does both.
+const DEPTH_KEY = 'energyGrid.depth';
+let depth = 1, handle = null, rigOK = false;
+try {
+  const saved = parseFloat(localStorage.getItem(DEPTH_KEY));
+  if (saved >= 0 && saved <= 2) depth = saved;
+} catch { /* storage blocked: default depth */ }
+
+function rigFor(d) {
+  return displayRig({ virtualDisplayHeight: VDH, ipdFactor: Math.min(1, d), parallaxFactor: 1 });
+}
+
+function setDepth(d) {
+  depth = Math.round(Math.min(2, Math.max(0, d)) * 20) / 20;
+  try { localStorage.setItem(DEPTH_KEY, String(depth)); } catch { /* fine without */ }
+  applyDepth();
+}
+
+function applyDepth() {
+  const stretch = !sbsMode ? 1 : rigOK ? Math.max(1, depth) : Math.max(0.06, depth);
+  depthGroup.scale.set(1, 1, stretch);
+  if (handle && rigOK) handle.setViewRig(rigFor(depth));
+  const slider = $('#depth');
+  slider.value = String(Math.round(depth * 100));
+  slider.disabled = !sbsMode;
+  $('#depth-val').textContent = `${Math.round(depth * 100)}%`;
+  $('#depth-wrap').title = sbsMode
+    ? 'How much the 3D view pops out of and recedes into the display. 100% is true to scale. Keys: [ and ]'
+    : 'Depth applies on a glasses-free 3D display (DisplayXR Browser)';
+  frameShadow();
+}
+$('#depth').addEventListener('input', (e) => { touch(); setDepth(Number(e.target.value) / 100); });
 
 const eyeCam = new THREE.PerspectiveCamera();
 eyeCam.matrixAutoUpdate = false;
@@ -59,30 +158,49 @@ function sizeCanvas() {
 }
 addEventListener('resize', sizeCanvas);
 
-let grid, twin;
+let grid, twin, mgTwin, mods = {};
+const footprint = () => (view === 'map' ? { w: MAP_W, d: MAP_D, h: 0.16 } : mods[view].footprint);
 function frameSubject() {
   if (!grid) return;
   const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
   const vw = VDH * aspect, vh = VDH;
-  if (view === 'map') {
-    const s = Math.min(vw * 0.96 / MAP_W, vh * 0.96 / (MAP_D * Math.sin(pose.tilt) + 0.16 * Math.cos(pose.tilt)));
-    subject.scale.setScalar(s * pose.zoom);
-  } else {
-    const s = Math.min(vw * 0.9 / 1.5, vh * 0.9 / (0.62 * Math.sin(pose.tilt) + 0.35 * Math.cos(pose.tilt)));
-    subject.scale.setScalar(s * pose.zoom);
-  }
+  const f = footprint();
+  // Frame for the settled tilt, so a preset does not jump in scale while it eases.
+  const tilt = pose.tiltTarget;
+  const s = Math.min(vw * 0.94 / f.w, vh * 0.94 / (f.d * Math.sin(tilt) + f.h * Math.cos(tilt)));
+  subject.scale.setScalar(s * pose.zoom);
+  frameShadow();
 }
 
-function setView(v) {
+// Fit the sun's shadow camera to the model (it rides on the subject, so its units are the model's).
+function frameShadow() {
+  if (!grid) return;
+  const f = footprint(), ext = 0.55 * Math.hypot(f.w, f.d) + f.h;
+  const cam = sun.shadow.camera;
+  cam.left = cam.bottom = -ext;
+  cam.right = cam.top = ext;
+  cam.near = 0.05;
+  cam.far = 3;
+  cam.updateProjectionMatrix();
+  sun.shadow.normalBias = (2 * ext / sun.shadow.mapSize.x) * 1.5;
+}
+
+function setView(v, angle = 'overview') {
   view = v;
-  subject.clear();
-  subject.add(v === 'map' ? grid.root : twin.root);
-  pose.tiltTarget = v === 'map' ? 0.98 : 0.62;
-  pose.yawTarget = v === 'map' ? -0.18 : -0.35;
-  pose.zoom = 1;
-  frameSubject();
+  stage.clear();
+  stage.add(mods[v].root);
+  setAngle(angle);
   document.querySelectorAll('.views button[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
   select(null);
+}
+
+function setAngle(name) {
+  const a = ANGLES[name](view);
+  pose.tiltTarget = a.tilt;
+  pose.yawTarget = a.yaw;
+  pose.zoom = a.zoom;
+  frameSubject();
+  document.querySelectorAll('.angles button').forEach((b) => b.classList.toggle('on', b.dataset.angle === name));
 }
 
 // ---- render ------------------------------------------------------------------------------------
@@ -96,11 +214,12 @@ function animate(dt) {
   subject.updateMatrixWorld(true);
   subject.getWorldQuaternion(worldQuat);
   if (view === 'map') grid.update(state, dt, worldQuat);
-  else twin.update(state, dt);
+  else mods[view].update(state, dt);
   // Daylight follows the clock.
   const h = state ? state.hour : 14;
   const sunUp = Math.max(0, Math.sin(((h - 6) / 13.5) * Math.PI));
-  sun.intensity = 0.35 + 1.1 * sunUp * (state ? 0.5 + 0.5 * state.cloud : 1);
+  sun.intensity = 0.4 + 1.3 * sunUp * (state ? 0.5 + 0.5 * state.cloud : 1);
+  renderer.shadowMap.needsUpdate = true;   // once per frame; both eyes reuse it
 }
 
 function onXRFrame(views, layer) {
@@ -175,7 +294,8 @@ canvas.addEventListener('pointermove', (e) => {
     frameSubject();
   } else {
     pose.yawTarget += dx * 0.006;
-    pose.tiltTarget = Math.min(1.45, Math.max(0.35, pose.tiltTarget + dy * 0.004));
+    pose.tiltTarget = Math.min(1.45, Math.max(0.12, pose.tiltTarget + dy * 0.004));
+    document.querySelectorAll('.angles button').forEach((b) => b.classList.remove('on'));
   }
   touch();
 });
@@ -191,7 +311,9 @@ canvas.addEventListener('wheel', (e) => {
   touch();
 }, { passive: false });
 canvas.addEventListener('dblclick', () => {
-  if (view === 'map' && (selected === 'XFMR' || selected === 'sub_lv' || selected === 'sub_hv')) setView('twin');
+  if (view !== 'map') return;
+  if (SUB_DEVICES.has(selected)) setView('twin');
+  else if (MG_DEVICES.has(selected)) setView('mg');
 });
 
 const raycaster = new THREE.Raycaster();
@@ -199,8 +321,7 @@ function pickAt(cx, cy) {
   const r = canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, havePickCam && sbsMode ? pickCam : monoCam);
-  const list = view === 'map' ? grid.pickables : twin.pickables;
-  const hits = raycaster.intersectObjects(list, false);
+  const hits = raycaster.intersectObjects(mods[view].pickables, false);
   select(hits.length ? hits[0].object.userData.item : null);
 }
 
@@ -210,6 +331,7 @@ async function select(item) {
   selected = item;
   grid.setSelected(view === 'map' ? item : null);
   twin.selected = view === 'twin' ? item : null;
+  mgTwin.selected = view === 'mg' ? item : null;
   if (item && state?.scenario && state.scenario.step === 1 && net.branches[item] && KIND(item) !== 'xfmr') {
     const res = await api.identify(item);
     if (res.msg) toast(res.msg, res.correct ? 'good' : 'bad');
@@ -221,8 +343,8 @@ async function select(item) {
 
 function cardFor(item) {
   if (!item) return null;
-  if (TWIN_ITEMS[item]) {
-    const t = TWIN_ITEMS[item];
+  if (TWIN_ITEMS[item] || MG_ITEMS[item]) {
+    const t = TWIN_ITEMS[item] || MG_ITEMS[item];
     if (t.card) return { ...cards[t.card], title: t.title, device: t.device || t.card };
     return { title: t.title, what: t.text };
   }
@@ -290,8 +412,9 @@ function renderCard() {
       <dt>After restoring</dt><dd>${Math.round(wr.after_restore_frac * 100)}% still out (tie closed, microgrid islanded)</dd>
       <dt>Overload risk</dt><dd>${Math.round(wr.p_overload * 100)}% of hours · worst ${Math.round(wr.worst * 100)}%</dd></dl>`;
   }
-  const twinBtn = view === 'map' && (dev === 'XFMR' || dev === 'sub_lv' || dev === 'sub_hv')
-    ? `<button class="btn" data-twin>Open the substation twin</button>` : '';
+  const twinBtn = view !== 'map' ? ''
+    : SUB_DEVICES.has(dev) ? `<button class="btn" data-twin>Open the substation twin</button>`
+      : MG_DEVICES.has(dev) ? `<button class="btn" data-mg>Open the microgrid yard</button>` : '';
   el.innerHTML = `<h3>Equipment</h3><div class="card-title">${c.title}</div>
     ${c.what ? `<p class="card-what">${c.what}</p>` : ''}
     ${c.role ? `<p class="card-role">${c.role}</p>` : ''}
@@ -312,6 +435,8 @@ $('#card').addEventListener('click', async (e) => {
     toast(res.msg, 'good');
   } else if ('twin' in b.dataset) {
     setView('twin');
+  } else if ('mg' in b.dataset) {
+    setView('mg');
   }
   await poll();
 });
@@ -416,7 +541,7 @@ function renderCompute() {
     <dt>CPU</dt><dd>${hw.cpu} · ${hw.cores} threads${hw.cpu_pct != null ? ` · ${hw.cpu_pct}%` : ''}</dd>
     <dt>GPU</dt><dd>${hw.gpu ?? '—'}${hw.gpu_mem_gb ? ` · ${hw.gpu_mem_gb} GB` : ''}${hw.gpu_pct != null ? ` · ${hw.gpu_pct}%` : ''}</dd>
     <dt>Power flow</dt><dd>${engine === 'server' ? 'OpenDSS' : 'In-browser'} AC solve · ${c.powerflow_ms < 0.1 ? '<0.1' : c.powerflow_ms.toFixed(2)} ms per step (10/s)</dd>
-    <dt>What-if</dt><dd>${w.state === 'idle' ? 'ready · press 3' :
+    <dt>What-if</dt><dd>${w.state === 'idle' ? 'ready · press 4' :
       `<span class="big-num">${w.done.toLocaleString()}</span> power flows · ${w.seconds}s · ${w.rate.toLocaleString()}/s on ${w.workers} ${engine === 'server' ? 'cores' : 'web workers'}
        <div class="meter ${w.state === 'running' ? 'run' : ''}"><i style="width:${pct}%"></i></div>`}</dd>
     <dt>Tutor</dt><dd>${c.tutor.backend}${c.tutor.tokens_per_s ? ` · ${c.tutor.tokens_per_s} tok/s` : ''}</dd>
@@ -481,11 +606,18 @@ addEventListener('keydown', (e) => {
   touch();
   if (e.key === '1') setView('map');
   if (e.key === '2') setView('twin');
-  if (e.key === '3') runWhatIf();
+  if (e.key === '3') setView('mg');
+  if (e.key === '4') runWhatIf();
+  if (e.key === '[') setDepth(depth - 0.1);
+  if (e.key === ']') setDepth(depth + 0.1);
+  if (e.key === 'o' || e.key === 'O') setAngle('overview');
+  if (e.key === 'e' || e.key === 'E') setAngle('eye');
+  if (e.key === 't' || e.key === 'T') setAngle('top');
   if (e.key === 'r' || e.key === 'R') { grid.setRisk(null); api.reset('free').then(poll); }
   if (e.key === 's' || e.key === 'S') startScenario();
 });
 document.querySelectorAll('.views button[data-view]').forEach((b) => (b.onclick = () => { touch(); setView(b.dataset.view); }));
+document.querySelectorAll('.angles button').forEach((b) => (b.onclick = () => { touch(); setAngle(b.dataset.angle); }));
 $('#btn-whatif').onclick = () => runWhatIf();
 $('#btn-reset').onclick = () => { touch(); grid.setRisk(null); $('#scorecard').hidden = true; api.reset('free').then(poll); };
 $('#btn-ack').onclick = () => { touch(); api.ack().then(poll); };
@@ -543,8 +675,19 @@ let oneline;
   cards = n.cards;
   grid = new GridScene(THREE, net);
   twin = new SubstationTwin(THREE);
-  oneline = new OneLine($('#oneline'), net, (id) => { touch(); if (view === 'twin' && net.branches[id]) setView('map'); select(id); });
-  setView(params.get('view') === 'twin' ? 'twin' : 'map');
+  mgTwin = new MicrogridTwin(THREE);
+  mods = { map: grid, twin, mg: mgTwin };
+  oneline = new OneLine($('#oneline'), net, (id) => {
+    touch();
+    // In a module, a one-line click on that module's equipment selects it there; anything else
+    // goes back to the map.
+    if (view !== 'map') {
+      if (ALIAS[view][id]) { select(ALIAS[view][id]); return; }
+      setView('map');
+    }
+    select(id);
+  });
+  setView(VIEWS[params.get('view')] ? params.get('view') : 'map');
   if (params.get('select')) select(params.get('select'));
   renderCard();
   await poll();
@@ -556,14 +699,19 @@ let oneline;
   // ?mono forces the flat renderer (headless checks, or a plain 2D monitor beside the 3D panel).
   const wall = params.has('mono') ? { supported: false } : await createInline3D({ lazy: false });
   if (wall.supported) {
-    const handle = wall.addScene(canvas, onXRFrame, { virtualDisplayHeight: VDH });
+    // With view-rig support the depth slider can lower eye separation; without it, only the
+    // scene stretch is available (applyDepth handles both).
+    rigOK = inline3dViewRigSupported();
+    handle = wall.addScene(canvas, onXRFrame, rigOK ? { viewRig: rigFor(depth) } : { virtualDisplayHeight: VDH });
     sbsMode = true;
     sizeCanvas();
+    applyDepth();
     // Keep the canvas covered until the browser has joined it to the weave (no raw SBS flash).
     Promise.resolve(handle.firstWoven).finally(() => ($('#cover').hidden = true));
     addEventListener('pagehide', () => wall.close && wall.close());
   } else {
     sizeCanvas();
+    applyDepth();
     $('#cover').hidden = true;
     requestAnimationFrame(onMonoFrame);
   }
