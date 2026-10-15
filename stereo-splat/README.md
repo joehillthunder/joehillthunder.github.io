@@ -17,7 +17,15 @@ and the splat are glasses-free 3D. Other browsers show the same page in 2D.
 3. **Capture.** `cam.capturePhoto()` saves the raw side-by-side pair (`_2x1.jpg`, with the stereo XMP record).
 4. **Depth** (`stereo.js`, in a worker). 7×7 census, semi-global matching (4 paths) run on both eyes,
    a left/right consistency check, occlusion fill and a median filter.
-5. **Splat.** Each pixel becomes one Gaussian at Z = f·B/d, in OpenCV camera space.
+5. **Splat** (`sharp.js`, `sharp-worker.js`). Apple's [SHARP](https://github.com/apple/ml-sharp) predicts about
+   1.2 M Gaussians from the left eye, on the GPU with ONNX Runtime Web 1.30.0 (WebGPU), while the stereo matcher runs.
+   The model is sm079's int8 ONNX export ([huggingface.co/sm079/sharp-onnx-webgpu](https://huggingface.co/sm079/sharp-onnx-webgpu),
+   0.66 GB, kept in Cache Storage after the first download). The page does SHARP's NDC → metric unprojection itself
+   (positions × diag(W/2f, H/2f, 1), covariances rebuilt and re-split into rotation and scales). SHARP guesses scale
+   from one image, so every opaque Gaussian is projected into the stereo disparity map and the scene is rescaled by
+   the median ratio: the splat lands at the distances the pair measured. With **Model: stereo per-pixel**, or
+   without WebGPU, or if SHARP fails, each pixel becomes one Gaussian at Z = f·B/d instead. All of this is in
+   OpenCV camera space. The SHARP weights are under Apple's Machine Learning Research Model License (research use only).
 6. **Encode** (`sog.js`). PlayCanvas `splat-transform` writes the `.sog`. Its `meta.json` gets a
    DisplayXR `camera` block (intrinsics, baseline, focus), so the viewer reopens the splat at the
    capture camera.
@@ -55,3 +63,9 @@ Where a file has no stereo metadata, set the baseline and field of view by hand.
 See `vendor/inline3d/VERSION.txt` for the source commit.
 
 `libheif-js` 1.23.2 (LGPL-3.0) is loaded unmodified from jsDelivr when a .heic is opened.
+
+`onnxruntime-web` 1.30.0 (MIT) is loaded from jsDelivr by the SHARP worker. The int8 weight-pack loader follows
+sm079/sharp-rig (MIT).
+
+inline3d 1.37.1 replays `setStereo` calls made before `splat.ready` ahead of its own setup, where they throw
+(`Cannot access 'stereoOverride' before initialization`). `app.js` calls `setStereo` only after `ready`.

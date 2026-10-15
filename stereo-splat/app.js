@@ -3,7 +3,8 @@
 //   @displayxr/inline3d/camera            finds the 3D camera, auto-converged self view, raw-pair photo
 //   ./cameras.js                          stereo cameras the SDK cannot see by shape (Acer SpatialLabs Eyes)
 //   ./heif.js                             iPhone / Vision Pro spatial photos (HEIC stereo pairs)
-//   ./stereo.js (in a worker)             disparity → depth → one Gaussian per pixel
+//   ./stereo.js (in a worker)             disparity → depth (and the per-pixel splat, the fallback model)
+//   ./sharp.js + sharp-worker.js          Apple SHARP on the left eye (WebGPU), scaled to the stereo depth
 //   @playcanvas/splat-transform + sog.js  .sog with a DisplayXR `camera` block in meta.json
 //   @displayxr/inline3d/splat/playcanvas  the splat as an inline-3D window (camera rig from the block)
 
@@ -14,6 +15,7 @@ import { encodeSog, cameraBlock, zipStored } from './sog.js';
 import { buildObj, buildGlb } from './mesh.js';
 import { knownStereoCamera, STEREO_HINT, eyeAspectOf, openProfileStream } from './cameras.js';
 import { isHeif, decodeSpatialPhoto } from './heif.js';
+import { hasWebGpu, sharpCached, loadSharp, runSharp, alignToStereo, depthRange } from './sharp.js';
 
 const ST_URL = 'https://cdn.jsdelivr.net/npm/@playcanvas/splat-transform@3.6.4';
 const DEFAULT_BASELINE_MM = 60;
@@ -33,6 +35,7 @@ const ui = {
   splatCoverText: $('splatCoverText'), splatBar: $('splatBar'), splatBadge: $('splatBadge'),
   splatStatus: $('splatStatus'), reset: $('reset'), rebuild: $('rebuild'),
   stereoDepth: $('stereoDepth'), stereoDepthVal: $('stereoDepthVal'), stereoDepthWrap: $('stereoDepthWrap'),
+  splatModel: $('splatModel'),
   baseline: $('baseline'), fov: $('fov'),
   results: $('results'), depth: $('depth'), stats: $('stats'), downloads: $('downloads'),
   exportObj: $('exportObj'), exportGlb: $('exportGlb'), meshDetail: $('meshDetail'), meshEdges: $('meshEdges'), meshDepth: $('meshDepth'), exportStatus: $('exportStatus'),
@@ -45,6 +48,7 @@ let ownStream = null; // a stream this page opened (profile / manual layout); st
 /** What the open camera is: `{ name, format: 'sbs'|'mono', eyeAspect, baselineMm, hfovDeg, how }` */
 let profile = null;
 let splat = null;
+let splatReady = false; // the backend is up: setStereo is safe (see showSplat)
 /** `{ bitmap, rawEyeWidth, height, eyeAspect, convergencePx, blob, name, source }` */
 let lastPair = null;
 /** The last build's depth, for the mesh export: `{ pair, disp, w, h, fx, baselineM, far, subjectZ }` */
@@ -333,11 +337,31 @@ function setStereoDepth(d) {
   try { localStorage.setItem('stereo-splat-depth', String(stereoDepth)); } catch { /* fine without */ }
   ui.stereoDepth.value = String(Math.round(stereoDepth * 100));
   ui.stereoDepthVal.textContent = `${Math.round(stereoDepth * 100)}%`;
-  splat?.setStereo({ ipdScale: stereoDepth });
+  if (splatReady) splat.setStereo({ ipdScale: stereoDepth });
 }
 ui.stereoDepth.addEventListener('input', () => setStereoDepth(Number(ui.stereoDepth.value) / 100));
 ui.stereoDepthWrap.hidden = !wall.supported; // depth only means something on a 3D display
 setStereoDepth(stereoDepth);
+
+// Splat model: Apple SHARP (needs WebGPU; 0.66 GB of weights, cached after the first visit) or
+// the stereo per-pixel splat. Remembered per browser.
+if (!hasWebGpu()) {
+  const opt = ui.splatModel.querySelector('option[value="sharp"]');
+  opt.disabled = true;
+  opt.textContent += ' (needs WebGPU)';
+  ui.splatModel.value = 'stereo';
+} else {
+  try {
+    const v = localStorage.getItem('stereo-splat-model');
+    if (v === 'sharp' || v === 'stereo') ui.splatModel.value = v;
+  } catch { /* storage blocked: default model */ }
+  // Weights already cached: compile now, so the first capture does not wait for it.
+  if (ui.splatModel.value === 'sharp') sharpCached().then((hit) => hit && loadSharp().catch((e) => console.warn('SHARP preload failed:', e)));
+}
+ui.splatModel.addEventListener('change', () => {
+  try { localStorage.setItem('stereo-splat-model', ui.splatModel.value); } catch { /* fine without */ }
+  if (lastPair && !busy) build().catch(fail);
+});
 
 // ── stereo → splat → .sog → tile ──────────────────────────────────────────────────────────
 
@@ -402,11 +426,21 @@ async function build() {
   // The face the camera converged on gives the subject distance; else the scene's median depth.
   const subjectZ = convergencePx ? (fxFull * baselineM) / convergencePx : null;
 
-  progress('Finding depth', 'Matching the left and right eye', 0);
+  // SHARP runs on the GPU while the stereo matcher runs on the CPU: the stereo depth sets its scale
+  // (and still drives the depth view and the mesh export).
+  const useSharp = ui.splatModel.value === 'sharp' && hasWebGpu();
+  const sharpJob = useSharp
+    ? runSharp(bitmap, { sx: 0, sy: 0, sw: rawEyeWidth, sh: height }, eyeWidth, height, fxFull, (stage, f) =>
+        progress('Apple SHARP', stage, f ?? null),
+      )
+    : null;
+  sharpJob?.catch(() => {}); // handled below, after the stereo depth
+
+  progress('Finding depth', 'Matching the left and right eye', useSharp ? null : 0);
   const res = await new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./stereo-worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }) => {
-      if (data.type === 'progress') progress('Finding depth', 'Matching the left and right eye', data.f * 0.7);
+      if (data.type === 'progress') !useSharp && progress('Finding depth', 'Matching the left and right eye', data.f * 0.7);
       else {
         worker.terminate();
         data.type === 'done' ? resolve(data) : reject(new Error(data.message));
@@ -420,7 +454,29 @@ async function build() {
   });
   const tDepth = performance.now();
 
-  progress('Encoding', `${res.count.toLocaleString()} Gaussians → .sog (PlayCanvas splat-transform)`, 0.75);
+  // The splat: SHARP's Gaussians at the stereo scale, or (fallback) one Gaussian per pixel.
+  let model = { name: 'Stereo, one Gaussian per pixel', columns: res.columns, count: res.count, grid: `${w}×${h}`, range: res.depth };
+  if (sharpJob) {
+    try {
+      const sh = await sharpJob;
+      const fit = alignToStereo(sh.columns, res.disp, w, h, fx, baselineM);
+      model = {
+        name: 'Apple SHARP (WebGPU)',
+        columns: sh.columns,
+        count: sh.count,
+        grid: `of ${sh.total.toLocaleString()} predicted`,
+        range: depthRange(sh.columns),
+        scale: fit.samples >= 500 ? `×${fit.scale.toFixed(2)} to match the stereo depth (${fit.samples.toLocaleString()} samples)` : 'SHARP’s own guess (too little stereo depth to match)',
+        ms: sh.ms,
+      };
+    } catch (err) {
+      console.warn('SHARP failed; using the stereo splat', err);
+      model.name += ` (SHARP failed: ${err?.message || err})`;
+    }
+  }
+  const tModel = performance.now();
+
+  progress('Encoding', `${model.count.toLocaleString()} Gaussians → .sog (PlayCanvas splat-transform)`, 0.75);
   const st = await stLoad;
   const camera = cameraBlock({
     eyeWidth: Math.round(eyeWidth),
@@ -428,17 +484,17 @@ async function build() {
     fx: fxFull,
     baselineM,
     subjectZ: res.depth.subject,
-    near: res.depth.near,
-    far: res.depth.far,
+    near: model.range.near,
+    far: model.range.far,
     source: subjectZ ? 'convergence' : 'auto',
   });
-  const sog = await encodeSog(st, res.columns, camera);
+  const sog = await encodeSog(st, model.columns, camera);
   const tSog = performance.now();
 
   progress('Loading', 'Putting the splat on the 3D tile', 0.95);
   await showSplat(sog);
   drawDepth(res.disp, w, h, res.depth, fx, baselineM);
-  report({ res, w, h, baselineM, fovDeg, sog, ms: { depth: tDepth - t0, sog: tSog - tDepth } });
+  report({ res, model, baselineM, fovDeg, sog, ms: { depth: tDepth - t0, model: tModel - tDepth, sog: tSog - tModel } });
   lastResult = { pair: lastPair, disp: res.disp, w, h, fx, baselineM, far: res.depth.far, subjectZ: res.depth.subject };
   ui.exportObj.disabled = ui.exportGlb.disabled = false;
   ui.exportStatus.textContent = '';
@@ -459,8 +515,12 @@ async function showSplat(sog) {
       renderScale: 0.6,
       idleSpin: 0,
     });
+    // setStereo only once the backend is up: inline3d 1.37.1 replays calls queued before then
+    // ahead of its own setup, and setStereo throws there (TDZ on `stereoOverride`).
+    await splat.ready;
+    splatReady = true;
     splat.setStereo({ ipdScale: stereoDepth });
-    const [, woven] = await Promise.all([splat.ready, splat.firstWoven]);
+    const woven = await splat.firstWoven;
     setBadge(ui.splatBadge, woven.woven);
     ui.splatCover.hidden = true; // hard cut
     ui.reset.disabled = false;
@@ -500,16 +560,24 @@ function ramp(t) {
   return stops[i].map((v, k) => Math.round(v + (stops[i + 1][k] - v) * f));
 }
 
-function report({ res, w, h, baselineM, fovDeg, sog, ms }) {
+function report({ res, model, baselineM, fovDeg, sog, ms }) {
   const m = (v) => (v >= 1 ? `${v.toFixed(2)} m` : `${Math.round(v * 100)} cm`);
+  const s = (t) => `${(t / 1000).toFixed(1)} s`;
   const rows = [
     ['Source', lastPair.source],
-    ['Gaussians', `${res.count.toLocaleString()} (${w}×${h})`],
+    ['Splat model', model.name],
+    ['Gaussians', `${model.count.toLocaleString()} (${model.grid})`],
+    ...(model.scale ? [['Scale', model.scale]] : []),
     ['Subject', m(res.depth.subject)],
-    ['Depth range', `${m(res.depth.near)} – ${m(res.depth.far)}`],
+    ['Depth range', `${m(model.range.near)} – ${m(model.range.far)}`],
     ['Stereo', `baseline ${+(baselineM * 1000).toFixed(1)} mm · eye FOV ${fovDeg}°`],
-    ['.sog size', `${(sog.length / 1024).toFixed(0)} KB`],
-    ['Time', `depth ${(ms.depth / 1000).toFixed(1)} s · encode ${(ms.sog / 1000).toFixed(1)} s`],
+    ['.sog size', `${(sog.length / 1048576).toFixed(1)} MB`],
+    [
+      'Time',
+      model.ms
+        ? `depth ${s(ms.depth)} · SHARP inference ${s(model.ms.run)} · encode ${s(ms.sog)}`
+        : `depth ${s(ms.depth)} · encode ${s(ms.sog)}`,
+    ],
   ];
   ui.stats.replaceChildren(...rows.flatMap(([k, v]) => [Object.assign(document.createElement('dt'), { textContent: k }), Object.assign(document.createElement('dd'), { textContent: v })]));
 

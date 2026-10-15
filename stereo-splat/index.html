@@ -91,7 +91,8 @@
   <h1>Stereo Splat</h1>
   <p class="sub">Point a 3D camera at something and take a photo: the DisplayXR 3D Camera, an Acer SpatialLabs Eyes,
     or any side-by-side stereo webcam. You can also load an iPhone spatial photo. The page finds depth in the stereo pair,
-    turns every pixel into a Gaussian and encodes the result as <code>.sog</code> with PlayCanvas
+    builds the Gaussians with Apple's <a href="https://github.com/apple/ml-sharp">SHARP</a> model, scaled to that depth,
+    and encodes the result as <code>.sog</code> with PlayCanvas
     <code>splat-transform</code>. Everything runs in your browser. In the
     <a href="https://displayxr.org/browser">DisplayXR Browser</a> on a 3D display, the preview and the splat
     are glasses-free 3D.</p>
@@ -136,6 +137,10 @@
         </div></div>
       </div>
       <div class="controls">
+        <select id="splatModel" aria-label="Splat model" title="Apple SHARP predicts Gaussians from the left eye on the GPU (0.66 GB download on first use, then cached) and is scaled to the stereo depth. Stereo makes one Gaussian per pixel from the depth map.">
+          <option value="sharp" selected>Model: Apple SHARP</option>
+          <option value="stereo">Model: stereo per-pixel</option>
+        </select>
         <button id="reset" disabled>Reset view</button>
       <label class="num" id="stereoDepthWrap" title="How much the splat pops out of and sinks into the display, relative to the photo's own depth. 100% is true to the capture.">
         3D depth <input type="range" id="stereoDepth" min="0" max="200" step="5" value="100"> <output id="stereoDepthVal">100%</output></label>
@@ -192,7 +197,12 @@
     and saves the raw pair. Half side-by-side cameras such as the Acer SpatialLabs Eyes are recognised by name
     and unsqueezed. iPhone spatial photos are decoded with libheif, and the HEIF stereo group, camera positions
     and lens give the left and right eyes, the baseline and the field of view. Depth comes from 7×7 census matching with semi-global aggregation and a left/right check.
-    Each pixel becomes one Gaussian, placed in 3D through the pinhole Z = f·B/d.
+    The Gaussians come from Apple's SHARP, run on the left eye with ONNX Runtime Web on WebGPU
+    (<a href="https://huggingface.co/sm079/sharp-onnx-webgpu">int8 ONNX export</a>, 0.66 GB, downloaded once and cached).
+    SHARP guesses scale from one image; the page projects its Gaussians into the stereo depth map and rescales the scene
+    by the median ratio, so the splat sits at the distances the pair measured. Without WebGPU, or with
+    <em>Model: stereo per-pixel</em>, each pixel becomes one Gaussian, placed through the pinhole Z = f·B/d.
+    The SHARP weights are under Apple's research-only model license.
     <code>splat-transform</code> writes the <code>.sog</code>. The page adds a DisplayXR <code>camera</code>
     block to its <code>meta.json</code>, so the viewer reopens the splat from the camera that took it.
     The preview is mirrored like a selfie. The splat is not mirrored: it is what the camera saw.</p>
