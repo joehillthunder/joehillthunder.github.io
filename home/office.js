@@ -362,6 +362,34 @@ const BUILD = {
       gummy.rotation.y = t * 2;
     });
   },
+  battleship(g) {
+    // a war-room plotting table: two grids, two ships, a shell arcing across and a hit
+    box(g, 4.4, 0.6, 2.4, '#2b3440', 0, 0, 0);
+    box(g, 4.2, 0.06, 2.2, glow('#1d5f93', 0.35), 0, 0.6, 0, { shadow: false });
+    for (let i = 0; i <= 4; i++) {
+      box(g, 0.025, 0.02, 2.0, glow('#45c4ff', 0.9), -1.95 + i * 0.45, 0.66, 0, { shadow: false });
+      box(g, 0.025, 0.02, 2.0, glow('#ff7a4a', 0.9), 0.15 + i * 0.45, 0.66, 0, { shadow: false });
+      box(g, 1.8, 0.02, 0.025, glow('#45c4ff', 0.9), -1.05, 0.66, -1 + i * 0.5, { shadow: false });
+      box(g, 1.8, 0.02, 0.025, glow('#ff7a4a', 0.9), 1.05, 0.66, -1 + i * 0.5, { shadow: false });
+    }
+    box(g, 1.2, 0.16, 0.26, '#8a96a3', -1.2, 0.66, -0.45);
+    box(g, 0.3, 0.26, 0.18, '#cfd6de', -1.1, 0.82, -0.45);
+    box(g, 0.08, 0.3, 0.08, '#4d5763', -1.35, 0.82, -0.45);
+    const target = box(g, 0.9, 0.14, 0.24, '#7d776f', 1.3, 0.66, 0.45);
+    const shell = sphere(g, 0.11, glow('#ffb03a', 1.2), 0, 0, 0, 10);
+    const boom = sphere(g, 0.35, glow('#ff5a2a', 1.4), 1.3, 0.85, 0.45, 12);
+    animators.push((t) => {
+      const k = (t * 0.45) % 1;
+      const f = Math.min(k / 0.65, 1);
+      shell.visible = k < 0.65;
+      shell.position.set(-1.2 + 2.5 * f, 0.95 + Math.sin(f * Math.PI) * 1.7, -0.45 + 0.9 * f);
+      const b = k >= 0.65 ? (k - 0.65) / 0.35 : 0;
+      boom.visible = b > 0;
+      boom.scale.setScalar(0.4 + b * 1.4);
+      boom.position.y = 0.85 + b * 0.5;
+      target.rotation.z = b > 0 ? Math.sin(b * 30) * 0.06 * (1 - b) : 0;
+    });
+  },
   playground(g) {
     box(g, 2.6, 0.5, 2.2, '#3e7cc9', -1.6, 0, 0);
     const cols = ['#ff5c5c', '#ffd34d', '#4fd8ff', '#6fe0a4', '#ff7ab8'];
