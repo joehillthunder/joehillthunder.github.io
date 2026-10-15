@@ -69,6 +69,8 @@
   .file input { display: none; }
   input[type=number] { width: 84px; padding: 5px 8px; }
   label.num { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+  label.num[hidden] { display: none; }
+  #stereoDepth { width: 110px; cursor: pointer; }
   .status { color: var(--muted); font-size: 13px; min-height: 1.5em; margin-top: 8px; }
 
   .results { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 22px; }
@@ -135,6 +137,8 @@
       </div>
       <div class="controls">
         <button id="reset" disabled>Reset view</button>
+      <label class="num" id="stereoDepthWrap" title="How much the splat pops out of and sinks into the display, relative to the photo's own depth. 100% is true to the capture.">
+        3D depth <input type="range" id="stereoDepth" min="0" max="200" step="5" value="100"> <output id="stereoDepthVal">100%</output></label>
         <label class="num">Baseline <input type="number" id="baseline" min="5" max="300" step="1"> mm</label>
         <label class="num">Eye FOV <input type="number" id="fov" min="20" max="150" step="1"> °</label>
         <button id="rebuild" disabled>Rebuild</button>

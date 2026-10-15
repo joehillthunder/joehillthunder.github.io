@@ -44,6 +44,10 @@
   .btns button { background: var(--panel); color: var(--ink); padding: 6px 10px; font-size: 14px; }
   .btns button:focus-visible, .card button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   #mode { font-size: 12px; opacity: .8; }
+  .depth { font-size: 14px; gap: 8px; }
+  .depth[hidden] { display: none; }
+  .depth input { width: 110px; accent-color: var(--gold); cursor: pointer; }
+  .depth output { min-width: 3em; font-size: 13px; }
   #fps { font-size: 12px; opacity: .8; }
 
   /* Menus: centred cards, smaller than the canvas */
@@ -92,6 +96,9 @@
     <span class="plate" id="mode">…</span>
     <span class="plate" id="fps" hidden></span>
     <button id="modeBtn" hidden title="Switch the display between 3D and 2D">3D on</button>
+    <label class="plate depth" id="depthWrap" hidden title="How much the game pops out of and sinks into the display. 100% is the designed depth. Keys: [ and ]">
+      Depth <input id="depth" type="range" min="0" max="200" step="5" value="100" aria-label="3D depth"><output id="depthVal">100%</output>
+    </label>
     <button id="muteBtn">Sound on</button>
     <button id="pauseBtn" aria-label="Pause">Pause</button>
   </div>
