@@ -28,7 +28,8 @@
       overflow: hidden;
       background: linear-gradient(#8ec1e2, #c7e2ef 55%, #d9ecf2);
     }
-    #office { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    /* will-change from first paint so the canvas is settled before it is registered for weaving */
+    #office { position: absolute; inset: 0; width: 100%; height: 100%; display: block; will-change: transform; }
     .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
     .labels > *, .tags > * { position: absolute; left: 0; top: 0; will-change: transform; }
 
@@ -98,9 +99,8 @@
       position: absolute; left: 24px; top: 20px;
       max-width: 340px;
       padding: 14px 16px;
-      background: rgba(18, 21, 28, .72);
+      background: rgba(18, 21, 28, .84); /* a plain tint: backdrop-filter over a woven canvas smears the 3D */
       border-radius: 8px;
-      backdrop-filter: blur(6px);
     }
     .hero-title h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: .01em; }
     .hero-title p { margin: 0; color: #cfcbc2; font-size: 13.5px; }
@@ -121,6 +121,23 @@
     .feed b { color: var(--accent); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; margin-right: 4px; }
     .legend { right: 16px; max-width: 280px; }
     .legend p { margin: 0; }
+    .legend .depth { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    .legend .depth input { flex: 1; accent-color: #9fd3ff; }
+    .woven-only { display: none !important; }
+    .hero.woven .woven-only { display: block !important; }
+    .hero.woven .flat-only { display: none !important; }
+    .hero.woven .depth.woven-only { display: flex !important; }
+
+    /* Woven (3D) view: the HTML labels become sprites in the scene, and this full-bleed layer must be
+       display:none (not opacity 0) so it never matches the canvas's own rect. */
+    .hero.woven .labels { display: none; }
+    .cover {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      background: linear-gradient(#8ec1e2, #c7e2ef 55%, #d9ecf2);
+      font: 600 13px var(--mono); letter-spacing: .12em; color: #2c4458;
+    }
+    .cover[hidden] { display: none; }
 
     .hero.narrow .tag { display: none; }
     .hero.narrow .legend { display: none; }
@@ -160,22 +177,31 @@
     footer { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
   </style>
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js" } }
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+        "@displayxr/inline3d": "./home/vendor/inline3d/inline3d.js",
+        "@displayxr/inline3d/three": "./home/vendor/inline3d/inline3d-three.js"
+      }
+    }
   </script>
 </head>
 <body>
   <header class="hero" id="hq">
     <canvas id="office" aria-label="An animated office where each DisplayXR demo is a room" role="img"></canvas>
+    <div class="cover" id="cover" hidden>WEAVING 3D…</div>
     <div class="labels" id="labels"></div>
-    <div class="hero-title">
+    <div class="hero-title" data-overlay>
       <p class="eyebrow">Joe Hill · DisplayXR</p>
       <h1>DisplayXR Demos</h1>
       <p>Glasses-free 3D on Leia displays. Click a room's name to step inside.</p>
     </div>
-    <aside class="feed" aria-live="off"><h2>ACTIVITY</h2><ol id="feed"></ol></aside>
-    <aside class="legend">
+    <aside class="feed" aria-live="off" data-overlay><h2>ACTIVITY</h2><ol id="feed"></ol></aside>
+    <aside class="legend" data-overlay>
       <h2>HOW TO VIEW</h2>
-      <p>Open a demo in the DisplayXR Browser on a 3D display for real depth. Every demo also runs in 2D in any browser.</p>
+      <p class="flat-only">Open this page in the DisplayXR Browser on a 3D display and the whole office comes out of the screen. Every demo also runs in 2D in any browser.</p>
+      <p class="woven-only">You're seeing the office in real 3D. Move your head to look around it.</p>
+      <label class="depth woven-only">Depth <input id="depth" type="range" min="0.1" max="0.8" step="0.01" aria-label="Depth"></label>
     </aside>
   </header>
 

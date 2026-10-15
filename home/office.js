@@ -1,18 +1,31 @@
 // "DisplayXR HQ": an isometric voxel office where every demo is a room. Room plaques are
 // links into the demos; little people wander between rooms and chat about what they're doing.
+//
+// Two ways to draw it. In any browser: a flat isometric view with HTML labels. In the DisplayXR
+// Browser on a 3D display: the same office as a woven inline-3D scene (display rig, the diorama is
+// the subject), with the labels as sprites at their real depth. Rules followed here are in
+// DisplayXR/displayxr-web docs/woven-canvas-rules.md.
 
 import * as THREE from 'three';
+import { createInline3D, inline3DAvailable, ViewerEase, frameTrackingState } from '@displayxr/inline3d';
+import { EyeCamera, DepthCursor, raycastHitTest } from '@displayxr/inline3d/three';
 import { WINGS, LOBBY_CHATTER } from './demos.js';
 
 const hero = document.getElementById('hq');
 const canvas = document.getElementById('office');
+const cover = document.getElementById('cover');
 const labelLayer = document.getElementById('labels');
 const feedList = document.getElementById('feed');
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const params = new URLSearchParams(location.search);
+// ?mono forces the flat view (headless checks, or a 2D monitor beside the panel).
+const tryWoven = !params.has('mono') && inline3DAvailable();
 
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  // preserveDrawingBuffer: large woven scene canvases can race the weave's read on older
+  // DisplayXR Browser builds (porting pitfall 26).
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: tryWoven });
 } catch (err) {
   hero.classList.add('no-webgl');
   throw err;
@@ -21,7 +34,17 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-const scene = new THREE.Scene();
+// stage → depthRoot (squashes depth in 3D) → scene (the office, in office units).
+// In the flat view both wrappers stay identity.
+const stage = new THREE.Scene();
+const depthRoot = new THREE.Group();
+const scene = new THREE.Group();
+stage.add(depthRoot);
+depthRoot.add(scene);
+
+// Sprites and the point cloud live on this layer: every camera draws it, the depth cursor's
+// raycast skips it (a sprite needs a camera to be raycast, and a point cloud's hit radius is huge).
+const LABEL_LAYER = 1;
 
 // ---------- helpers ----------
 
@@ -362,8 +385,9 @@ const BUILD = {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.09, vertexColors: true }));
+    const cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 2.5, sizeAttenuation: false, vertexColors: true }));
     cloud.position.set(0.9, 1.6, 0);
+    cloud.layers.set(LABEL_LAYER);
     g.add(cloud);
     animators.push((t) => {
       cloud.rotation.y = t * 0.6;
@@ -425,14 +449,14 @@ lobbyRug.receiveShadow = true;
 
 // ---------- outside: street, trees, billboard, cars, bunnies ----------
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), mat('#5f9a52'));
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.5;
-ground.receiveShadow = true;
-scene.add(ground);
-box(scene, 120, 0.12, 2.4, '#b9b5ad', 0, -0.5, 15.9, { shadow: false });
-box(scene, 120, 0.1, 6, '#3c3c44', 0, -0.5, 20.3, { shadow: false });
-for (let x = -58; x < 60; x += 4) box(scene, 1.8, 0.02, 0.18, '#e9d27a', x, -0.39, 20.3, { shadow: false });
+// The site is a floating diorama plot, not an endless ground plane: in 3D an endless plane would
+// run out of the glass toward the viewer and get cut by the frame edge.
+const PX = 34, PZ0 = -22, PZ1 = 27, PCZ = (PZ0 + PZ1) / 2;
+box(scene, PX * 2, 1.6, PZ1 - PZ0, '#7a5638', 0, -2.22, PCZ, { shadow: false });
+box(scene, PX * 2, 0.12, PZ1 - PZ0, '#5f9a52', 0, -0.62, PCZ, { shadow: false });
+box(scene, PX * 2, 0.12, 2.4, '#b9b5ad', 0, -0.5, 15.9, { shadow: false });
+box(scene, PX * 2, 0.1, 6, '#3c3c44', 0, -0.5, 20.3, { shadow: false });
+for (let x = -PX + 2; x < PX - 1; x += 4) box(scene, 1.8, 0.02, 0.18, '#e9d27a', x, -0.39, 20.3, { shadow: false });
 for (let i = 0; i < 6; i++) box(scene, 0.5, 0.02, 5.4, '#e8e8e8', -2.4 + i * 0.95, -0.39, 20.3, { shadow: false });
 box(scene, 4, 0.06, 1.4, '#b9b5ad', 0, -0.48, 14.5, { shadow: false });
 
@@ -483,7 +507,7 @@ for (let i = 0; i < 6; i++) {
   box(g, 1.3, 0.38, 1.18, '#9cc7e8', -0.2, 0.9, 0, { shadow: false });
   [[-0.85, 0.66], [0.85, 0.66], [-0.85, -0.66], [0.85, -0.66]].forEach(([x, z]) => box(g, 0.5, 0.5, 0.15, '#1a1a1a', x, 0, z));
   const lane = i % 2;
-  g.userData = { lane, speed: rand(4, 7), x: rand(-50, 50) };
+  g.userData = { lane, speed: rand(4, 7), x: rand(-PX + 2, PX - 2) };
   g.position.set(0, -0.4, lane ? 21.7 : 18.9);
   g.rotation.y = lane ? 0 : Math.PI;
   scene.add(g);
@@ -534,6 +558,7 @@ function makePerson(name, home) {
   box(g, 0.06, 0.06, 0.02, '#1d1d1d', -0.1, 1.2, 0.205, { shadow: false });
   box(g, 0.06, 0.06, 0.02, '#1d1d1d', 0.1, 1.2, 0.205, { shadow: false });
   g.scale.setScalar(0.9);
+  g.userData.person = true;
   scene.add(g);
 
   const tag = document.createElement('div');
@@ -625,6 +650,83 @@ function stepPerson(p, dt) {
 }
 
 // ---------- labels, bubbles and activity feed ----------
+// Flat view: HTML labels projected over the canvas. Woven view: the same labels as sprites in the
+// scene, so each sits at its room's or person's depth instead of on the glass.
+
+const MONO = '"Cascadia Mono", Consolas, "Courier New", monospace';
+
+function canvasTexture(w, h, draw) {
+  const cv = document.createElement('canvas');
+  cv.width = w * 2; cv.height = h * 2;
+  const c = cv.getContext('2d');
+  c.scale(2, 2);
+  draw(c);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// A sprite whose bottom centre is its anchor, `height` office units tall.
+function sprite(tex, w, h, height) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  s.scale.set((height * w) / h, height, 1);
+  s.center.set(0.5, 0);
+  s.layers.set(LABEL_LAYER);
+  return s;
+}
+
+const measure = document.createElement('canvas').getContext('2d');
+function textWidth(text, font) {
+  measure.font = font;
+  return measure.measureText(text).width;
+}
+
+function plaqueSprite(r) {
+  const name = r.demo.name.toUpperCase(), wing = r.wing.name.toUpperCase();
+  const fName = `600 22px ${MONO}`, fWing = `500 12px ${MONO}`;
+  const w = Math.ceil(Math.max(textWidth(name + ' →', fName), textWidth(wing, fWing)) + 34), h = 56;
+  const draw = (hot) => (c) => {
+    c.beginPath(); c.roundRect(1.5, 1.5, w - 3, h - 3, 5);
+    c.fillStyle = hot ? 'rgba(12,14,20,.97)' : 'rgba(20,22,28,.82)'; c.fill();
+    c.lineWidth = hot ? 3 : 1.5; c.strokeStyle = hot ? r.wing.accent : 'rgba(255,255,255,.18)'; c.stroke();
+    c.fillStyle = r.wing.accent; c.fillRect(1.5, 1.5, 5, h - 3);
+    c.textAlign = 'center';
+    c.font = fWing; c.fillText(wing, w / 2 + 2, 20);
+    c.font = fName; c.fillStyle = '#f1ede4'; c.fillText(hot ? name + ' →' : name, w / 2 + 2, 45);
+  };
+  const s = sprite(canvasTexture(w, h, draw(false)), w, h, 1.5);
+  // Always drawn over the wall it hangs on (a camera-facing sprite would otherwise cut into it).
+  s.material.depthTest = false;
+  s.renderOrder = 10;
+  s.userData = { room: r, cold: s.material.map, hot: canvasTexture(w, h, draw(true)) };
+  return s;
+}
+
+function tagSprite(name) {
+  const f = `600 15px ${MONO}`, w = Math.ceil(textWidth(name, f) + 12), h = 22;
+  return sprite(canvasTexture(w, h, (c) => {
+    c.fillStyle = 'rgba(20,22,28,.72)'; c.beginPath(); c.roundRect(0, 0, w, h, 3); c.fill();
+    c.fillStyle = '#e6e2d8'; c.font = f; c.textAlign = 'center'; c.fillText(name, w / 2, 16);
+  }), w, h, 0.5);
+}
+
+function bubbleSprite(text) {
+  const f = `500 15px ${MONO}`, maxW = 210, lines = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line ? line + ' ' + word : word;
+    if (line && textWidth(next, f) > maxW) { lines.push(line); line = word; } else line = next;
+  }
+  lines.push(line);
+  const w = Math.ceil(Math.max(...lines.map((l) => textWidth(l, f))) + 22), bodyH = lines.length * 19 + 12, h = bodyH + 9;
+  return sprite(canvasTexture(w, h, (c) => {
+    c.fillStyle = '#fbf8f1';
+    c.beginPath(); c.roundRect(0, 0, w, bodyH, 7); c.fill();
+    c.beginPath(); c.moveTo(w / 2 - 7, bodyH - 1); c.lineTo(w / 2, h); c.lineTo(w / 2 + 7, bodyH - 1); c.fill();
+    c.fillStyle = '#2a2620'; c.font = f; c.textAlign = 'center';
+    lines.forEach((l, i) => c.fillText(l, w / 2, 21 + i * 19));
+  }), w, h, (h / 22) * 0.8);
+}
 
 const plaques = rooms.map((r) => {
   const a = document.createElement('a');
@@ -638,7 +740,7 @@ const plaques = rooms.map((r) => {
   a.addEventListener('focus', () => setHot(r));
   a.addEventListener('blur', () => setHot(null));
   labelLayer.append(a);
-  return { r, el: a };
+  return { r, el: a, sprite: null };
 });
 const lobbyTag = document.createElement('div');
 lobbyTag.className = 'plaque plaque-static';
@@ -646,10 +748,39 @@ lobbyTag.innerHTML = '<span>Lobby</span>';
 labelLayer.append(lobbyTag);
 const lobbyAnchor = new THREE.Vector3(0, 0.1, 6.6);
 
+// 3D labels, built the first time the woven view starts.
+const labels3d = new THREE.Group();
+labels3d.visible = false;
+scene.add(labels3d);
+function buildLabels3d() {
+  if (labels3d.children.length) return;
+  plaques.forEach((p) => {
+    const s = plaqueSprite(p.r);
+    s.position.copy(p.r.plaque);
+    if (p.r.back) { s.position.y = 1.3; s.position.z += 0.35; }
+    p.sprite = s;
+    labels3d.add(s);
+  });
+  people.forEach((p) => {
+    p.tag3d = tagSprite(p.name);
+    p.tag3d.position.y = 1.98;
+    p.tag3d.visible = false;
+    p.g.add(p.tag3d);
+  });
+}
+function showLabels3d(on) {
+  labels3d.visible = on;
+  people.forEach((p) => p.tag3d && (p.tag3d.visible = on));
+}
+
 let hot = null;
 function setHot(r) {
+  if (r === hot) return;
   hot = r;
-  plaques.forEach((p) => p.el.classList.toggle('hot', p.r === r));
+  plaques.forEach((p) => {
+    p.el.classList.toggle('hot', p.r === r);
+    if (p.sprite) p.sprite.material.map = p.r === r ? p.sprite.userData.hot : p.sprite.userData.cold;
+  });
   canvas.style.cursor = r ? 'pointer' : '';
 }
 
@@ -657,11 +788,20 @@ const bubbles = [];
 function say(p) {
   const r = p.region === 'hall' ? null : p.region;
   const text = pick(r ? r.demo.chatter : LOBBY_CHATTER);
-  const el = document.createElement('div');
-  el.className = 'bubble';
-  el.textContent = text;
-  labelLayer.append(el);
-  p.bubble = { el, until: clock + 4.5 };
+  const b = { until: clock + 4.5 };
+  if (woven) {
+    b.sprite = bubbleSprite(text);
+    b.sprite.position.y = 2.6;
+    b.sprite.material.depthTest = false; // over the wall signs, like the flat view's bubbles
+    b.sprite.renderOrder = 11;
+    p.g.add(b.sprite);
+  } else {
+    b.el = document.createElement('div');
+    b.el.className = 'bubble';
+    b.el.textContent = text;
+    labelLayer.append(b.el);
+  }
+  p.bubble = b;
   bubbles.push(p);
   const li = document.createElement('li');
   li.innerHTML = `<b style="--accent:${r ? r.wing.accent : '#bbb'}">${r ? r.demo.name : 'Lobby'}</b> `;
@@ -669,10 +809,18 @@ function say(p) {
   feedList.prepend(li);
   while (feedList.children.length > 3) feedList.lastChild.remove();
 }
+function unsay(p) {
+  const b = p.bubble;
+  if (b.el) b.el.remove();
+  if (b.sprite) { p.g.remove(b.sprite); b.sprite.material.map.dispose(); b.sprite.material.dispose(); }
+  p.bubble = null;
+  bubbles.splice(bubbles.indexOf(p), 1);
+}
 
-// ---------- camera ----------
+// ---------- flat camera ----------
 
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+camera.layers.enable(LABEL_LAYER);
 const target = new THREE.Vector3(0, 0, 1.5);
 const BASE_AZ = Math.PI / 4, ELEV = 0.62, DIST = 120;
 let viewH = 20;
@@ -700,12 +848,9 @@ function resize() {
   const narrow = w < 700;
   viewH = Math.max(my * (narrow ? 1.0 : 1.04), (mx / aspect) * (narrow ? 1.08 : 1.02));
   camera.left = -viewH * aspect; camera.right = viewH * aspect; camera.top = viewH; camera.bottom = -viewH;
-  // Leave room for the title overlay at the top on wide screens.
   camera.updateProjectionMatrix();
   hero.classList.toggle('narrow', narrow);
 }
-addEventListener('resize', resize);
-resize();
 
 // ---------- lights ----------
 
@@ -714,58 +859,62 @@ const sun = new THREE.DirectionalLight('#fff3df', 2.2);
 sun.position.set(25, 40, 18);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 1, far: 120 });
 sun.shadow.bias = -0.0005;
-sun.shadow.normalBias = 0.02;
-scene.add(sun);
+scene.add(sun, sun.target);
+// The shadow camera works in world units, so it follows the office's scale in the woven view.
+function setShadowScale(k) {
+  Object.assign(sun.shadow.camera, { left: -38 * k, right: 38 * k, top: 38 * k, bottom: -38 * k, near: k, far: 120 * k });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.normalBias = 0.02 * k;
+}
+setShadowScale(1);
 
 // ---------- picking ----------
+// Flat: the ortho camera. Woven: one camera at the midpoint between the eyes. There is one cursor
+// on one screen, so pick against that cyclopean view, never an eye camera.
 
 const ray = new THREE.Raycaster();
+ray.layers.enable(LABEL_LAYER);
 const ndc = new THREE.Vector2();
-const pickables = rooms.map((r) => r.highlight);
+const pickCam = new THREE.PerspectiveCamera();
+pickCam.matrixAutoUpdate = false;
+let havePickCam = false;
 function roomAt(e) {
   const rect = canvas.getBoundingClientRect();
   ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  return ray.intersectObjects(pickables)[0]?.object.userData.room || null;
+  const cam = woven ? (havePickCam ? pickCam : null) : camera;
+  if (!cam) return null;
+  ray.setFromCamera(ndc, cam);
+  const targets = rooms.map((r) => r.highlight);
+  if (woven) plaques.forEach((p) => p.sprite && targets.push(p.sprite));
+  for (const hit of ray.intersectObjects(targets, false)) if (hit.object.userData.room) return hit.object.userData.room;
+  return null;
 }
 canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') setHot(roomAt(e)); });
 canvas.addEventListener('pointerleave', () => setHot(null));
 canvas.addEventListener('click', (e) => { const r = roomAt(e); if (r) location.href = r.demo.url; });
 
-// ---------- loop ----------
+// ---------- simulation (shared by both views) ----------
 
-const proj = new THREE.Vector3();
-function toScreen(v, w, h) {
-  proj.copy(v).project(camera);
-  return [(proj.x * 0.5 + 0.5) * w, (-proj.y * 0.5 + 0.5) * h, proj.z];
-}
-const place = (el, x, y) => (el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`);
+let clock = 0, last = performance.now(), nextSay = 0;
+let woven = false;
 
-let clock = 0, last = performance.now(), nextSay = 0, running = true;
-new IntersectionObserver(([e]) => {
-  running = e.isIntersecting;
-  if (running) { last = performance.now(); requestAnimationFrame(frame); }
-}).observe(hero);
-
-const head = new THREE.Vector3();
-function frame(now) {
-  if (!running) return;
+function step(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   clock += dt;
+  const sway = reduceMotion ? 0 : Math.sin(clock * 0.12) * 0.06;
+  if (woven) scene.rotation.y = -BASE_AZ - sway;
+  else placeCamera(BASE_AZ + sway);
 
-  placeCamera(BASE_AZ + (reduceMotion ? 0 : Math.sin(clock * 0.12) * 0.06));
   animators.forEach((f) => f(clock));
   flickers.forEach((f) => (f.m.emissiveIntensity = 0.45 + 0.25 * Math.sin(clock * 3 + f.o) + (Math.sin(clock * 17 + f.o) > 0.97 ? 0.4 : 0)));
-
   people.forEach((p) => stepPerson(p, dt));
   cars.forEach((c) => {
     const u = c.userData;
     u.x += (u.lane ? 1 : -1) * u.speed * dt;
-    if (u.x > 60) u.x = -60;
-    if (u.x < -60) u.x = 60;
+    if (u.x > PX - 1.5) u.x = -PX + 1.5;
+    if (u.x < -PX + 1.5) u.x = PX - 1.5;
     c.position.x = u.x;
   });
   bunnies.forEach((b) => {
@@ -785,14 +934,30 @@ function frame(now) {
     m.opacity += ((r === hot ? 0.22 : 0) - m.opacity) * 0.2;
   });
 
+  bubbles.slice().forEach((p) => clock > p.bubble.until && unsay(p));
   nextSay -= dt;
   if (nextSay <= 0) {
     nextSay = rand(1.4, 2.6);
     const free = people.filter((p) => !p.bubble);
     if (bubbles.length < (hero.classList.contains('narrow') ? 2 : 4) && free.length) say(pick(free));
   }
+}
 
-  renderer.render(scene, camera);
+// ---------- flat view loop ----------
+
+const proj = new THREE.Vector3();
+function toScreen(v, w, h) {
+  proj.copy(v).project(camera);
+  return [(proj.x * 0.5 + 0.5) * w, (-proj.y * 0.5 + 0.5) * h, proj.z];
+}
+const place = (el, x, y) => (el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`);
+const head = new THREE.Vector3();
+
+let onScreen = true;
+function frame(now) {
+  if (!onScreen || woven) return;
+  step(now);
+  renderer.render(stage, camera);
 
   const w = hero.clientWidth, h = hero.clientHeight;
   plaques.forEach(({ r, el }) => { const [x, y] = toScreen(r.plaque, w, h); place(el, x, y); });
@@ -801,19 +966,188 @@ function frame(now) {
     head.copy(p.g.position); head.y += 1.75;
     const [x, y] = toScreen(head, w, h);
     place(p.tag, x, y);
-    if (p.bubble) {
-      if (clock > p.bubble.until) {
-        p.bubble.el.remove();
-        p.bubble = null;
-        bubbles.splice(bubbles.indexOf(p), 1);
-      } else place(p.bubble.el, x, y - 16);
-    }
+    if (p.bubble?.el) place(p.bubble.el, x, y - 16);
   });
-
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
-hero.classList.add('ready');
+function startFlat() {
+  resize();
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+new IntersectionObserver(([e]) => {
+  const was = onScreen;
+  onScreen = e.isIntersecting;
+  if (onScreen && !was && !woven) { last = performance.now(); requestAnimationFrame(frame); }
+}).observe(hero);
+addEventListener('resize', () => (woven ? resizeWoven() : resize()));
 
+// ---------- woven (3D) view ----------
+// Display rig: the canvas is a portal onto a virtual display VDH metres tall and the office is the
+// subject, turned to the same isometric angle and scaled into it. Room height sits on the glass,
+// the street comes out toward the viewer, the back wall and billboard sit behind it.
+
+const VDH = 0.3;
+const SKY = '#a9d2ea';
+let depth = Math.min(1, Math.max(0.05, Number(params.get('depth')) || 0.35)); // building depth as a share of VDH
+let subjectDepth = 1, dxr = null, handle = null, cursor = null, haveGood = false;
+const eyes = [new EyeCamera(THREE), new EyeCamera(THREE)];
+eyes.forEach((e) => e.camera.layers.enable(LABEL_LAYER));
+const good = [0, 1].map(() => ({ proj: new Float32Array(16), pose: new Float32Array(16), x: 0, y: 0, width: 0, height: 0 }));
+const ease = new ViewerEase(); // glides the eyes when a viewer is found or lost instead of snapping
+
+const corners = [];
+for (const x of [X0, X1]) for (const y of [0, 2.6]) for (const z of [Z0, Z1]) corners.push(new THREE.Vector3(x, y, z));
+
+function frameSubject() {
+  const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+  depthRoot.scale.set(1, 1, 1);
+  scene.position.set(0, 0, 0);
+  scene.scale.setScalar(1);
+  scene.rotation.set(ELEV, -BASE_AZ, 0, 'XYZ');
+  scene.updateMatrix();
+  const v = new THREE.Vector3(), lo = new THREE.Vector3(Infinity, Infinity, Infinity), hi = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+  for (const p of fitPts) { v.copy(p).applyMatrix4(scene.matrix); lo.min(v); hi.max(v); }
+  let z0 = Infinity, z1 = -Infinity;
+  for (const p of corners) { v.copy(p).applyMatrix4(scene.matrix); z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z); }
+  const s = Math.min((VDH * aspect * 0.96) / (hi.x - lo.x), (VDH * 0.92) / (hi.y - lo.y));
+  const glass = new THREE.Vector3(0, 0.8, 0).applyMatrix4(scene.matrix);
+  scene.scale.setScalar(s);
+  scene.position.set((-s * (lo.x + hi.x)) / 2, (-s * (lo.y + hi.y)) / 2, -s * glass.z);
+  subjectDepth = s * (z1 - z0);
+  setShadowScale(s);
+  applyDepth();
+}
+function applyDepth() {
+  depthRoot.scale.z = Math.min(1, (depth * VDH) / subjectDepth);
+}
+
+// SBS backing store: two eyes side by side. Kept no wider than the panel (half a panel per eye is
+// what a lenticular delivers anyway), never below half resolution.
+function sizeSBS() {
+  const dpr = devicePixelRatio || 1;
+  const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+  const scale = Math.max(0.5, Math.min(1, (screen.width * dpr) / 2 / (cssW * dpr)));
+  const ew = Math.round(cssW * dpr * scale), eh = Math.round(cssH * dpr * scale);
+  if (canvas.width === ew * 2 && canvas.height === eh) return false; // setSize clears even for equal values
+  renderer.setSize(ew * 2, eh, false);
+  return true;
+}
+function resizeWoven() {
+  hero.classList.toggle('narrow', hero.clientWidth < 700);
+  if (sizeSBS()) { frameSubject(); drawGood(); }
+}
+
+function drawGood() {
+  renderer.clear();
+  if (!haveGood) return; // still present a frame: an undrawn canvas can drop out of the weave
+  renderer.setScissorTest(true);
+  for (let i = 0; i < 2; i++) {
+    const g = good[i];
+    renderer.setViewport(g.x, g.y, g.width, g.height);
+    renderer.setScissor(g.x, g.y, g.width, g.height);
+    eyes[i].setFromMatrices(g.proj, g.pose);
+    renderer.render(stage, eyes[i].camera);
+  }
+  renderer.setScissorTest(false);
+}
+
+const ma = new THREE.Matrix4(), mb = new THREE.Matrix4(), pa = new THREE.Vector3(), pb = new THREE.Vector3();
+function onFrame(views, layer, frame) {
+  step(performance.now());
+  // Validate everything before clearing: a short view list or a null viewport is the session's
+  // per-frame fallback, and clearing on it is a black blink. Replay the last good frame instead.
+  if (!views || views.length < 2 || !layer) return drawGood();
+  const vps = [layer.getViewport(views[0]), layer.getViewport(views[1])];
+  if (vps.some((vp) => !vp || vp.width <= 0 || vp.height <= 0)) return drawGood();
+  cursor?.update(views, { layer });
+  for (let i = 0; i < 2; i++) {
+    const g = good[i], vp = vps[i];
+    g.proj.set(views[i].projectionMatrix);
+    g.pose.set(views[i].transform.matrix);
+    g.x = vp.x; g.y = vp.y; g.width = vp.width; g.height = vp.height;
+  }
+  ease.apply(good, frameTrackingState(frame));
+  haveGood = true;
+  drawGood();
+  ma.fromArray(good[0].pose); mb.fromArray(good[1].pose);
+  pa.setFromMatrixPosition(ma).add(pb.setFromMatrixPosition(mb)).multiplyScalar(0.5);
+  ma.setPosition(pa);
+  pickCam.matrixWorld.copy(ma);
+  pickCam.matrixWorldInverse.copy(ma).invert();
+  pickCam.projectionMatrix.fromArray(good[0].proj);
+  pickCam.projectionMatrixInverse.copy(pickCam.projectionMatrix).invert();
+  havePickCam = true;
+}
+
+const nextFrame = () => new Promise((res) => requestAnimationFrame(res));
+
+async function startWoven() {
+  let w;
+  try { w = await createInline3D({ lazy: false }); } catch { return; }
+  if (!w.supported) return;
+  dxr = w;
+  woven = true; // stops the flat loop
+  cover.hidden = false; // on top of the canvas until the first woven frame; a hard cut, never a fade
+  hero.classList.add('woven'); // hides the full-bleed HTML label layer (display: none)
+  hero.querySelectorAll('[data-overlay]').forEach((el) => dxr.addGlobalOverlay(el));
+  bubbles.slice().forEach(unsay);
+  buildLabels3d();
+  showLabels3d(true);
+
+  renderer.setPixelRatio(1); // getViewport() is already in backing-store pixels
+  renderer.autoClear = false;
+  renderer.setClearColor(SKY, 1); // a transparent woven frame comes out black on the panel
+  sizeSBS();
+  frameSubject();
+  renderer.clear();
+
+  // The depth cursor rises over content that comes out of the glass (the street, the front rooms).
+  const solids = scene.children.filter((o) => !o.userData.person && o !== labels3d && !o.isLight);
+  cursor = new DepthCursor(THREE, { canvas, hitTest: raycastHitTest(THREE, solids), raysPerFrame: 4 });
+  stage.add(cursor.object);
+
+  // Settle the canvas for two frames before registering it (rule 4).
+  await nextFrame(); await nextFrame();
+  handle = dxr.addScene(canvas, onFrame, { virtualDisplayHeight: VDH, rectCover: 'auto', onLayerLost: backToFlat });
+  handle.firstWoven.then(() => (cover.hidden = true));
+  addEventListener('pagehide', () => dxr.close());
+
+  const slider = document.getElementById('depth');
+  slider.value = depth;
+  slider.addEventListener('input', () => { depth = Number(slider.value); applyDepth(); });
+
+  // Reading the cards below the hero: put the panel in real 2D for sharp text, and back to 3D when
+  // the office scrolls into view (the SDK eases the disparity in and out).
+  let stereoOn = true;
+  new IntersectionObserver(([e]) => {
+    const want = e.intersectionRatio >= 0.25;
+    if (want === stereoOn) return;
+    stereoOn = want;
+    dxr.setStereoEnabled(want).catch(() => {});
+  }, { threshold: [0, 0.25, 0.5] }).observe(hero);
+}
+
+function backToFlat() {
+  woven = false;
+  cover.hidden = true;
+  hero.classList.remove('woven');
+  showLabels3d(false);
+  bubbles.slice().forEach(unsay);
+  if (cursor) { stage.remove(cursor.object); cursor.dispose(); cursor = null; }
+  depthRoot.scale.set(1, 1, 1);
+  scene.position.set(0, 0, 0);
+  scene.rotation.set(0, 0, 0);
+  scene.scale.setScalar(1);
+  setShadowScale(1);
+  renderer.autoClear = true;
+  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  startFlat();
+}
+
+startFlat();
+hero.classList.add('ready');
 // Start with a little chatter so the office is already busy on arrival.
 people.slice().sort(() => Math.random() - 0.5).slice(0, 3).forEach((p) => say(p));
+if (tryWoven) startWoven();
