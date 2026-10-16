@@ -208,6 +208,11 @@
   <main>
     <p class="intro">Each room is a web app built on the <strong>DisplayXR inline-3D SDK</strong>. On a glasses-free 3D display it renders in depth; everywhere else it falls back to 2D.</p>
     <div id="directory"></div>
+    <section class="wing" id="creator-gallery" style="--accent:#ffc94a">
+      <h2>Creator Gallery</h2>
+      <p>What you've pushed to HQ from <a href="displayxr-demos/apps/creator-hub/">Creator Hub</a> (Material Forge, Vehicle Studio, Terra Studio). It's kept in this browser on this PC.</p>
+      <div class="cards" id="gallery"><p class="intro" style="margin:0">Nothing pushed yet. Open a creator tool and press <strong>Push to HQ</strong>.</p></div>
+    </section>
   </main>
   <footer>
     More: <a href="displayxr-demos/">displayxr-demos monorepo</a> · <a href="https://github.com/joehillthunder">github.com/joehillthunder</a>
@@ -229,6 +234,26 @@
           </article>`).join('')}
         </div>
       </section>`).join('');
+  </script>
+  <script type="module">
+    import { listCreations, onHQChange } from './displayxr-demos/apps/creator-hub/shared/hq.js';
+    const host = document.getElementById('gallery');
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    async function renderGallery() {
+      const items = await listCreations().catch(() => []);
+      if (!items.length) return;
+      host.innerHTML = items.map((c) => `
+        <article class="card" style="padding:0;overflow:hidden">
+          <img src="${c.thumb}" alt="" style="width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#0d0f13">
+          <div style="padding:12px 16px 14px;display:flex;flex-direction:column;flex:1">
+            <h3>${esc(c.name)}</h3>
+            <p>${esc(c.appName)} · ${new Date(c.created).toLocaleDateString()}${c.notes ? ' · ' + esc(c.notes) : ''}</p>
+            <div class="links"><a class="open" href="displayxr-demos/apps/creator-hub/view/?id=${encodeURIComponent(c.id)}">View in 3D →</a></div>
+          </div>
+        </article>`).join('');
+    }
+    renderGallery();
+    onHQChange(renderGallery);
   </script>
   <script type="module" src="home/office.js"></script>
 </body>

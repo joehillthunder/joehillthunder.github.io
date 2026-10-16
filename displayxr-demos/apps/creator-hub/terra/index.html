@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terra Studio · DisplayXR Creator Hub</title>
+<meta name="description" content="Real terrain, basemaps and your own GIS data in glasses-free 3D: layers, buildings, measurement, profiles and sketching, on DisplayXR.">
+<link rel="stylesheet" href="../shared/style.css">
+<style>
+  body { --accent: #35c4a0; }
+  .places { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .places .btn { justify-content: center; font-size: 12px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+  .seg .btn { flex: 1 1 auto; justify-content: center; }
+  .readout { font: 11.5px/1.6 var(--mono); color: var(--text); background: var(--panel-2); border-radius: 4px; padding: 8px 10px; white-space: pre-wrap; }
+  .profile svg { width: 100%; height: 150px; display: block; background: var(--panel-2); border-radius: 4px; }
+  .credit {
+    position: absolute; right: 10px; bottom: 8px; z-index: 3; max-width: 60%;
+    padding: 2px 6px; border-radius: 3px; background: rgba(16,18,22,.8);
+    font: 10px var(--mono); color: var(--muted); text-align: right;
+  }
+  .compass {
+    position: absolute; left: 10px; bottom: 10px; z-index: 3;
+    width: 44px; height: 44px; border-radius: 50%; background: rgba(16,18,22,.86);
+    display: grid; place-items: center; font: 700 11px var(--mono); color: var(--accent); cursor: pointer;
+  }
+  .compass i { position: absolute; width: 2px; height: 30px; background: linear-gradient(var(--bad) 50%, #ccc 50%); border-radius: 1px; }
+  .compass b { position: absolute; top: 1px; font-size: 9px; color: #fff; }
+  .legend-ramp { height: 10px; border-radius: 3px; background: linear-gradient(90deg, #2f6d3a, #8fb35a, #e5d68a, #b98a54, #8a6a5a, #f4f4f4); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="../" title="Creator Hub">
+      <span class="logo">TS</span>
+      <span><b>Terra Studio</b><small>DisplayXR Creator Hub</small></span>
+    </a>
+    <button class="btn" id="btnUpload" title="GeoJSON, CSV with lat/lon, a heightmap image, or an image to drape">Add data&hellip;</button>
+    <button class="btn" id="btnGlb">Export .glb</button>
+    <button class="btn" id="btnShot">Save view</button>
+    <span class="spacer"></span>
+    <a class="btn" href="../">Hub</a>
+    <button class="btn primary" id="btnPush">Push to HQ</button>
+  </header>
+
+  <aside class="left">
+    <div class="tabs" data-tabs="left">
+      <button data-tab="map" class="on">Map</button>
+      <button data-tab="layers">Layers</button>
+    </div>
+    <div data-pane="map" id="mapPane"></div>
+    <div data-pane="layers" id="layersPane" hidden></div>
+  </aside>
+
+  <main class="viewport" id="vp">
+    <canvas class="stage" id="stage" tabindex="0"></canvas>
+    <div class="vp-tools" id="tools" data-inline3d-overlay></div>
+    <div class="vp-chip" id="chip" data-inline3d-overlay>
+      <div class="mode-label">2D preview</div>
+      <div class="vp-depth" hidden><span>Depth</span><input type="range" min="0" max="2" step="0.05"></div>
+      <button class="btn sm lens" hidden></button>
+    </div>
+    <div class="compass" id="compass" title="Face north" data-inline3d-overlay><i></i><b>N</b></div>
+    <div class="credit" id="credit" data-inline3d-overlay></div>
+    <div class="busy" id="busy" data-inline3d-overlay hidden>LOADING&hellip;</div>
+  </main>
+
+  <aside class="right">
+    <div class="tabs" data-tabs="right">
+      <button data-tab="analysis" class="on">Analysis</button>
+      <button data-tab="sketch">Sketch</button>
+    </div>
+    <div data-pane="analysis" id="analysisPane"></div>
+    <div data-pane="sketch" id="sketchPane" hidden></div>
+  </aside>
+
+  <footer class="status">
+    <span class="mode" id="stTool">NAVIGATE</span>
+    <span class="grow" id="stMsg">Ready</span>
+    <span id="stInfo"></span>
+  </footer>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicle Studio · DisplayXR Creator Hub</title>
+<meta name="description" content="Configure and present cars in glasses-free 3D: paints, rims, variant sets, studio lighting and camera viewpoints, on DisplayXR.">
+<link rel="stylesheet" href="../shared/style.css">
+<style>
+  body { --accent: #4aa8ff; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .swatches button {
+    aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+    box-shadow: inset -4px -5px 8px rgba(0,0,0,.35), inset 3px 3px 6px rgba(255,255,255,.35);
+  }
+  .swatches button.sel { border-color: var(--accent); outline: 2px solid #0d0f13; outline-offset: -4px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+  .seg .btn { flex: 1 1 auto; justify-content: center; }
+  .vsets .card span { font-size: 11px; }
+  .vsets .card .x { position: absolute; top: 2px; right: 4px; font-size: 11px; opacity: .6; background: none; }
+  .part-name { font: 600 13px var(--mono); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="../" title="Creator Hub">
+      <span class="logo">VS</span>
+      <span><b>Vehicle Studio</b><small>DisplayXR Creator Hub</small></span>
+    </a>
+    <button class="btn" id="btnUpload" title="Upload a car (.glb .gltf .obj .stl) or an .hdr environment">Upload&hellip;</button>
+    <button class="btn" id="btnRender" title="Save a high-resolution still">Render still</button>
+    <button class="btn" id="btnGlb">Export .glb</button>
+    <span class="spacer"></span>
+    <a class="btn" href="../">Hub</a>
+    <button class="btn primary" id="btnPush">Push to HQ</button>
+  </header>
+
+  <aside class="left">
+    <div class="tabs" data-tabs="left">
+      <button data-tab="config" class="on">Configure</button>
+      <button data-tab="scene">Scene</button>
+    </div>
+    <div data-pane="config" id="configPane"></div>
+    <div data-pane="scene" id="scenePane" hidden></div>
+  </aside>
+
+  <main class="viewport" id="vp">
+    <canvas class="stage" id="stage" tabindex="0"></canvas>
+    <div class="vp-tools" id="tools" data-inline3d-overlay></div>
+    <div class="vp-chip" id="chip" data-inline3d-overlay>
+      <div class="mode-label">2D preview</div>
+      <div class="vp-depth" hidden><span>Depth</span><input type="range" min="0" max="2" step="0.05"></div>
+      <button class="btn sm lens" hidden></button>
+    </div>
+    <div class="busy" id="busy" data-inline3d-overlay hidden>LOADING&hellip;</div>
+  </main>
+
+  <aside class="right">
+    <div class="tabs" data-tabs="right">
+      <button data-tab="sets" class="on">Variant sets</button>
+      <button data-tab="material">Material</button>
+    </div>
+    <div data-pane="sets" id="setsPane"></div>
+    <div data-pane="material" id="matPane" hidden></div>
+  </aside>
+
+  <footer class="status">
+    <span class="mode" id="stMode">CONFIGURE</span>
+    <span class="grow" id="stMsg">Ready</span>
+    <span id="stInfo"></span>
+  </footer>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

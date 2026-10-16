@@ -22,6 +22,7 @@ displayxr-demos/
   apps/music-visualizer/
   apps/4dv-player/     ← 4DV.ai volumetric video player (own CLAUDE.md)
   apps/splat-call/     ← Splat Call 3D: live Gaussian-splat video calls (own CLAUDE.md)
+  apps/creator-hub/    ← Material Forge, Vehicle Studio, Terra Studio + Push to HQ
   apps/battleship/     ← redirect stub (moved to the displayxr-battleship repo)
   apps/agent-voice/    ← Muse, Dot, Claude voice demo
   apps/aviation-coach/
