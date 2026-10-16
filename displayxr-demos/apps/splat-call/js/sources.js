@@ -2,16 +2,32 @@
 //
 // The Leia panel's eye-tracking camera ("SR Camera") is the only camera on many DisplayXR PCs.
 // Opening it from a web page can starve the eye tracker and break the 3D weave, so it is never
-// picked automatically: the app asks first.
+// picked automatically: the app asks first. Every other camera is recognised by `cameras.js`.
 
-const SR_CAMERA = /\bSR Camera\b|eye ?track/i;
+import { recognise } from './cameras.js';
+
 const PEER_PREFIX = 'dxr-splat-call-';
 
-export const isEyeTracker = (label) => SR_CAMERA.test(label || '');
+export const isEyeTracker = (label) => recognise(label).kind === 'eyetracker';
 
+/** Video inputs, each with its recognised profile. Labels are empty until permission is granted. */
 export async function listCameras() {
   const all = await navigator.mediaDevices.enumerateDevices();
-  return all.filter((d) => d.kind === 'videoinput').map((d) => ({ deviceId: d.deviceId, label: d.label, eyeTracker: isEyeTracker(d.label) }));
+  return all
+    .filter((d) => d.kind === 'videoinput')
+    .map((d) => {
+      const profile = recognise(d.label);
+      return { deviceId: d.deviceId, label: d.label, profile, eyeTracker: profile.kind === 'eyetracker' };
+    });
+}
+
+/** Call `cb()` (debounced) whenever a camera is plugged in or removed. */
+export function watchDevices(cb) {
+  let t = 0;
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+    clearTimeout(t);
+    t = setTimeout(cb, 400); // a USB camera can enumerate in several steps
+  });
 }
 
 /** Camera permission without opening the default camera, when the browser can tell us. */
@@ -23,20 +39,74 @@ export async function cameraPermission() {
   }
 }
 
-export async function openCamera(deviceId) {
-  return navigator.mediaDevices.getUserMedia({
+/**
+ * Open a camera. `profile.res` asks for the camera's native size (a stereo camera's side-by-side
+ * frame), and a stereo camera is handed back as its LEFT EYE only, through a canvas, so the rest
+ * of the app (the PiP, the reconstruction, the call) sees an ordinary mono camera.
+ */
+export async function openCamera(deviceId, profile = null) {
+  const [w, h] = profile?.res || [1280, 720];
+  const raw = await navigator.mediaDevices.getUserMedia({
     video: {
       ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
+      width: { ideal: w },
+      height: { ideal: h },
       frameRate: { ideal: 30 },
     },
     audio: false,
   });
+  const track = raw.getVideoTracks()[0];
+  const p = profile || recognise(track?.label);
+  const st = track?.getSettings?.() || {};
+  // Side by side if the profile says so, or if any camera delivers a frame wider than 3:1.
+  if (p.kind === 'stereo' || (st.width && st.height && st.width / st.height > 3)) return leftEye(raw, track.label);
+  return raw;
 }
+
+/** The left half of a side-by-side stream, as a new MediaStream (stopping it stops the camera). */
+async function leftEye(raw, label) {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.playsInline = true;
+  v.srcObject = raw;
+  await v.play();
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d', { alpha: false });
+  let on = true;
+  const draw = () => {
+    if (!on) return;
+    const W = v.videoWidth, H = v.videoHeight;
+    if (W && H) {
+      if (c.width !== W >> 1 || c.height !== H) { c.width = W >> 1; c.height = H; }
+      ctx.drawImage(v, 0, 0, W >> 1, H, 0, 0, W >> 1, H);
+    }
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(draw);
+    else requestAnimationFrame(draw);
+  };
+  draw();
+  const out = c.captureStream(30);
+  const t = out.getVideoTracks()[0];
+  out.cameraLabel = label;
+  out.stereo = true;
+  out.release = () => {
+    on = false;
+    for (const x of raw.getTracks()) x.stop();
+    v.srcObject = null;
+  };
+  // An unplugged stereo camera must end the mono track too, so the app notices.
+  raw.getVideoTracks()[0]?.addEventListener('ended', () => {
+    t.stop();
+    t.dispatchEvent(new Event('ended'));
+  });
+  return out;
+}
+
+/** The camera's label, also for a stereo camera's left-eye stream. */
+export const streamLabel = (stream) => stream?.cameraLabel || stream?.getVideoTracks?.()[0]?.label || '';
 
 export function stopStream(stream) {
   for (const t of stream?.getTracks?.() ?? []) t.stop();
+  stream?.release?.();
 }
 
 /** Point a <video> at a stream, a File or a URL, and wait until it has frames. */
@@ -68,9 +138,26 @@ export async function play(video, src) {
 
 /** A tiny peer-to-peer call (PeerJS public broker for signalling, media goes direct). */
 export class Call {
-  constructor({ onRemote, onState }) {
+  constructor({ onRemote, onState, onData = () => {}, onDataOpen = () => {} }) {
     this.onRemote = onRemote;
     this.onState = onState;
+    this.onData = onData;
+    this.onDataOpen = onDataOpen;
+  }
+
+  /** A small data channel next to the media, for camera info (the FOV the receiver needs). */
+  bindData(conn) {
+    this.data?.close();
+    this.data = conn;
+    conn.on('open', () => this.onDataOpen());
+    conn.on('data', (d) => this.onData(d));
+    conn.on('close', () => {
+      if (this.data === conn) this.data = null;
+    });
+  }
+
+  send(msg) {
+    if (this.data?.open) this.data.send(msg);
   }
 
   async lib() {
@@ -102,6 +189,7 @@ export class Call {
       call.answer(getLocalStream());
       this.watch(call);
     });
+    peer.on('connection', (conn) => this.bindData(conn));
     peer.on('error', (e) => this.onState('error', e.message || String(e)));
     peer.on('disconnected', () => peer.reconnect?.());
     this.onState('waiting', code);
@@ -118,8 +206,10 @@ export class Call {
     });
     peer.on('error', (e) => this.onState('error', e.type === 'peer-unavailable' ? `No call with code “${code}”.` : e.message || String(e)));
     this.onState('calling', code);
-    const call = (this.media = peer.call(PEER_PREFIX + code.trim().toLowerCase(), getLocalStream()));
+    const id = PEER_PREFIX + code.trim().toLowerCase();
+    const call = (this.media = peer.call(id, getLocalStream()));
     this.watch(call);
+    this.bindData(peer.connect(id, { reliable: true }));
   }
 
   watch(call) {
@@ -145,6 +235,8 @@ export class Call {
   }
 
   hangup() {
+    this.data?.close();
+    this.data = null;
     this.media?.close();
     this.media = null;
     this.peer?.destroy();

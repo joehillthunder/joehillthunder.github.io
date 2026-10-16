@@ -35,6 +35,34 @@ forward, with `f = (W/2)/tan(fov/2)`, `fov` 60° by default (`?fov=`). Local cam
 (`opts.mirror`). Files, URLs and remote callers are not. Covariances are stored in mm²
 (`×1e6` in the worker, `×1e-6` in the shader).
 
+## Cameras (`cameras.js`)
+
+- `recognise(label)` matches a device label against `PROFILES` (first match wins, so specific
+  models come before a maker's catch-all, and depth/IR streams before the same camera's RGB). Names
+  are matched without Chromium's `(vid:pid)` suffix, and ids with it. About 65 profiles: Logitech,
+  Razer, Elgato, Microsoft, Dell, Anker, AVerMedia, EMEET, NexiGo, Lenovo, HP, laptop cameras, phones
+  (Continuity Camera, DroidCam, Camo, Iriun, …), HDMI capture cards, virtual cameras (OBS, NVIDIA
+  Broadcast, …), auto-framing cameras (Insta360, OBSBOT, PanaCast), RealSense, Kinect, Orbbec and
+  ZED / generic side-by-side stereo.
+- **The FOV is load-bearing:** the iris → distance step goes through the focal length. Profiles
+  hold the maker's **diagonal** FOV (`dfov`) or a horizontal one (`hfov`, `hfovEye`); `hfovFor()`
+  converts for the stream's aspect. Order of precedence: `?fov=` > the user's override (Cameras
+  dialog, `localStorage` per label) > profile > 60°.
+- `KINDS` sets the dropdown groups and the auto-pick rank. Depth/IR streams and Windows Hello IR
+  cameras are listed but disabled. The eye tracker is never auto-picked.
+- Stereo: `openCamera` returns the **left eye** of a side-by-side camera (profile kind `stereo`,
+  or any frame wider than 3:1) as a canvas `captureStream`, so the PiP, the reconstruction and
+  the call all see a mono camera. `stopStream` calls the stream's `release()`.
+- Hot-plug: `watchDevices` (debounced `devicechange`) refreshes the list and toasts **Use it** /
+  **Switch to it** for a newly plugged camera. An unplugged camera (`track.ended`) falls back to the
+  next best one.
+- Calls send `{type:'camera', fov, name}` over a PeerJS data connection, so the receiver rebuilds
+  the caller with the sender's FOV (`state.remoteCam`).
+- Testing without hardware: Edge with `--use-fake-device-for-media-stream
+  --use-fake-ui-for-media-stream` (label `fake_device_0`). Check `recognise()` on a label table via
+  `import('./js/cameras.js')` in the page, and fake a hot-plug by clearing `state.knownIds` and
+  dispatching `devicechange`.
+
 ## Sources and calls (`sources.js`)
 
 - Camera picker skips the Leia **eye-tracking camera** ("SR Camera"). Opening it can starve the

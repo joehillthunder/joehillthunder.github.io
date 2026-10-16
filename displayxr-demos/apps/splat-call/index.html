@@ -46,6 +46,14 @@
   .chip.mode { color: var(--accent); border-color: rgba(95, 212, 255, 0.4); font-weight: 650; }
   .chip.warn { color: var(--warn); }
   .chip:empty { display: none; }
+  button.chip { font: inherit; font-size: 12px; cursor: pointer; }
+  button.chip:hover { color: var(--text); border-color: rgba(95, 212, 255, 0.4); }
+  .toast .btn { margin-left: 10px; padding: 4px 12px; }
+  .camList { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 13px; }
+  .camList li { margin: 4px 0; }
+  .camList b { color: var(--text); font-weight: 600; }
+  .fovRow { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .fovRow input { flex: 1; }
 
   /* Self view */
   .pip { position: fixed; right: 16px; bottom: 92px; width: min(260px, 34vw); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #000; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
@@ -124,6 +132,7 @@
     <span class="chip mode" id="hudMode">2D</span>
     <span class="chip"><b id="hudFps">–</b></span>
     <span class="chip" id="hudSplats">–</span>
+    <button class="chip opt" id="hudCam" title="Camera and FOV (C)"></button>
     <span class="chip opt" id="hudMs"></span>
     <span class="chip opt" id="hudFit"></span>
     <span class="chip opt" id="hudModel">Loading depth model…</span>
@@ -222,6 +231,28 @@
   </div>
 </div>
 
+<!-- Cameras -->
+<div class="overlay dialog" id="camDlg" hidden>
+  <div class="card">
+    <h2>Cameras</h2>
+    <p>Any webcam works. Splat Call recognises over 60 models by name or USB id, including Logitech, Razer, Elgato, Microsoft, Insta360 and OBSBOT webcams, phones used as webcams, HDMI capture cards, RealSense, Kinect and Orbbec depth cameras, and ZED and other side-by-side stereo cameras (it uses the left eye). Plug one in at any time and it's offered straight away.</p>
+    <div id="camNow">
+      <p style="margin-top:14px"><b id="camName" style="color:var(--text)"></b><br><span id="camKind"></span><br><span id="camRes"></span></p>
+      <p id="camNote" style="color:var(--warn)"></p>
+      <p style="margin-top:14px">Field of view. Depth is scaled from the iris size through the lens, so a wrong FOV makes the head too deep or too flat.</p>
+      <div class="fovRow"><input type="range" id="rngFov" min="30" max="130" step="1" aria-label="Horizontal field of view"><span id="fovVal"></span></div>
+      <div class="fovRow"><span id="fovAuto" class="fine"></span><button class="btn" id="btnFovAuto">Use the profile</button></div>
+    </div>
+    <div id="camNone" hidden>
+      <p style="margin-top:14px">No camera is in use.</p>
+      <div class="row"><button class="btn primary" id="btnCamStart">Use the best camera</button></div>
+    </div>
+    <p style="margin-top:16px">Connected</p>
+    <ul class="camList" id="camList"></ul>
+    <div class="row"><button class="btn" data-close>Close</button></div>
+  </div>
+</div>
+
 <!-- About -->
 <div class="overlay dialog" id="helpDlg" hidden>
   <div class="card">
@@ -233,7 +264,7 @@
       <li><b>Scale:</b> the iris (about 11.7 mm across) gives the camera distance, and a least-squares fit to the landmark depths turns the network's output into metres, every frame.</li>
       <li><b>Splat:</b> each pixel becomes a flat Gaussian spanning its cell, oriented by the surface. A mirrored back layer gives the head volume, and a temporal filter keeps still regions steady.</li>
     </ul>
-    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view</p>
+    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view · <kbd>C</kbd> cameras</p>
     <p class="fine">After <a href="https://microsoft.github.io/VoluMe/" target="_blank" rel="noopener">VoluMe: Authentic 3D Video Calls from Live Gaussian Splat Prediction</a> (Microsoft, 2025). Uses <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" target="_blank" rel="noopener">Depth Anything V2</a> (Small: Apache-2.0; Base, used by Ultra: CC BY-NC 4.0), <a href="https://ai.google.dev/edge/mediapipe" target="_blank" rel="noopener">MediaPipe</a>, transformers.js, three.js, PeerJS and the DisplayXR inline-3D SDK.</p>
     <div class="row"><button class="btn" data-close>Close</button></div>
   </div>
