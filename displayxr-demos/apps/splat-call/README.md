@@ -28,6 +28,18 @@ models:
 
 About 25 fps with about 45k splats on an RTX 5070 Ti laptop-class GPU (HQ preset).
 
+**Models.** Live depth: Depth Anything V2 Small (default), Depth Anything 3 Small (both
+Apache-2.0) or V2 Base (non-commercial), from the model dropdown or `?model=small|da3s|base`.
+**3D snapshots** (<kbd>T</kbd>) freeze one frame through a bigger model via a local helper:
+[Apple SHARP](https://github.com/apple/ml-sharp) (about a million metric Gaussians of the whole
+scene, on the GPU through DirectML; research licence) or
+[Immersity AI](https://docs-api.immersity.ai/) (Leia's cloud depth; needs keys and credits).
+
+```
+pip install -r helper/requirements.txt
+python helper/splat_helper.py            # --mock-sharp --mock-immersity to try it without either
+```
+
 ## Use it
 
 | Source | How |
@@ -39,13 +51,13 @@ About 25 fps with about 45k splats on an RTX 5070 Ti laptop-class GPU (HQ preset
 
 Keys: <kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset ·
 <kbd>B</kbd> volume (back layer) · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway ·
-<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view · <kbd>C</kbd> cameras.
+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live.
 
 URL options: `?sample`, `?src=`, `?camera`, `?cam=<label>`, `?join=<code>`, `?q=fast|hq|ultra`,
-`?fov=<deg>`, `?back=0`, `?depthcolor`, `?sway` / `?nosway`, `?depth=<gain>`.
+`?model=small|da3s|base`, `?helper=<url>`, `?scene=1` (SHARP keeps the whole scene), `?fov=<deg>`, `?back=0`, `?depthcolor`, `?sway` / `?nosway`, `?depth=<gain>`.
 
 ## Licences
 
-Depth Anything V2 Small: Apache-2.0. **Base (the Ultra preset): CC BY-NC 4.0, non-commercial.**
+Depth Anything V2 Small and Depth Anything 3 Small: Apache-2.0. **V2 Base: CC BY-NC 4.0, non-commercial.** **Apple SHARP: Apple research licence, non-commercial.** Immersity AI: per its terms (free credits are non-commercial).
 MediaPipe: Apache-2.0. transformers.js, three.js, PeerJS: Apache-2.0 / MIT. The sample clip is
 hotlinked, not redistributed.

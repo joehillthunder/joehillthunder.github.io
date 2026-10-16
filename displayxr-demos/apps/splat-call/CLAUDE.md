@@ -21,11 +21,60 @@ push.
 | Steady | `recon-worker.js` | Per-cell EMA on depth and mask where the colour held still (`opts.smooth`, default 0.55). |
 | Draw | `splats.js` | EWA splatting adapted from the 4DV player: data in float textures, one sort for both eyes (16-bit counting sort in the worker). |
 
-Quality presets (`main.js` `QUALITY`, keys 1/2/3): Fast = Small, S 266, G 160 · **HQ (default)** =
-Small, S 392, G 224 · Ultra = Base, S 518, G 256. **Base is CC BY-NC 4.0** (non-commercial), and
-Small is Apache-2.0. The worker downloads models from the Hugging Face CDN (Small fp16 is about
-47 MB) with retries, and transformers.js keeps them in Cache Storage afterwards. Don't commit model
-files to this repo: the hub is under 1 MB.
+Quality presets (`main.js` `QUALITY`, keys 1/2/3) set the depth input and the splat grid: Fast =
+S 266, G 160 · **HQ (default)** = S 392, G 224 · Ultra = S 518, G 256. The live depth model is a
+separate choice (`opts.model`, `?model=`, the model dropdown):
+
+| id | Model | Licence | Live speed (RTX 5070 Ti, HQ) |
+|---|---|---|---|
+| `small` (default) | Depth Anything V2 Small, fp16, 47 MB | Apache-2.0 | ~23 fps, depth ~17 ms |
+| `da3s` | Depth Anything 3 Small, fp32, 105 MB | Apache-2.0 | ~16 fps, depth ~36-47 ms |
+| `base` | Depth Anything V2 Base | **CC BY-NC 4.0** | slower |
+
+Depth Anything 3 takes a view axis (`[1, 1, 3, S, S]`) and outputs **depth**, not disparity: the
+worker negates it (`MODELS[x].depth`), so "larger = nearer" holds everywhere and the linear metric
+fit stays exact. Models download from the Hugging Face CDN with retries and are cached by
+transformers.js. Don't commit model files: the hub is under 1 MB.
+
+## Snapshots (helper/splat_helper.py)
+
+**T** or **Snapshot** freezes one frame through a model too big to run live, served by a small
+local helper (`python helper/splat_helper.py`, port 8830, `?helper=` to move it). The live loop
+pauses (`state.snap`) and a second, larger cloud (`snapSplats`, 1M capacity, made on first use)
+replaces the live one until **Live** / **L**.
+
+- **Apple SHARP** (apple/ml-sharp, arXiv 2512.10685): one image to ~1.2M metric 3D Gaussians.
+  The helper runs the community fp16 ONNX export (pearsonkyle/Sharp-onnx, 1.3 GB, downloaded to
+  `~/.cache/splat-call/` on first use) through ONNX Runtime + **DirectML** (no CUDA needed; falls
+  back to CPU). The page sends the frame stretched to 1536×1536 RGB plus W, H and f; the helper
+  applies Apple's `unproject_gaussians` (NDC → camera is `diag(W/2f, H/2f, 1)`, covariance
+  `A R S² Rᵀ A`) and returns camera-space means, covariances in mm² and sRGB+alpha. The worker
+  (`buildExternal`) re-centres on the head, mirrors for local cameras, and optionally keeps the
+  person mask only. **Apple's model licence is research only (non-commercial).**
+- **Immersity AI** (Leia, docs-api.immersity.ai): token (client credentials) → `get-upload-url`
+  → PUT the 1024² head-crop JPEG → `POST /api/v1/disparity` (`outputBitDepth: uint16`) → GET the
+  PNG. The disparity goes through the normal splat build (`frame` message with `disp`, G 320).
+  Keys `IMMERSITY_CLIENT_ID` / `IMMERSITY_CLIENT_SECRET` in `displayxr-demos/.env`; 10 credits a call.
+- `--mock-sharp --mock-immersity` serve fake results so the whole flow can be tested without the
+  model or keys (that is how it was tested: the real SHARP download didn't fit on the demo PC's
+  disk, and there were no Immersity keys).
+- CORS: the helper allows https://joehillthunder.github.io and localhost origins
+  (`--allow-origin` for more) and answers Private Network Access preflights.
+
+### Other models worth exploring
+
+- **LAM** (aigc3d/LAM, Apache-2.0, SIGGRAPH 2025): one photo → animatable Gaussian head, with a
+  WebGL renderer; drive it with MediaPipe blendshapes for an avatar call (not "authentic" like
+  VoluMe, but very light to stream).
+- **GAGAvatar** (xg-chu/GAGAvatar, MIT, NeurIPS 2024): one-shot generalizable Gaussian head,
+  real-time reenactment.
+- **LHM** (aigc3d/LHM, Apache-2.0, ICCV 2025): full-body animatable Gaussian human from one image.
+- **GPS-Gaussian** (MIT, CVPR 2024): live pixel-wise Gaussians from 2+ cameras: the multi-camera
+  route to true volumetric calls.
+- **Depth Pro** (Apple, metric depth; onnx-community/DepthPro-ONNX, 600 MB+) and **Sapiens depth**
+  (Meta, human-specific; 0.3B runs ~750 ms in the browser): snapshot-grade depth.
+- **Splatter Image**, **DepthSplat**, **TRELLIS**: single/multi-view Gaussian reconstruction;
+  object-centric or offline.
 
 ## Coordinates
 
