@@ -79,6 +79,12 @@ export class Stage {
       this.onModeChange(this.stereo);
     });
     window.addEventListener('pagehide', () => this.wall?.close());
+    console.info('[4dv] inline-3D session live: woven stereo through DisplayXR');
+    this.handle.firstWoven.then((r) => console.info(`[4dv] firstWoven ${JSON.stringify(r)}`));
+    setInterval(() => {
+      const s = this.handle?.stats?.();
+      if (s) console.info(`[4dv] frames=${s.frames} monoFrames=${s.monoFrames} stereo=${this.stereo} buffer=${this.canvas.width}x${this.canvas.height}`);
+    }, 5000);
     return { woven: true, firstWoven: this.handle.firstWoven };
   }
 
