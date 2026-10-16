@@ -441,6 +441,50 @@ const BUILD = {
       dash.forEach((d, i) => { const c = i === 1 ? a : b; d.material.emissive.set(c); d.material.color.set(c); d.material.emissiveIntensity = 0.6 + Math.sin(t * 2 + i) * 0.25; });
     });
   },
+  '4dv-player'(g) {
+    // A volumetric capture stage: a ring of camera posts with tally lights around a dancer made of
+    // splats, and a timeline bar whose playhead scrubs through the clip.
+    const stage = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 0.12, 28), new THREE.MeshLambertMaterial({ color: '#1b2330' }));
+    stage.position.set(0, 0.06, -0.1);
+    stage.receiveShadow = true;
+    g.add(stage);
+    const tallies = [];
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      const x = Math.sin(a) * 1.55, z = -0.1 + Math.cos(a) * 1.25;
+      if (z > 0.6) continue; // keep the front open
+      box(g, 0.05, 1.5, 0.05, '#2a3340', x, 0, z);
+      const cam = box(g, 0.18, 0.12, 0.14, '#14171f', x, 1.45, z);
+      cam.rotation.y = a;
+      tallies.push(sphere(g, 0.035, glow('#ff4d4d', 1), x, 1.6, z, 8));
+    }
+    const n = 900, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const part = i % 8, u = Math.random() * 6.28, r = Math.cbrt(Math.random());
+      let x, y, z;
+      if (part === 0) { x = Math.cos(u) * r * 0.14; y = 1.42 + rand(-0.14, 0.14); z = Math.sin(u) * r * 0.14; c.set('#2a1c18'); }
+      else if (part < 4) { x = Math.cos(u) * r * 0.2; y = rand(0.82, 1.3); z = Math.sin(u) * r * 0.12; c.setHSL(0.98, 0.75, rand(0.4, 0.55)); }
+      else if (part < 6) { const s = part === 4 ? -1 : 1; x = s * rand(0.2, 0.5); y = rand(1.1, 1.35) + Math.abs(x) * 0.4; z = rand(-0.04, 0.04); c.set('#f1c9a5'); }
+      else { const s = part === 6 ? -0.09 : 0.09; x = s + Math.cos(u) * r * 0.06; y = rand(0.12, 0.82); z = Math.sin(u) * r * 0.06; c.set(y < 0.3 ? '#14171f' : '#f1c9a5'); }
+      pos.set([x, y, z], i * 3);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const dancer = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.06, vertexColors: true }));
+    dancer.position.set(0, 0.12, -0.1);
+    g.add(dancer);
+    box(g, 2.0, 0.05, 0.05, '#2a3340', 0, 2.05, 0.9, { shadow: false });
+    const head = box(g, 0.08, 0.14, 0.08, glow('#20e6e9', 1.2), -1, 2.0, 0.9, { shadow: false });
+    animators.push((t) => {
+      dancer.rotation.y = t * 0.6;
+      dancer.position.y = 0.12 + Math.abs(Math.sin(t * 3)) * 0.08;
+      dancer.rotation.z = Math.sin(t * 3) * 0.08;
+      head.position.x = -1 + ((t * 0.2) % 1) * 2;
+      tallies.forEach((l, k) => { l.visible = Math.sin(t * 4 + k) > -0.6; });
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(

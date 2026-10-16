@@ -1,0 +1,27 @@
+{
+  "file": "puppet.4dv",
+  "size": 172549001,
+  "parts": [
+    { "url": "puppet.part-000", "size": 8388608 },
+    { "url": "puppet.part-001", "size": 8388608 },
+    { "url": "puppet.part-002", "size": 8388608 },
+    { "url": "puppet.part-003", "size": 8388608 },
+    { "url": "puppet.part-004", "size": 8388608 },
+    { "url": "puppet.part-005", "size": 8388608 },
+    { "url": "puppet.part-006", "size": 8388608 },
+    { "url": "puppet.part-007", "size": 8388608 },
+    { "url": "puppet.part-008", "size": 8388608 },
+    { "url": "puppet.part-009", "size": 8388608 },
+    { "url": "puppet.part-010", "size": 8388608 },
+    { "url": "puppet.part-011", "size": 8388608 },
+    { "url": "puppet.part-012", "size": 8388608 },
+    { "url": "puppet.part-013", "size": 8388608 },
+    { "url": "puppet.part-014", "size": 8388608 },
+    { "url": "puppet.part-015", "size": 8388608 },
+    { "url": "puppet.part-016", "size": 8388608 },
+    { "url": "puppet.part-017", "size": 8388608 },
+    { "url": "puppet.part-018", "size": 8388608 },
+    { "url": "puppet.part-019", "size": 8388608 },
+    { "url": "puppet.part-020", "size": 4776841 }
+  ]
+}

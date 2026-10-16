@@ -1,0 +1,5 @@
+[
+  { "id": "cat", "name": "Cat", "desc": "A cat at its food bowl · 5 s · 23 MB", "manifest": "clips/cat_high_v2.manifest.json" },
+  { "id": "a2o", "name": "A2O · Paparazzi", "desc": "Music video, with sound · 35 s · 291 MB", "manifest": "clips/paparazzi_mv_red.manifest.json" },
+  { "id": "puppet", "name": "Puppet", "desc": "Puppeteer, with sound · 5 s · 9.5M splats · 173 MB (PC)", "manifest": "clips/puppet.manifest.json" }
+]

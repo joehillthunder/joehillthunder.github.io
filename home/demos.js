@@ -196,6 +196,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-future-os',
         chatter: ['LCARS on the car dash?', 'Tiling WM, but for phones', 'Remixed Rocinante in pink', 'Exported my layout as JSON'],
       },
+      {
+        id: '4dv-player',
+        name: '4DV Player',
+        desc: '4DV.ai volumetric video in the browser: walk around a cat, a K-pop dance crew or a puppeteer while they move, or drop in your own .4dv clip.',
+        url: 'displayxr-demos/apps/4dv-player/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/4dv-player',
+        chatter: ['Orbit the dancers mid-move', 'Every frame is splats', 'The cat looks real from behind', 'Turn the 3D slider up'],
+      },
     ],
   },
 ];

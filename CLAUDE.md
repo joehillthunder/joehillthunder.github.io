@@ -15,7 +15,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 1. Training Center: Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds.
 2. AI Studio: Muse Voice, Dot Voice, Stereo Splat, Music Visualizer, Flight Lines, Splat Call 3D (6 rooms; Splat Call lives in `displayxr-demos/apps/splat-call/` at the user's request).
 3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D (6 rooms, so set pieces render at about 2/3 scale).
-4. Spatial UI/UX: Dual View, Future OS Lab.
+4. Spatial UI/UX: Dual View, Future OS Lab, 4DV Player.
 
 ## Adding a demo
 1. Add an entry to the right wing in `home/demos.js`.
