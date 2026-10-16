@@ -228,6 +228,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/creator-hub',
         chatter: ['Line of sight: blocked by the ridge', 'Contours every 100 m', 'Flooding the valley to 900 m', '4,000 buildings in Manhattan'],
       },
+      {
+        id: 'leia-spatial',
+        name: 'Leia Spatial',
+        desc: "Leia's story, \"Making any display feel spatial\", as a website you can touch: seven live 3D scenes to turn and tap, flip-over cards and 3D type, covering ten years of glasses-free 3D in five lessons.",
+        url: 'displayxr-demos/apps/leia-spatial/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/leia-spatial',
+        chatter: ['Tap the S, it flips!', 'The lens just went invisible', 'Tracked stereo wins', 'Pull out layer 2'],
+      },
     ],
   },
 ];

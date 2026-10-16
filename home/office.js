@@ -556,6 +556,37 @@ const BUILD = {
       tallies.forEach((l, k) => { l.visible = Math.sin(t * 4 + k) > -0.6; });
     });
   },
+  'leia-spatial'(g) {
+    // A Leia panel on a stand whose lens ribs switch between 2D and 3D. In 3D a knot and two
+    // eye-coloured shapes float out of the glass; beside it, the four-layer stack breathes apart.
+    box(g, 0.45, 0.85, 0.4, '#2a3340', -0.5, 0, -0.5);
+    box(g, 2.2, 1.35, 0.12, '#14171f', -0.5, 0.85, -0.5);
+    box(g, 2.0, 1.15, 0.02, glow('#2b6c78', 0.7), -0.5, 0.95, -0.43, { shadow: false });
+    const ribs = [];
+    for (let i = 0; i < 14; i++) ribs.push(box(g, 0.07, 1.15, 0.05, glow('#46d9e3', 0.6), -1.43 + i * 0.143, 0.95, -0.4, { shadow: false }));
+    const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(0.2, 0.065, 64, 10), new THREE.MeshLambertMaterial({ color: '#f1ece2' }));
+    knot.castShadow = true;
+    g.add(knot);
+    const red = sphere(g, 0.12, glow('#ff6a55', 0.6), 0, 1.75, 0, 14);
+    const ico = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0), new THREE.MeshLambertMaterial({ color: '#46d9e3', flatShading: true }));
+    g.add(ico);
+    const floaters = [[knot, -0.9, 1.5, 0.15], [red, -0.15, 1.8, 0.25], [ico, 0.05, 1.15, 0.35]];
+    const stack = new THREE.Group();
+    stack.position.set(1.4, 0, 0.7);
+    g.add(stack);
+    const plates = ['#46d9e3', '#46d9e3', '#ff6a55', '#46d9e3'].map((c) => box(stack, 0.8, 0.05, 0.8, glow(c, 0.35), 0, 0, 0));
+    animators.push((t) => {
+      const on = Math.sin(t * 1.2) > -0.2;                 // mostly 3D, with a 2D beat
+      ribs.forEach((rb, i) => { rb.scale.z = on ? 0.05 : 0.004; rb.material.emissiveIntensity = on ? 0.5 + Math.sin(t * 3 + i * 0.4) * 0.2 : 0.1; });
+      floaters.forEach(([m, x, y, z], i) => {
+        m.position.set(x, y + Math.sin(t * 1.4 + i) * 0.05, on ? -0.4 + z + 0.35 : -0.38);
+        m.rotation.set(t * (0.6 + i * 0.2), t * (0.8 - i * 0.15), 0);
+      });
+      stack.rotation.y = t * 0.5;
+      const spread = 0.22 + Math.max(0, Math.sin(t * 0.9)) * 0.18;
+      plates.forEach((p, i) => { p.position.y = 0.3 + i * spread; });
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
