@@ -362,6 +362,27 @@ const BUILD = {
       });
     });
   },
+  'future-os'(g) {
+    // A workstation monitor, a car dash strip and a phone, all cycling through the same layout palettes.
+    const palettes = [['#ff9c3a', '#cc99cc'], ['#7fd4ff', '#ffd18a'], ['#a6e3a1', '#89b4fa'], ['#ff2bd6', '#2bf0ff'], ['#5ad1ff', '#ff6b5a']];
+    box(g, 2.6, 0.7, 1.0, '#2a3340', 0, 0, -0.5);
+    box(g, 0.16, 0.5, 0.16, '#14171f', -0.5, 0.7, -0.6);
+    box(g, 1.5, 0.95, 0.08, '#14171f', -0.5, 1.2, -0.6);
+    const mon = box(g, 1.36, 0.82, 0.02, glow('#ff9c3a', 0.8), -0.5, 1.26, -0.55, { shadow: false });
+    const monBar = box(g, 0.3, 0.7, 0.025, glow('#cc99cc', 0.9), -1.0, 1.26, -0.54, { shadow: false });
+    box(g, 0.42, 0.06, 0.8, '#14171f', 0.75, 0.73, -0.45);
+    const phone = box(g, 0.34, 0.05, 0.68, glow('#ff9c3a', 0.8), 0.75, 0.77, -0.45, { shadow: false });
+    box(g, 2.4, 0.5, 0.5, '#1d222b', 0, 0, 1.2);
+    box(g, 2.2, 0.42, 0.06, '#14171f', 0, 0.5, 1.05);
+    const dash = [-0.7, 0, 0.7].map((x, i) => box(g, 0.62, 0.32, 0.02, glow(palettes[0][i % 2], 0.8), x, 0.55, 1.09, { shadow: false }));
+    animators.push((t) => {
+      const [a, b] = palettes[Math.floor(t / 2.5) % palettes.length];
+      mon.material.emissive.set(a); mon.material.color.set(a);
+      monBar.material.emissive.set(b); monBar.material.color.set(b);
+      phone.material.emissive.set(b); phone.material.color.set(b);
+      dash.forEach((d, i) => { const c = i === 1 ? a : b; d.material.emissive.set(c); d.material.color.set(c); d.material.emissiveIntensity = 0.6 + Math.sin(t * 2 + i) * 0.25; });
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
