@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { Stage } from './stage.js';
 import { LiveSplats } from './splats.js';
 import { Perception } from './perception.js';
-import { Call, cameraPermission, isEyeTracker, listCameras, openCamera, play, stopStream } from './sources.js';
+import { Call, cameraPermission, listCameras, openCamera, play, stopStream, streamLabel, watchDevices } from './sources.js';
+import { KINDS, bestCamera, cleanLabel, hfovFor, rankOf, recognise, saveFov, savedFov, usable, usbId } from './cameras.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -29,7 +30,7 @@ const opts = {
   depthColor: params.has('depthcolor'),
   mirror: true,
   smooth: 0.55,
-  fov: Number(params.get('fov')) || 60, // horizontal FOV of the source camera, degrees
+  fov: Number(params.get('fov')) || 0, // forced horizontal FOV for every source, degrees (0 = per source)
   defaultDist: 0.6,
 };
 
@@ -116,6 +117,9 @@ const state = {
   mode: 'idle',    // idle | local | call
   sourceKind: '',  // camera | file | sample | url
   camStream: null,
+  cam: null,       // the open camera: { deviceId, label, profile, fov, fovAuto, w, h }
+  remoteCam: null, // what the other side of a call said about its camera: { name, fov }
+  knownIds: null,  // camera deviceIds seen so far, to spot a newly plugged-in one
   stats: { recon: 0, model: 0, build: 0, render: 0, splats: 0, fitOk: false, zEyes: 0, device: '' },
   sortPending: false,
   sortedCam: new THREE.Vector3(1e9, 0, 0),
@@ -246,7 +250,7 @@ async function processFrame() {
   }
   const roi = updateRoi(det.lm, W, H);
   const bitmap = await createImageBitmap(v, roi.x0, roi.y0, roi.size, roi.size, { resizeWidth: q.S, resizeHeight: q.S, resizeQuality: 'medium' });
-  const f = W / 2 / Math.tan(THREE.MathUtils.degToRad(opts.fov) / 2);
+  const f = W / 2 / Math.tan(THREE.MathUtils.degToRad(sourceFov()) / 2);
   const { pos, dir } = camPose();
   state.frameCam = pos.clone();
   const id = ++state.id;
@@ -307,30 +311,106 @@ stage.onEye = (cam, viewport) => splats.setViewport(viewport);
 // ---------------------------------------------------------------------------------------------
 // Sources
 
-async function useCamera(deviceId, { allowEyeTracker = false } = {}) {
+async function useCamera(deviceId, { allowEyeTracker = false, quiet = false } = {}) {
+  const known = (await listCameras()).find((c) => c.deviceId === deviceId);
   let stream;
   try {
-    stream = await openCamera(deviceId);
+    stream = await openCamera(deviceId, known?.profile);
   } catch (e) {
-    toast(e.name === 'NotAllowedError' ? 'Camera permission was denied.' : `The camera could not be opened: ${e.message}`);
+    toast(e.name === 'NotAllowedError' ? 'Camera permission was denied.' : e.name === 'NotReadableError' ? 'That camera is in use by another app.' : `The camera could not be opened: ${e.message}`);
     return false;
   }
-  const label = stream.getVideoTracks()[0]?.label || '';
-  if (isEyeTracker(label) && !allowEyeTracker) {
+  const label = streamLabel(stream);
+  const profile = recognise(label);
+  if (profile.kind === 'eyetracker' && !allowEyeTracker) {
     // The browser picked the eye tracker. Use another camera if there is one, otherwise ask.
     stopStream(stream);
-    const other = (await listCameras()).find((c) => !c.eyeTracker);
+    const other = bestCamera(await listCameras());
     if (other) return useCamera(other.deviceId);
     showDialog('srDlg');
     return false;
   }
+  if (profile.kind === 'depth' || profile.kind === 'ir') {
+    stopStream(stream);
+    toast(`${cleanLabel(label)} is a depth or infrared stream, not a colour picture.`);
+    const other = bestCamera((await listCameras()).filter((c) => c.deviceId !== deviceId));
+    return other ? useCamera(other.deviceId) : false;
+  }
   stopStream(state.camStream);
   state.camStream = stream;
+  const track = stream.getVideoTracks()[0];
+  const id = known?.deviceId || track?.getSettings().deviceId || deviceId || '';
+  // Unplugged mid-demo or mid-call: fall back to the next best camera.
+  track?.addEventListener('ended', () => {
+    if (state.camStream === stream) onCameraLost(label);
+  });
   await play(localVideo, stream);
+  setCamera(id, label, profile);
   setLocal('camera', label);
-  call.replaceTrack(stream.getVideoTracks()[0]);
-  await fillCameraList(stream.getVideoTracks()[0]?.getSettings().deviceId);
+  call.replaceTrack(track);
+  await fillCameraList(id);
+  if (!quiet) cameraTips(profile);
   return true;
+}
+
+/** Remember the open camera and work out its FOV (saved by the user > profile > 60°). */
+function setCamera(deviceId, label, profile) {
+  const w = localVideo.videoWidth || 1280, h = localVideo.videoHeight || 720;
+  const fovAuto = hfovFor(profile, w / h);
+  state.cam = { deviceId, label, profile, fovAuto, fov: savedFov(label) || fovAuto, w, h };
+  updateCamChip();
+  sendCameraInfo();
+  if (!$('camDlg').hidden) fillCamDialog();
+}
+
+/** The horizontal FOV of whatever is being reconstructed (?fov= wins). */
+function sourceFov() {
+  if (opts.fov) return opts.fov;
+  if (state.mode === 'call') return state.remoteCam?.fov || 60;
+  if (state.sourceKind === 'camera' && state.cam) return state.cam.fov;
+  return 60;
+}
+
+function cameraTips(p) {
+  if (p.kind === 'ptz') toast(`${p.name}: turn auto-framing off in its app, so the depth scale stays true.`);
+  else if (p.kind === 'stereo') toast(`${p.name}: using the left eye of the stereo pair.`);
+  else if (p.kind === 'depth-rgb') toast(`${p.name}: using its colour camera.`);
+  else if (p.note) toast(`${p.name}: ${p.note}`);
+}
+
+async function onCameraLost(label) {
+  stopStream(state.camStream);
+  state.camStream = null;
+  state.cam = null;
+  updateCamChip();
+  const next = bestCamera(await listCameras());
+  if (next) {
+    toast(`${cleanLabel(label)} was disconnected. Switched to ${cleanLabel(next.label)}.`);
+    await useCamera(next.deviceId, { quiet: true });
+  } else {
+    toast(`${cleanLabel(label)} was disconnected.`);
+    await fillCameraList();
+    if (state.mode !== 'call') {
+      state.mode = 'idle';
+      state.sourceKind = '';
+      showStart();
+    }
+  }
+}
+
+/** A camera was plugged in or removed: refresh the list and offer the new one. */
+async function onDevicesChanged() {
+  const cams = await listCameras();
+  const before = state.knownIds;
+  state.knownIds = new Set(cams.map((c) => c.deviceId));
+  await fillCameraList(state.cam?.deviceId);
+  if (!$('camDlg').hidden) fillCamDialog();
+  if (!before) return;
+  const best = bestCamera(cams.filter((c) => !before.has(c.deviceId) && c.label && c.deviceId !== state.cam?.deviceId));
+  if (!best) return;
+  const known = best.profile === recognise('') ? '' : ` (${best.profile.name})`;
+  const using = state.sourceKind === 'camera' && state.cam;
+  toast(`${cleanLabel(best.label)}${known} connected.`, [using ? 'Switch to it' : 'Use it', () => useCamera(best.deviceId)]);
 }
 
 async function useClip(src, kind, credit = '') {
@@ -356,7 +436,12 @@ function setLocal(kind, label) {
   }
   document.body.classList.toggle('mirror-pip', kind === 'camera');
   $('credit').textContent = kind === 'sample' ? SAMPLE.credit : '';
-  $('srcLabel').textContent = kind === 'camera' ? label.replace(/\s*\(.*\)$/, '') : kind === 'file' ? 'Video file' : kind === 'sample' ? 'Sample clip' : 'Video';
+  if (kind !== 'camera') {
+    state.cam = null;
+    updateCamChip();
+    sendCameraInfo();
+  }
+  $('srcLabel').textContent = kind === 'camera' ? cleanLabel(label) : kind === 'file' ? 'Video file' : kind === 'sample' ? 'Sample clip' : 'Video';
   hideStart();
   kick();
 }
@@ -371,41 +456,132 @@ function resetRecon() {
 async function fillCameraList(activeId) {
   const sel = $('selCam');
   const cams = await listCameras();
+  state.knownIds ||= new Set(cams.map((c) => c.deviceId));
   sel.innerHTML = '';
-  for (const c of cams) {
+  if (!cams.some((c) => c.label)) {
+    // No permission yet, so no names: one entry that asks.
     const o = document.createElement('option');
-    o.value = c.deviceId;
-    o.textContent = (c.label || 'Camera').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, '') + (c.eyeTracker ? ' (eye tracker)' : '');
+    o.value = '__ask';
+    o.textContent = cams.length ? `Camera (${cams.length} found)` : 'No camera found';
+    o.disabled = !cams.length;
     sel.append(o);
+  } else {
+    // Grouped by kind, the best kinds first.
+    const groups = new Map();
+    for (const c of [...cams].sort((x, y) => rankOf(y.profile) - rankOf(x.profile))) {
+      const g = KINDS[c.profile.kind]?.[0] || 'Cameras';
+      if (!groups.has(g)) {
+        const og = document.createElement('optgroup');
+        og.label = g;
+        groups.set(g, og);
+      }
+      const o = document.createElement('option');
+      o.value = c.deviceId;
+      o.dataset.kind = c.profile.kind;
+      const p = c.profile;
+      o.textContent = cleanLabel(c.label) + (p.dfov || p.hfov || p.hfovEye ? ` · ${Math.round(hfovFor(p))}°` : '');
+      o.title = [p.name, usbId(c.label) && `USB ${usbId(c.label)}`, p.note].filter(Boolean).join(' · ');
+      o.disabled = !usable(p) && p.kind !== 'eyetracker';
+      groups.get(g).append(o);
+    }
+    for (const og of groups.values()) sel.append(og);
   }
-  const o = document.createElement('option');
-  o.value = '__file';
-  o.textContent = 'Video file…';
-  sel.append(o);
-  const s = document.createElement('option');
-  s.value = '__sample';
-  s.textContent = 'Sample clip';
-  sel.append(s);
-  sel.value = state.sourceKind === 'camera' ? activeId : state.sourceKind === 'sample' ? '__sample' : '';
+  const og = document.createElement('optgroup');
+  og.label = 'Other sources';
+  for (const [v, t] of [['__file', 'Video file…'], ['__sample', 'Sample clip'], ['__camdlg', 'Cameras and FOV…']]) {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = t;
+    og.append(o);
+  }
+  sel.append(og);
+  sel.value = state.sourceKind === 'camera' ? activeId || state.cam?.deviceId || '' : state.sourceKind === 'sample' ? '__sample' : '';
 }
 
 async function startCamera() {
   const want = params.get('cam');
   if ((await cameraPermission()) === 'granted') {
     const cams = await listCameras();
-    const pick = (want && cams.find((c) => c.label.toLowerCase().includes(want.toLowerCase()))) || cams.find((c) => !c.eyeTracker);
+    const pick = (want && cams.find((c) => c.label.toLowerCase().includes(want.toLowerCase()))) || bestCamera(cams);
     if (pick) return useCamera(pick.deviceId, { allowEyeTracker: pick.eyeTracker });
     if (cams.length) { showDialog('srDlg'); return false; }
-    toast('No camera was found. Try a video file or the sample clip.');
+    toast('No camera was found. Plug one in, or try a video file or the sample clip.');
     return false;
   }
   return useCamera();
 }
 
 // ---------------------------------------------------------------------------------------------
+// Cameras dialog: what was recognised, and the FOV the depth scale is built on
+
+const camName = (c) => (c.profile === recognise('') ? cleanLabel(c.label) : c.profile.name);
+
+function updateCamChip() {
+  const c = state.cam;
+  $('hudCam').textContent = c ? `${camName(c)} · ${Math.round(opts.fov || c.fov)}°` : '';
+}
+
+function fillCamDialog() {
+  const c = state.cam;
+  $('camNow').hidden = !c;
+  $('camNone').hidden = !!c;
+  if (c) {
+    const p = c.profile;
+    $('camName').textContent = cleanLabel(c.label);
+    $('camKind').textContent = `${p === recognise('') ? 'Not in the list, so treated as a standard webcam' : `Recognised: ${p.name}`} · ${KINDS[p.kind]?.[0] || ''}`;
+    $('camRes').textContent = `${localVideo.videoWidth}×${localVideo.videoHeight}${state.camStream?.stereo ? ' (left eye of a stereo pair)' : ''}${usbId(c.label) ? ` · USB ${usbId(c.label)}` : ''}`;
+    $('camNote').textContent = p.kind === 'ptz' ? 'Auto-framing zooms digitally, which changes the FOV: lock the framing in the camera\'s app.' : p.note || '';
+    $('rngFov').value = c.fov;
+    $('rngFov').disabled = !!opts.fov;
+    $('fovVal').textContent = opts.fov ? `${opts.fov}° (set by ?fov=)` : `${c.fov.toFixed(0)}° horizontal`;
+    $('fovAuto').textContent = `Profile: ${p.dfov ? `${p.dfov}° diagonal = ` : ''}${c.fovAuto.toFixed(0)}° horizontal${p.dfov || p.hfov || p.hfovEye ? '' : ' (a guess)'}`;
+  }
+  listCameras().then((cams) => {
+    const ul = $('camList');
+    ul.innerHTML = '';
+    if (!cams.length) {
+      const li = document.createElement('li');
+      li.textContent = 'No cameras found. Plug one in and it appears here.';
+      ul.append(li);
+    }
+    for (const k of cams) {
+      const li = document.createElement('li');
+      const b = document.createElement('b');
+      b.textContent = k.label ? cleanLabel(k.label) : 'Camera (allow access to see its name)';
+      const what = k.label ? (k.profile === recognise('') ? 'standard webcam' : k.profile.name) : '';
+      li.append(b, [what, KINDS[k.profile.kind]?.[0], k.deviceId === state.cam?.deviceId && 'in use'].filter(Boolean).map((x) => ` · ${x}`).join(''));
+      ul.append(li);
+    }
+  });
+}
+
+function setFov(deg) {
+  if (!state.cam) return;
+  state.cam.fov = deg || state.cam.fovAuto;
+  saveFov(state.cam.label, deg && Math.abs(deg - state.cam.fovAuto) > 0.5 ? deg : 0);
+  updateCamChip();
+  sendCameraInfo();
+  fillCamDialog();
+  resetRecon();
+}
+
+/** Tell the other side of a call which camera we have, so it rebuilds us at the right scale. */
+function sendCameraInfo() {
+  const c = state.cam;
+  call.send({ type: 'camera', fov: opts.fov || (c ? c.fov : 60), name: c ? camName(c) : state.sourceKind || '' });
+}
+
+// ---------------------------------------------------------------------------------------------
 // Call
 
 const call = new Call({
+  onData: (d) => {
+    if (d?.type !== 'camera' || !(d.fov > 10 && d.fov < 170)) return;
+    const changed = Math.abs((state.remoteCam?.fov || 60) - d.fov) > 0.5;
+    state.remoteCam = { fov: d.fov, name: String(d.name || '').slice(0, 60) };
+    if (changed && state.mode === 'call') resetRecon();
+  },
+  onDataOpen: () => sendCameraInfo(),
   onRemote: async (stream) => {
     state.mode = 'call';
     opts.mirror = false;
@@ -454,6 +630,7 @@ function endCall() {
   document.body.classList.remove('in-call', 'call-live');
   remoteVideo.srcObject = null;
   $('hostInfo').hidden = true;
+  state.remoteCam = null;
   if (state.mode === 'call') {
     state.mode = state.sourceKind ? 'local' : 'idle';
     opts.mirror = state.sourceKind === 'camera';
@@ -487,12 +664,19 @@ const loader = {
 };
 
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, action = null) {
   const t = $('toast');
   t.textContent = msg;
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = action[0];
+    b.onclick = () => { t.hidden = true; action[1](); };
+    t.append(' ', b);
+  }
   t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 5000);
+  toastTimer = setTimeout(() => (t.hidden = true), action ? 10000 : 5000);
 }
 
 function showDialog(id) {
@@ -501,6 +685,10 @@ function showDialog(id) {
 }
 function closeDialogs() {
   for (const d of document.querySelectorAll('.dialog')) d.hidden = true;
+}
+function openCamDialog() {
+  fillCamDialog();
+  showDialog('camDlg');
 }
 function showStart() { $('start').hidden = false; }
 function hideStart() { $('start').hidden = true; }
@@ -540,11 +728,10 @@ function bindUi() {
     const v = $('selCam').value;
     if (v === '__file') $('file').click();
     else if (v === '__sample') useClip(SAMPLE.url, 'sample');
-    else {
-      const label = $('selCam').selectedOptions[0]?.textContent || '';
-      if (/eye tracker/.test(label)) showDialog('srDlg');
-      else useCamera(v);
-    }
+    else if (v === '__camdlg') { fillCameraList(state.cam?.deviceId); openCamDialog(); }
+    else if (v === '__ask') startCamera();
+    else if ($('selCam').selectedOptions[0]?.dataset.kind === 'eyetracker') showDialog('srDlg');
+    else useCamera(v);
   };
   $('btnSrUse').onclick = async () => {
     closeDialogs();
@@ -552,6 +739,17 @@ function bindUi() {
     useCamera(sr?.deviceId, { allowEyeTracker: true });
   };
   for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => closeDialogs();
+  $('hudCam').onclick = () => openCamDialog();
+  $('rngFov').oninput = () => {
+    if (!state.cam) return;
+    state.cam.fov = Number($('rngFov').value);
+    $('fovVal').textContent = `${state.cam.fov.toFixed(0)}° horizontal`;
+    updateCamChip();
+  };
+  $('rngFov').onchange = () => setFov(Number($('rngFov').value));
+  $('btnFovAuto').onclick = () => setFov(0);
+  $('btnCamStart').onclick = () => { closeDialogs(); startCamera(); };
+  watchDevices(onDevicesChanged);
 
   $('selQuality').onchange = () => setQuality($('selQuality').value);
   $('tglBack').onclick = () => { opts.back = !opts.back; setToggle('tglBack', opts.back); };
@@ -594,6 +792,7 @@ function bindUi() {
     else if (k === '2') setQuality('hq');
     else if (k === '3') setQuality('ultra');
     else if (k === 'p') document.body.classList.toggle('no-pip');
+    else if (k === 'c') openCamDialog();
   });
 
   // Drop a video anywhere.

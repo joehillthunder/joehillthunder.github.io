@@ -32,14 +32,14 @@ About 25 fps with about 45k splats on an RTX 5070 Ti laptop-class GPU (HQ preset
 
 | Source | How |
 |---|---|
-| Webcam | **Use my camera**. The Leia display's eye-tracking camera is skipped (using it can break the 3D), so plug in a USB webcam. |
+| Webcam | **Use my camera** picks the best one connected. Over 60 third-party cameras are recognised by name or USB id (USB webcams, laptop cameras, phones as webcams, capture cards, virtual cameras, RealSense / Kinect / Orbbec depth cameras, ZED and other side-by-side stereo cameras) and get their real lens FOV, which sets the depth scale. Plug one in at any time and it's offered. **Cameras and FOV…** (<kbd>C</kbd>) shows what was recognised and lets you set the FOV. The Leia display's eye-tracking camera is skipped (using it can break the 3D). |
 | Video | **Open a video…**, drag and drop, or `?src=<url>` |
 | Sample | **Play the sample clip** (`?sample`): Ward Cunningham, Wikimedia Commons, CC BY-SA 3.0 |
 | Call | **Call** → *Start a room* and share the link (`?join=<code>`). Each PC sends normal video, and the other side rebuilds you in 3D. |
 
 Keys: <kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset ·
 <kbd>B</kbd> volume (back layer) · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway ·
-<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view.
+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view · <kbd>C</kbd> cameras.
 
 URL options: `?sample`, `?src=`, `?camera`, `?cam=<label>`, `?join=<code>`, `?q=fast|hq|ultra`,
 `?fov=<deg>`, `?back=0`, `?depthcolor`, `?sway` / `?nosway`, `?depth=<gain>`.
