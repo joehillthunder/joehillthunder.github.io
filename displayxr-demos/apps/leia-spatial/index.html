@@ -17,7 +17,6 @@
     <a class="brand" href="#top" aria-label="Leia Spatial, back to top">
       <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
       <span class="brand-name">Leia</span>
-      <span class="brand-sub">immersity</span>
     </a>
     <nav class="progress" aria-label="Five lessons">
       <a href="#lesson-1"><b>01</b> 2D sacred</a>
@@ -36,8 +35,8 @@
   <section class="hero band" id="top">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow">Leia Inc. · Immersity platform</p>
-        <h1>Making any display feel <em>spatial</em></h1>
+        <p class="eyebrow">Leia Inc. · Leia's Platform</p>
+        <h1 data-spin>Making any display feel <em>spatial</em></h1>
         <p class="lede">Ten years of shipping glasses-free 3D, and what it takes to build one.</p>
         <p>Phones, tablets, monitors and laptops that show content as if you're inside the scene. No headset and no new hardware category: a switchable 3D layer and the spatial AI software that drives it.</p>
         <div class="cta">
@@ -58,47 +57,58 @@
     <div class="wrap">
       <p class="eyebrow">3D displays are having a renaissance</p>
       <h2>Five markets, already shipping</h2>
+      <p class="hint">Tap a card to turn it over.</p>
 
       <div class="market-group">
         <h3 class="group-label">Consumer &amp; creator</h3>
         <div class="markets markets-2">
-          <article class="market">
-            <p class="m-kind">Gaming</p>
+          <article class="market flip"><div class="flip-in">
+            <div class="face front"><p class="m-kind">Gaming</p>
             <p class="m-line">Distance you can judge, not just see.</p>
+            <p class="turn-hint" aria-hidden="true">↻ Turn over</p></div>
+            <div class="face back"><p class="m-kind">Gaming</p>
             <p class="m-products">Samsung Odyssey 3D · Acer Predator</p>
             <p class="m-body">At retail since 2025, with a second generation announced.</p>
-            <dl class="m-stat"><div><dt>Optimised titles, 2025</dt><dd>28 → 50+</dd></div><div><dt>Targeted for 2026</dt><dd>120+</dd></div></dl>
-          </article>
-          <article class="market">
-            <p class="m-kind">Design / creator</p>
+            <dl class="m-stat"><div><dt>Optimised titles, 2025</dt><dd>28 → 50+</dd></div><div><dt>Targeted for 2026</dt><dd>120+</dd></div></dl></div>
+          </div></article>
+          <article class="market flip"><div class="flip-in">
+            <div class="face front"><p class="m-kind">Design / creator</p>
             <p class="m-line">Judge form and proportion before tooling is cut.</p>
+            <p class="turn-hint" aria-hidden="true">↻ Turn over</p></div>
+            <div class="face back"><p class="m-kind">Design / creator</p>
             <p class="m-products">Acer SpatialLabs View Pro · Predator Helios 3D</p>
-            <p class="m-body">Shipping since 2023 across laptops and 27-inch monitors, with Unity, Unreal and OpenXR support.</p>
-          </article>
+            <p class="m-body">Shipping since 2023 across laptops and 27-inch monitors, with Unity, Unreal and OpenXR support.</p></div>
+          </div></article>
         </div>
       </div>
 
       <div class="market-group">
         <h3 class="group-label">Enterprise &amp; professional</h3>
         <div class="markets markets-3">
-          <article class="market">
-            <p class="m-kind">Telepresence</p>
+          <article class="market flip"><div class="flip-in">
+            <div class="face front"><p class="m-kind">Telepresence</p>
             <p class="m-line">A remote colleague at life size, with real eye contact.</p>
+            <p class="turn-hint" aria-hidden="true">↻ Turn over</p></div>
+            <div class="face back"><p class="m-kind">Telepresence</p>
             <p class="m-products">HP Dimension with Google Beam</p>
-            <p class="m-body">Shipping in six countries. Bain, Deloitte, Salesforce, NEC and Duolingo are among the early deployments.</p>
-          </article>
-          <article class="market">
-            <p class="m-kind">Education</p>
+            <p class="m-body">Shipping in six countries. Bain, Deloitte, Salesforce, NEC and Duolingo are among the early deployments.</p></div>
+          </div></article>
+          <article class="market flip"><div class="flip-in">
+            <div class="face front"><p class="m-kind">Education</p>
             <p class="m-line">Anatomy and molecules taught as volumes, not diagrams.</p>
+            <p class="turn-hint" aria-hidden="true">↻ Turn over</p></div>
+            <div class="face back"><p class="m-kind">Education</p>
             <p class="m-products">zSpace Inspire</p>
-            <p class="m-body">Sold as curriculum rather than hardware.</p>
-          </article>
-          <article class="market">
-            <p class="m-kind">Medical</p>
+            <p class="m-body">Sold as curriculum rather than hardware.</p></div>
+          </div></article>
+          <article class="market flip"><div class="flip-in">
+            <div class="face front"><p class="m-kind">Medical</p>
             <p class="m-line">Volumetric scans read as volumes, with no mental reconstruction.</p>
+            <p class="turn-hint" aria-hidden="true">↻ Turn over</p></div>
+            <div class="face back"><p class="m-kind">Medical</p>
             <p class="m-products">Barco Eonis 3D · Avatar Medical Vision</p>
-            <p class="m-body"><span class="tag">FDA 510(k) cleared</span> Avatar Medical software</p>
-          </article>
+            <p class="m-body"><span class="tag">FDA 510(k) cleared</span> Avatar Medical software</p></div>
+          </div></article>
         </div>
       </div>
     </div>
@@ -110,12 +120,28 @@
       <p class="eyebrow">What it takes</p>
       <h2>Five hurdles</h2>
       <p class="lede">All of this shipped only once five things became true at the same time.</p>
-      <ol class="hurdles">
-        <li><a href="#lesson-1"><b>01</b>2D is sacred</a></li>
-        <li><a href="#lesson-2"><b>02</b>3D must stay sharp</a></li>
-        <li><a href="#lesson-3"><b>03</b>3D must be comfortable</a></li>
-        <li><a href="#lesson-4"><b>04</b>3D must be (nearly) free</a></li>
-        <li><a href="#lesson-5"><b>05</b>3D must be easy to make</a></li>
+      <p class="hint">Tap a card to turn it over.</p>
+      <ol class="hurdles hurdle-cards">
+        <li class="flip"><div class="flip-in">
+          <div class="face front"><b>01</b><span>2D is sacred</span><i class="turn" aria-hidden="true">↻</i></div>
+          <div class="face back"><p>So we made 3D switchable, and invisible in 2D mode.</p><a href="#lesson-1">Lesson 1 ↓</a></div>
+        </div></li>
+        <li class="flip"><div class="flip-in">
+          <div class="face front"><b>02</b><span>3D must stay sharp</span><i class="turn" aria-hidden="true">↻</i></div>
+          <div class="face back"><p>So we track your eyes instead of spraying resolution across views.</p><a href="#lesson-2">Lesson 2 ↓</a></div>
+        </div></li>
+        <li class="flip"><div class="flip-in">
+          <div class="face front"><b>03</b><span>3D must be comfortable</span><i class="turn" aria-hidden="true">↻</i></div>
+          <div class="face back"><p>So we hold the bar on calibration and predictive tracking.</p><a href="#lesson-3">Lesson 3 ↓</a></div>
+        </div></li>
+        <li class="flip"><div class="flip-in">
+          <div class="face front"><b>04</b><span>3D must be (nearly) free</span><i class="turn" aria-hidden="true">↻</i></div>
+          <div class="face back"><p>So we drive nanoimprint and the supply chain toward touch-like cost.</p><a href="#lesson-4">Lesson 4 ↓</a></div>
+        </div></li>
+        <li class="flip"><div class="flip-in">
+          <div class="face front"><b>05</b><span>3D must be easy to make</span><i class="turn" aria-hidden="true">↻</i></div>
+          <div class="face back"><p>So we make conversion automatic and the tools open.</p><a href="#lesson-5">Lesson 5 ↓</a></div>
+        </div></li>
       </ol>
     </div>
   </section>
@@ -241,7 +267,7 @@
   <section class="band band-quote">
     <div class="wrap">
       <p class="eyebrow">The real lesson</p>
-      <p class="quote">Software now exceeds optical complexity.</p>
+      <p class="quote" data-spin>Software now exceeds optical complexity.</p>
       <p class="lede">This is what customers really pay for.</p>
     </div>
   </section>
@@ -315,34 +341,30 @@
   <!-- STACK -->
   <section class="band" id="stack">
     <div class="wrap stack-grid">
-      <div class="stack-visual" aria-hidden="true">
-        <div class="plates">
-          <div class="plate p4"><span>4</span></div>
-          <div class="plate p3"><span>3</span></div>
-          <div class="plate p2"><span>2</span></div>
-          <div class="plate p1"><span>1</span></div>
-        </div>
-      </div>
+      <figure class="tile" data-scene="stack">
+        <div class="screen"><canvas aria-label="The four layers of the stack as glass slabs; tap one to pull it out"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>Four layers · tap one to pull it out</span></figcaption>
+      </figure>
       <div>
         <p class="eyebrow">The stack underneath</p>
         <h2>Four layers for spatial computing to scale. Leia builds three.</h2>
         <ol class="layers">
-          <li data-plate="p1">
+          <li>
             <p class="l-name"><b>1</b>Display hardware</p>
             <p class="l-body">2D–3D switchable display optics, calibration and metrology.</p>
             <p class="l-own">Leia IP · partner-built</p>
           </li>
-          <li data-plate="p2">
+          <li>
             <p class="l-name"><b>2</b>Spatial software</p>
             <p class="l-body">2D-to-3D conversion, real-time Gaussian splats, predictive eye tracking and crosstalk-free weaving.</p>
             <p class="l-own">Leia · licensed</p>
           </li>
-          <li data-plate="p3">
+          <li>
             <p class="l-name"><b>3</b>Edge compute</p>
             <p class="l-body">Leia's spatial software runs on the compute you already ship: DSP and NPU.</p>
             <p class="l-own l-own-yours">Yours · we run on it</p>
           </li>
-          <li data-plate="p4">
+          <li>
             <p class="l-name"><b>4</b>Interoperable dev tools</p>
             <p class="l-body">One interface for any 3D display or headset, with no custom integration per device. DisplayXR is an open standard, free to every display vendor.</p>
             <p class="l-own">Leia-built · free to all</p>
@@ -355,7 +377,7 @@
   <!-- PLATFORM -->
   <section class="band band-alt" id="platform">
     <div class="wrap">
-      <p class="eyebrow">immersity platform</p>
+      <p class="eyebrow">Leia's Platform</p>
       <h2>Spatial AI software, switchable-display hardware</h2>
       <div class="platform-grid">
         <div class="pillar">
@@ -383,13 +405,15 @@
       <p class="foot-thanks">Thank you</p>
       <p><a href="https://www.leiainc.com/" target="_blank" rel="noopener">www.leiainc.com</a></p>
     </div>
-    <address>Leia Inc.<br>2440 Sand Hill Road, Suite 200<br>Menlo Park, CA 94025</address>
     <p class="fine">Content from Leia's OEM presentation (August 2026) and leiainc.com. Part of the <a href="../../">DisplayXR demos</a>.</p>
   </div>
 </footer>
 
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js" } }
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+} }
 </script>
 <script type="module" src="./app.js"></script>
 </body>

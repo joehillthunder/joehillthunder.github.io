@@ -15,7 +15,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 1. Training Center: Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds.
 2. AI Studio: Muse Voice, Dot Voice, Stereo Splat, Music Visualizer, Flight Lines, Splat Call 3D (6 rooms; Splat Call lives in `displayxr-demos/apps/splat-call/` at the user's request).
 3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D (6 rooms, so set pieces render at about 2/3 scale).
-4. Creator Studio & Spatial UI: Dual View, Future OS Lab, 4DV Player, Material Forge, Vehicle Studio, Terra Studio (6 rooms, so set pieces render at about 2/3 scale; the last three are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`).
+4. Creator Studio & Spatial UI: Dual View, Future OS Lab, 4DV Player, Material Forge, Vehicle Studio, Terra Studio, Leia Spatial (7 rooms, so set pieces render at about 4/7 scale; Material Forge, Vehicle Studio and Terra Studio are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`; Leia Spatial is `displayxr-demos/apps/leia-spatial/`, at the user's request).
 
 ## Adding a demo
 1. Add an entry to the right wing in `home/demos.js`.

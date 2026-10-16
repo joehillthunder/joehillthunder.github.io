@@ -75,7 +75,6 @@ h2 { font: 500 var(--s3)/1.12 var(--f-display); letter-spacing: -0.015em; margin
 .brand-mark i:first-child { background: var(--left); }
 .brand-mark i:last-child { background: var(--right); }
 .brand-name { font: 700 1.1rem/1 var(--f-display); letter-spacing: 0.02em; }
-.brand-sub { font: 400 var(--s-1)/1 var(--f-mono); color: var(--muted); }
 .progress { display: flex; gap: 4px; margin-left: auto; }
 .progress a {
   font: 400 var(--s-1)/1 var(--f-mono); color: var(--muted); text-decoration: none;
@@ -140,16 +139,12 @@ h2 { font: 500 var(--s3)/1.12 var(--f-display); letter-spacing: -0.015em; margin
 /* ---- markets ---- */
 .market-group { margin-top: 40px; }
 .group-label { font: 500 var(--s-1)/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--right); margin-bottom: 14px; }
-.markets { display: grid; gap: 16px; perspective: 900px; }
+.markets { display: grid; gap: 16px; }
 .markets-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .markets-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.market {
-  display: grid; align-content: start; gap: 10px; padding: 24px;
-  background: var(--bg-alt); border: 1px solid var(--line);
-  transition: transform 0.25s ease-out, border-color 0.2s;
-  transform-style: preserve-3d;
-}
-.market:hover { border-color: #2d4a52; }
+.market .face { display: grid; align-content: start; gap: 10px; padding: 24px; background: var(--bg-alt); border: 1px solid var(--line); }
+.market .face.back { border-color: #23525a; }
+.turn-hint { margin-top: auto; padding-top: 8px; font: 400 var(--s-1)/1 var(--f-mono); color: var(--right); }
 .m-kind { font: 500 var(--s-1)/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .m-line { font: 500 var(--s2)/1.2 var(--f-display); letter-spacing: -0.01em; text-wrap: balance; }
 .m-products { color: var(--right); font-weight: 500; }
@@ -165,13 +160,13 @@ h2 { font: 500 var(--s3)/1.12 var(--f-display); letter-spacing: -0.015em; margin
 
 /* ---- hurdles list ---- */
 .hurdles { list-style: none; padding: 0; margin: 36px 0 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-.hurdles a {
+.hurdles:not(.hurdle-cards) a {
   display: grid; gap: 14px; padding: 20px 18px 22px; height: 100%;
   border: 1px solid var(--line); border-top: 3px solid var(--line);
   color: var(--fg); text-decoration: none; font: 500 var(--s1)/1.25 var(--f-body);
 }
-.hurdles a b { font: 500 var(--s2)/1 var(--f-display); color: var(--muted); }
-.hurdles a:hover { border-top-color: var(--right); }
+.hurdles:not(.hurdle-cards) a b { font: 500 var(--s2)/1 var(--f-display); color: var(--muted); }
+.hurdles:not(.hurdle-cards) a:hover { border-top-color: var(--right); }
 .hurdles.cleared a { border-top-color: var(--right); }
 .hurdles.cleared a b { color: var(--right); }
 .hurdles.cleared a b::after { content: " ✓"; font-family: var(--f-body); }
@@ -232,27 +227,14 @@ h2 { font: 500 var(--s3)/1.12 var(--f-display); letter-spacing: -0.015em; margin
   max-width: 18ch; text-wrap: balance; margin-bottom: 18px;
 }
 
-/* ---- stack: CSS 3D plates (2D elements, no woven canvas here) ---- */
+/* ---- stack: a woven tile beside the layer list ---- */
 .stack-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
-.stack-visual { display: grid; place-items: center; min-height: 360px; perspective: 1100px; }
-.plates { position: relative; width: min(300px, 70vw); aspect-ratio: 1; transform: rotateX(58deg) rotateZ(-38deg); transform-style: preserve-3d; }
-.plate {
-  position: absolute; inset: 0; border: 1px solid var(--line); background: rgba(14, 30, 34, 0.92);
-  transition: transform 0.35s ease-out, border-color 0.2s, background 0.2s;
-  display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px;
-}
-.plate span { font: 500 1.4rem/1 var(--f-display); color: var(--muted); }
-.p1 { transform: translateZ(0); border-color: var(--right); }
-.p2 { transform: translateZ(60px); border-color: var(--right); }
-.p3 { transform: translateZ(120px); border-style: dashed; border-color: var(--muted); background: rgba(14, 30, 34, 0.6); }
-.p4 { transform: translateZ(180px); border-color: var(--right); }
-.stack-grid:has([data-plate="p1"]:hover) .p1 { transform: translateZ(-24px); background: rgba(70, 217, 227, 0.18); }
-.stack-grid:has([data-plate="p2"]:hover) .p2 { transform: translateZ(84px); background: rgba(70, 217, 227, 0.18); }
-.stack-grid:has([data-plate="p3"]:hover) .p3 { transform: translateZ(144px); background: rgba(255, 106, 85, 0.16); }
-.stack-grid:has([data-plate="p4"]:hover) .p4 { transform: translateZ(214px); background: rgba(70, 217, 227, 0.18); }
 .layers { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
 .layers li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 18px; padding: 16px 0; border-bottom: 1px solid var(--line); }
-.layers li:hover .l-name { color: var(--right); }
+.layers li { cursor: pointer; }
+.layers li:hover .l-name, .layers li.on .l-name { color: var(--right); }
+.layers li.on { background: rgba(70, 217, 227, 0.06); }
+.layers li:focus-visible { outline: 2px solid var(--right); outline-offset: -2px; }
 .l-name { font: 600 var(--s1)/1.3 var(--f-body); }
 .l-name b { font: 500 var(--s-1)/1 var(--f-mono); color: var(--muted); margin-right: 10px; }
 .l-body { grid-column: 1; color: var(--muted); }
@@ -271,7 +253,7 @@ h2 { font: 500 var(--s3)/1.12 var(--f-display); letter-spacing: -0.015em; margin
 
 /* ---- footer ---- */
 .foot { border-top: 1px solid var(--line); padding-block: 48px; }
-.foot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 24px; align-items: start; }
 .foot-thanks { font: 500 var(--s2)/1 var(--f-display); margin-bottom: 8px; }
 address { font-style: normal; color: var(--muted); }
 
@@ -285,16 +267,56 @@ address { font-style: normal; color: var(--muted); }
   .hero-grid, .lesson-grid, .stack-grid { grid-template-columns: minmax(0, 1fr); }
   .markets-3 { grid-template-columns: minmax(0, 1fr); }
   .value-grid, .foot-grid { grid-template-columns: minmax(0, 1fr); }
-  .stack-visual { min-height: 300px; }
 }
 @media (max-width: 640px) {
   .markets-2, .platform-grid, .timeline { grid-template-columns: minmax(0, 1fr); }
   .hurdles { grid-template-columns: minmax(0, 1fr); }
-  .brand-sub { display: none; }
   .layers li { grid-template-columns: minmax(0, 1fr); }
   .l-own { grid-column: 1; grid-row: auto; justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .market, .plate { transition: none; }
+  .flip-in { transition: none; }
 }
+
+/* ---- interaction ---- */
+.hint { font: 400 var(--s-1)/1.4 var(--f-mono); color: var(--muted); margin-top: 10px; }
+.screen canvas { cursor: grab; touch-action: pan-y; }
+.screen canvas.dragging { cursor: grabbing; }
+.screen canvas:focus-visible { outline: 2px solid var(--right); outline-offset: 2px; }
+.tile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tile-actions button {
+  min-height: 36px; padding: 0 14px; cursor: pointer;
+  font: 500 var(--s-1)/1 var(--f-mono); color: var(--fg);
+  background: var(--bg-alt); border: 1px solid var(--line);
+}
+.tile-actions button:hover { border-color: var(--right); color: var(--right); }
+.tile-actions button:focus-visible { outline: 2px solid var(--right); outline-offset: 2px; }
+
+/* Flip cards (2D page elements, never near a woven tile's ancestors). Both faces share one grid
+   cell, so the card is as tall as its taller face. */
+.flip { perspective: 1000px; cursor: pointer; list-style: none; }
+.flip-in { display: grid; height: 100%; transform-style: preserve-3d; transition: transform 0.7s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.flip .face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip .face.back { transform: rotateY(180deg); }
+.flip.flipped .flip-in { transform: rotateY(180deg); }
+.flip:hover .flip-in { transform: rotateY(-8deg); }
+.flip.flipped:hover .flip-in { transform: rotateY(172deg); }
+.flip:focus-visible { outline: 2px solid var(--right); outline-offset: 3px; }
+
+.hurdle-cards .face {
+  display: grid; align-content: start; gap: 14px; padding: 20px 18px 22px; min-height: 170px;
+  border: 1px solid var(--line); border-top: 3px solid var(--line); background: var(--bg);
+  font: 500 var(--s1)/1.25 var(--f-body);
+}
+.hurdle-cards .front b { font: 500 var(--s2)/1 var(--f-display); color: var(--muted); }
+.hurdle-cards .front .turn { font-style: normal; color: var(--right); margin-top: auto; }
+.hurdle-cards .flip:hover .front { border-top-color: var(--right); }
+.hurdle-cards .back { border-top-color: var(--right); background: var(--tile); font-size: var(--s0); }
+.hurdle-cards .back a { font: 500 var(--s-1)/1 var(--f-mono); margin-top: auto; }
+
+/* Spinning type */
+.spin-word { display: inline-block; white-space: nowrap; }
+.spin-ch { display: inline-block; transform-origin: 50% 60%; }
+@media (prefers-reduced-motion: no-preference) { .spin-ch.spinning { animation: spin-y 0.9s cubic-bezier(0.3, 1.3, 0.5, 1); } }
+@keyframes spin-y { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }

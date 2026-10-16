@@ -9,14 +9,29 @@ out. Read `../../CLAUDE.md` first: its rules apply here too.
 **Branch:** `app/leia-spatial`. Ship through a PR to `main`.
 
 ## Files
-- `index.html`: all copy. Sections in order: hero, five markets, five hurdles, lessons 1–5 (each
-  a `.lesson` with one `figure.tile[data-scene]`), "software now exceeds optical complexity",
-  all cleared, the four-layer stack (CSS 3D, no canvas), immersity platform, footer.
+- `index.html`: all copy. Sections in order: hero, five markets (flip cards), five hurdles (flip
+  cards), lessons 1–5 (each a `.lesson` with one `figure.tile[data-scene]`), "software now exceeds
+  optical complexity", all cleared, the four-layer stack (a woven tile beside the layer list),
+  Leia's Platform, footer. No street address anywhere, and never the word "immersity": the user
+  asked for both to be removed. Leia's product is always called "Leia's Platform".
 - `scenes.js`: one three.js builder per `data-scene` value: `hero`, `lens`, `views`,
-  `calibration`, `nanoimprint`, `conversion`. Each returns `{ group, update(t, dt), status() }`.
-  `status()` feeds the tile's caption.
-- `app.js`: the SDK wiring. One `Tile` per figure, with its own renderer and canvas.
+  `calibration`, `nanoimprint`, `conversion`, `stack`. Each returns `{ group, update, status }`
+  plus optional `pick` + `tap(hit)`, `hover(nx, ny)`, `actions` (buttons under the tile) and
+  `select(i)`. Every scene loops on its own and resumes the loop after 10 s without input.
+- `app.js`: the SDK wiring and input. One `Tile` per figure, with its own renderer and canvas.
+  Drag turns a `turn` group wrapping the scene (eases home after 8 s), tap raycasts with the mono
+  camera, arrows/Enter do the same from the keyboard. Also the flip cards (`.flip`) and the
+  per-letter spin on `[data-spin]` headlines (hover or click; never automatic, so the page is
+  crisp at rest).
 - `style.css`: tokens at the top. Dark only, on purpose.
+
+## Interaction ideas already used (don't repeat, build on them)
+- Hero: extruded "SPATIAL" (three's TextGeometry, helvetiker bold from jsDelivr); tap a letter to
+  flip it, Scatter throws them into depth, Flatten presses everything onto the glass.
+- Lens: tap the panel to switch 2D/3D. Views: the viewer's head follows the pointer.
+- Calibration: tap the map to correct outward from that point. Nanoimprint: tap the glass to
+  steer the roller, tap the roller to pause. Conversion: tap to ripple the point cloud.
+- Stack: tap a slab or a list row to pull that layer out; Explode spreads them.
 
 ## Inline 3D (@displayxr/inline3d 1.45.1, three 0.161.0, both pinned on jsDelivr)
 - One `createInline3D({ lazy: true })` for the document. Every tile is registered once with
@@ -39,7 +54,10 @@ out. Read `../../CLAUDE.md` first: its rules apply here too.
   toward the viewer. Keep content within about +6 cm and -6 cm (±1 u) for comfort.
 - Display rig only. Turn the subject (rotate the rig group); never fly a camera.
 - `prefers-reduced-motion` passes `motion = 0`: the cycles that carry meaning (2D/3D switch,
-  sweep, roller, depth lift) keep running, but the decorative sway and pointer parallax stop.
+  sweep, roller, depth lift) keep running, but the decorative sway, pointer parallax, idle
+  letter flips and the CSS letter spin stop.
+- Taps raycast against the mono camera even on the woven path. It approximates the tracked eye
+  well enough for picking; a precise hit would need the SDK's cursor-depth module.
 - Artwork is procedural (`drawLandscape`), so there are no asset files and nothing to add to
   `assets/LICENSES.md`.
 
@@ -48,7 +66,9 @@ out. Read `../../CLAUDE.md` first: its rules apply here too.
   and exposes `window.leia`.
 - 2D check: serve the repo root (for example `python -m http.server 8793 --bind 127.0.0.1`) and
   screenshot with headless Edge (see the hub `CLAUDE.md`). Headless Edge will not go below
-  about 500 px wide, so check phone width inside a 400 px iframe.
+  about 500 px wide, so check phone width inside a 400 px iframe. Under `--virtual-time-budget`
+  the rAF of tiles scrolled into view can stall and CSS animations get caught mid-flight, so test
+  a single tile on a scratch page, or use `--timeout` (real time) instead.
 - Real 3D can only be judged on the Leia panel in the DisplayXR Browser. Ask the user to look.
 
 ## Content notes

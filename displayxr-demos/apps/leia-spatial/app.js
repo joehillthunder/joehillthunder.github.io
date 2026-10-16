@@ -50,10 +50,11 @@ addEventListener('pointermove', (e) => {
 }, { passive: true });
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+const damp = (cur, target, rate, dt) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
 
 // ---- one tile ------------------------------------------------------------------------------
 class Tile {
-  constructor(fig) {
+  constructor(fig, ctx = {}) {
     this.fig = fig;
     this.name = fig.dataset.scene;
     this.canvas = fig.querySelector('canvas');
@@ -76,8 +77,13 @@ class Tile {
     this.maxDim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), vp[0], vp[1]);
 
     this.scene = new THREE.Scene();
-    this.content = buildScene(THREE, this.name, REDUCED ? 0 : 1);
-    this.scene.add(this.content.group);
+    this.content = buildScene(THREE, this.name, REDUCED ? 0 : 1, ctx);
+    // The turntable: dragging turns the whole subject about the glass's centre (a display rig
+    // turns the subject, never a camera). It eases home after a while with no input.
+    this.turn = new THREE.Group();
+    this.turn.add(this.content.group);
+    this.scene.add(this.turn);
+    this.yaw = 0; this.pitch = 0; this.yawT = 0; this.pitchT = 0; this.lastInput = -1e9;
 
     // Mono camera: the nominal viewer 0.6 m in front of a VDH-tall display at z = 0.
     this.cam = new THREE.PerspectiveCamera(2 * Math.atan(VDH / 2 / 0.6) * 180 / Math.PI, 4 / 3, 0.01, 10);
@@ -95,6 +101,81 @@ class Tile {
     this.lastStatus = '';
     this.coverToken = 0;
     this.applySize();
+    this.bindInput();
+    this.buildActions();
+  }
+
+  // ---- interaction: drag to turn, tap to pick, hover for scenes that follow the pointer ----
+  bindInput() {
+    const c = this.canvas;
+    const ray = new THREE.Raycaster();
+    let down = null;
+    const norm = (e) => {
+      const r = c.getBoundingClientRect();
+      return { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
+    };
+    c.addEventListener('pointerdown', (e) => {
+      down = { x: e.clientX, y: e.clientY, yaw: this.yawT, pitch: this.pitchT, moved: false };
+      try { c.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      this.lastInput = performance.now();
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (this.content.hover && e.pointerType === 'mouse' && !down) this.content.hover(norm(e).x, norm(e).y);
+      if (!down) return;
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (!down.moved && Math.hypot(dx, dy) > 6) { down.moved = true; c.classList.add('dragging'); }
+      if (!down.moved) return;
+      this.yawT = down.yaw + dx * 0.012;
+      this.pitchT = Math.max(-0.7, Math.min(0.7, down.pitch + dy * 0.008));
+      this.lastInput = performance.now();
+    });
+    const end = (e) => {
+      if (!down) return;
+      const wasTap = !down.moved;
+      down = null;
+      c.classList.remove('dragging');
+      if (wasTap && e.type === 'pointerup') this.tapAt(norm(e), ray);
+    };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
+    c.addEventListener('pointerleave', () => { if (this.content.hover) this.content.hover(null, null); });
+    // Keyboard: arrows turn the scene, Enter/Space taps its centre.
+    c.tabIndex = 0;
+    c.addEventListener('keydown', (e) => {
+      const k = e.key;
+      if (k === 'ArrowLeft' || k === 'ArrowRight') { this.yawT += k === 'ArrowLeft' ? -0.25 : 0.25; }
+      else if (k === 'ArrowUp' || k === 'ArrowDown') { this.pitchT = Math.max(-0.7, Math.min(0.7, this.pitchT + (k === 'ArrowUp' ? -0.15 : 0.15))); }
+      else if (k === 'Enter' || k === ' ') this.tapAt({ x: 0, y: 0 }, ray);
+      else return;
+      e.preventDefault();
+      this.lastInput = performance.now();
+    });
+  }
+
+  tapAt(p, ray) {
+    if (!this.content.tap || !this.content.pick) return;
+    this.cam.lookAt(0, 0, 0);
+    this.cam.updateMatrixWorld();
+    this.scene.updateMatrixWorld();
+    ray.setFromCamera(p, this.cam);
+    const hit = ray.intersectObjects(this.content.pick, true)[0];
+    if (hit) this.content.tap(hit);
+  }
+
+  buildActions() {
+    const acts = this.content.actions;
+    if (!acts?.length) return;
+    const bar = document.createElement('div');
+    bar.className = 'tile-actions';
+    this.actionButtons = acts.map((a) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a.label();
+      b.addEventListener('click', () => { a.run(); this.lastInput = performance.now(); b.textContent = a.label(); });
+      bar.appendChild(b);
+      return { a, b };
+    });
+    this.fig.appendChild(bar);
   }
 
   applySize() {
@@ -120,8 +201,19 @@ class Tile {
     const dt = this.lastT ? Math.min(0.1, now - this.lastT) : 1 / 60;
     this.lastT = now;
     this.content.update(now, dt);
+    // Turntable: follow the drag, then drift home after 8 s untouched.
+    if (performance.now() - this.lastInput > 8000) {
+      this.yawT = damp(this.yawT, Math.round(this.yawT / (Math.PI * 2)) * Math.PI * 2, 1.2, dt);
+      this.pitchT = damp(this.pitchT, 0, 1.2, dt);
+    }
+    this.yaw = damp(this.yaw, this.yawT, 10, dt);
+    this.pitch = damp(this.pitch, this.pitchT, 10, dt);
+    this.turn.rotation.set(this.pitch, this.yaw, 0);
     const s = this.content.status();
-    if (s !== this.lastStatus && this.readout) { this.readout.textContent = s; this.lastStatus = s; }
+    if (s !== this.lastStatus && this.readout) {
+      this.readout.textContent = s; this.lastStatus = s;
+      if (this.actionButtons) for (const { a, b } of this.actionButtons) { const l = a.label(); if (b.textContent !== l) b.textContent = l; }
+    }
   }
 
   renderMono() {
@@ -256,7 +348,7 @@ class Tile {
 const tiles = [];
 for (const fig of document.querySelectorAll('[data-scene]')) {
   try {
-    tiles.push(new Tile(fig));
+    tiles.push(new Tile(fig, { onSelect: (i) => highlightLayer(i) }));
   } catch (e) {
     console.warn('[leia-spatial] tile failed', fig.dataset.scene, e);
     fig.classList.add('no-gl');
@@ -316,17 +408,68 @@ const lio = new IntersectionObserver((entries) => {
 }, { rootMargin: '-45% 0px -50% 0px' });
 for (const l of lessons) lio.observe(l);
 
-// ---- tilt on the market cards (2D elements, never a tile or a tile's ancestor) --------------
-if (!REDUCED) {
-  for (const card of document.querySelectorAll('.market')) {
-    card.addEventListener('pointermove', (e) => {
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-      card.style.transform = `rotateX(${(-y * 6).toFixed(2)}deg) rotateY(${(x * 8).toFixed(2)}deg)`;
-    });
-    card.addEventListener('pointerleave', () => { card.style.transform = ''; });
-  }
+// ---- the stack list drives the stack tile, and the tile drives the list ---------------------
+const layerRows = [...document.querySelectorAll('.layers li')];
+const stackTile = tiles.find((t) => t.name === 'stack');
+layerRows.forEach((li, i) => {
+  li.tabIndex = 0;
+  const pickRow = () => { stackTile?.content.select(i); highlightLayer(i); };
+  li.addEventListener('click', pickRow);
+  li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickRow(); } });
+});
+function highlightLayer(i) {
+  layerRows.forEach((li, j) => li.classList.toggle('on', j === i));
+}
+
+// ---- 2D flourishes (page elements only, never a tile or a tile's ancestor) ------------------
+// Flip cards: click or Enter turns the card over.
+for (const card of document.querySelectorAll('.flip')) {
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-pressed', 'false');
+  const flip = () => {
+    const on = !card.classList.contains('flipped');
+    card.classList.toggle('flipped', on);
+    card.setAttribute('aria-pressed', String(on));
+  };
+  card.addEventListener('click', (e) => { if (!e.target.closest('a')) flip(); });
+  card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+}
+
+// Spinning type: every letter of a [data-spin] headline turns on its own axis when touched.
+for (const el of document.querySelectorAll('[data-spin]')) {
+  el.setAttribute('aria-label', el.textContent.trim());
+  const walk = (node) => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const frag = document.createDocumentFragment();
+        for (const word of child.textContent.split(/(\s+)/)) {
+          if (!word) continue;
+          if (/^\s+$/.test(word)) { frag.append(word); continue; }
+          const w = document.createElement('span');
+          w.className = 'spin-word';
+          w.setAttribute('aria-hidden', 'true');
+          for (const ch of word) {
+            const s = document.createElement('span');
+            s.className = 'spin-ch';
+            s.textContent = ch;
+            w.appendChild(s);
+          }
+          frag.appendChild(w);
+        }
+        child.replaceWith(frag);
+      } else if (child.nodeType === Node.ELEMENT_NODE) walk(child);
+    }
+  };
+  walk(el);
+  if (REDUCED) continue;
+  const spin = (s) => {
+    if (s.classList.contains('spinning')) return;
+    s.classList.add('spinning');
+    s.addEventListener('animationend', () => s.classList.remove('spinning'), { once: true });
+  };
+  el.addEventListener('pointerover', (e) => { if (e.target.classList?.contains('spin-ch')) spin(e.target); });
+  el.addEventListener('click', () => el.querySelectorAll('.spin-ch').forEach((s, i) => setTimeout(() => spin(s), i * 45)));
 }
 
 if (DEBUG) {
