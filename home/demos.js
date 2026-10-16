@@ -191,10 +191,10 @@ export const WINGS = [
       {
         id: 'future-os',
         name: 'Future OS Lab',
-        desc: 'Ten OS layouts drawn from VR subreddits, dev forums and sci-fi (LCARS, The Expanse, Neuromancer, Her), previewed on a workstation, a car dash and a phone, plus a builder for your own.',
+        desc: 'Ten OS layouts drawn from VR subreddits, dev forums and sci-fi (LCARS, The Expanse, Neuromancer, Her), staged in glasses-free 3D on a workstation, a car dash and a phone, plus a builder for your own.',
         url: 'displayxr-future-os/',
         source: 'https://github.com/joehillthunder/displayxr-future-os',
-        chatter: ['LCARS on the car dash?', 'Tiling WM, but for phones', 'Remixed Rocinante in pink', 'Exported my layout as JSON'],
+        chatter: ['LCARS on the car dash?', 'The radar blips float off the glass', 'Remixed Rocinante in pink', 'Exported my layout as JSON'],
       },
       {
         id: '4dv-player',
