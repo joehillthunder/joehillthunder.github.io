@@ -84,7 +84,7 @@ export function toggle(label, value, onChange) {
 let toastTimer;
 export function toast(msg, bad = false, ms = 2600) {
   $('.toast')?.remove();
-  const t = el('div', { class: 'toast' + (bad ? ' bad' : '') }, msg);
+  const t = el('div', { class: 'toast' + (bad ? ' bad' : ''), 'data-inline3d-overlay': true }, msg);
   document.body.append(t);
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.remove(), ms);
@@ -94,7 +94,7 @@ export function modal(title, content, buttons = []) {
   const back = el('div', { class: 'modal-back' });
   const close = () => back.remove();
   const foot = el('footer', {}, buttons.map(([label, fn, cls = '']) => el('button', { class: 'btn ' + cls, onclick: () => fn(close) }, label)));
-  back.append(el('div', { class: 'modal' },
+  back.append(el('div', { class: 'modal', 'data-inline3d-overlay': true },
     el('header', {}, el('h2', {}, title), el('button', { class: 'btn icon sm', onclick: close, 'aria-label': 'Close' }, '✕')),
     el('div', { class: 'content' }, content), foot));
   back.onclick = (e) => { if (e.target === back) close(); };
@@ -115,7 +115,7 @@ export function onDrop(target, overlayHost, fn, text = 'Drop to import') {
   let hint;
   target.addEventListener('dragover', (e) => {
     e.preventDefault();
-    if (!hint) { hint = el('div', { class: 'drop-hint' }, text); overlayHost.append(hint); }
+    if (!hint) { hint = el('div', { class: 'drop-hint', 'data-inline3d-overlay': true }, text); overlayHost.append(hint); }
   });
   target.addEventListener('dragleave', (e) => {
     if (e.target === target || !target.contains(e.relatedTarget)) { hint?.remove(); hint = null; }
@@ -197,6 +197,10 @@ const fmtSize = (b) => (b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Mat
  * so the export reflects the scene at that moment. `thumb` is a data URL.
  */
 export function pushDialog({ app, defaultName, thumb, build, notesHint = '' }) {
+  // thumb may be a Promise (Stage.snapshot is async when woven).
+  const thumbImg = el('img', { class: 'thumb', alt: 'Preview' });
+  let thumbUrl = '';
+  Promise.resolve(thumb).then((u) => { thumbUrl = u; thumbImg.src = u; });
   const name = el('input', { class: 'field', value: defaultName, maxlength: 60 });
   const notes = el('textarea', { class: 'field', placeholder: notesHint || 'What is it? (optional)' });
   const status = el('div', { class: 'hint' },
@@ -204,7 +208,7 @@ export function pushDialog({ app, defaultName, thumb, build, notesHint = '' }) {
       ? 'Goes to the Creator Gallery on the DisplayXR HQ homepage, on this PC and browser.'
       : 'Saved in this browser. The HQ gallery shows it when this tool is opened from joehillthunder.github.io.');
   const content = el('div', { style: { display: 'grid', gap: '10px' } },
-    el('img', { class: 'thumb', src: thumb, alt: 'Preview' }),
+    thumbImg,
     el('label', { class: 'f' }, 'Name', name),
     el('label', { class: 'f' }, 'Notes', notes),
     status);
@@ -219,7 +223,7 @@ export function pushDialog({ app, defaultName, thumb, build, notesHint = '' }) {
       btn.textContent = 'Exporting…';
       try {
         const { glb, meta } = await build();
-        const rec = await pushToHQ({ app, name: name.value.trim(), notes: notes.value.trim(), thumb, glb, meta });
+        const rec = await pushToHQ({ app, name: name.value.trim(), notes: notes.value.trim(), thumb: thumbUrl || (await thumb), glb, meta });
         status.className = 'hint ok';
         status.textContent = `Pushed "${rec.name}" (${fmtSize(rec.size)}) to the DisplayXR HQ Creator Gallery.`;
         m.foot.replaceChildren(

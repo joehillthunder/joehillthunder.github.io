@@ -90,13 +90,13 @@
 
   <main class="viewport" id="vp">
     <canvas class="stage" id="stage" tabindex="0"></canvas>
-    <div class="vp-tools" id="tools"></div>
-    <div class="vp-chip" id="chip">
+    <div class="vp-tools" id="tools" data-inline3d-overlay></div>
+    <div class="vp-chip" id="chip" data-inline3d-overlay>
       <div class="mode-label">2D preview</div>
       <div class="vp-depth" hidden><span>Depth</span><input type="range" min="0" max="2" step="0.05"></div>
       <button class="btn sm lens" hidden></button>
     </div>
-    <div class="busy" id="busy" hidden>BAKING&hellip;</div>
+    <div class="busy" id="busy" data-inline3d-overlay hidden>BAKING&hellip;</div>
   </main>
 
   <aside class="right">

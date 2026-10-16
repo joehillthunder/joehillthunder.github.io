@@ -50,6 +50,8 @@ export class Stage {
     this.eyes = [new EyeCamera(THREE), new EyeCamera(THREE)];
     this.rigScratch = {};
     new ResizeObserver(() => this.sizeToCanvas()).observe(canvas);
+    this.cover = Object.assign(document.createElement('div'), { className: 'stage-cover', textContent: 'Starting 3D…' });
+    canvas.after(this.cover);
   }
 
   get focusDist() {
@@ -68,7 +70,8 @@ export class Stage {
     if (!this.wall?.supported) {
       console.info(`[${this.tag}] no inline-3D session: rendering 2D`);
       this.monoLoop();
-      return { woven: false };
+      this.uncover();
+      return { woven: false, firstWoven: Promise.resolve({ woven: false, reason: 'unsupported' }) };
     }
     // Woven-canvas rule 4: size the backing store 2:1 first, then wait two frames before registering.
     this.woven = true;
@@ -85,6 +88,7 @@ export class Stage {
         this.woven = false;
         this.sizeToCanvas();
         this.monoLoop();
+        this.uncover();
         this.onModeChange(false);
       },
     });
@@ -95,7 +99,12 @@ export class Stage {
     window.addEventListener('pagehide', () => this.wall?.close());
     console.info(`[${this.tag}] inline-3D session live`);
     this.onModeChange(true);
-    return { woven: true };
+    // Rule 5: the cover stays over the canvas until the first woven frame, then a hard cut.
+    this.handle.firstWoven.then((r) => {
+      console.info(`[${this.tag}] firstWoven`, r);
+      this.uncover();
+    });
+    return { woven: true, firstWoven: this.handle.firstWoven };
   }
 
   get displayModesSupported() {
@@ -148,11 +157,17 @@ export class Stage {
   }
 
   xrFrame(views, layer) {
-    if (!views || views.length < 2 || !layer) return;
-    const vps = views.map((v) => layer.getViewport(v));
-    if (vps.some((vp) => !vp || vp.width <= 0 || vp.height <= 0)) return;
+    // Validate before clearing. An unusable frame replays the last good views, so the woven
+    // canvas is redrawn every frame and never drops out of the compositor's aggregate.
+    let vps = views && views.length >= 2 && layer ? views.map((v) => layer.getViewport(v)) : null;
+    if (!vps || vps.some((vp) => !vp || vp.width <= 0 || vp.height <= 0)) {
+      if (!this.lastGood) return;
+      ({ views, vps } = this.lastGood);
+    } else this.lastGood = { views, vps };
     this.step();
     this.handle.setViewRig(this.currentRig());
+    const snap = this.snapReq;
+    if (snap) { this.snapReq = null; snap.hidden = this.hideForSnapshot(); }
     this.scene.updateMatrixWorld();
     const r = this.renderer;
     r.setScissorTest(false);
@@ -167,6 +182,11 @@ export class Stage {
       r.render(this.scene, this.eyes[i].camera);
     }
     r.setScissorTest(false);
+    if (snap) {
+      // The left eye, read back from the frame just drawn (preserveDrawingBuffer keeps it).
+      snap.hidden.forEach((o) => (o.visible = true));
+      snap.resolve(this.cropToDataURL(vps[0], snap));
+    }
   }
 
   renderMono() {
@@ -188,30 +208,40 @@ export class Stage {
     requestAnimationFrame(loop);
   }
 
-  /** A JPEG data URL of the current view (left eye when woven), with helpers hidden. */
-  snapshot(maxW = 640, type = 'image/jpeg') {
+  /** Remove the boot cover (a hard cut, never a fade). */
+  uncover() {
+    this.cover?.remove();
+    this.cover = null;
+  }
+
+  hideForSnapshot() {
     const hidden = this.hideOnSnapshot.filter((o) => o && o.visible);
     hidden.forEach((o) => (o.visible = false));
+    return hidden;
+  }
+
+  cropToDataURL(vp, { maxW, type }) {
     const c = this.canvas;
-    const sw = this.woven ? c.width / 2 : c.width;
-    if (!this.woven) this.renderMono();
-    else {
-      // Render the app camera into the left half for one frame; the next woven frame overwrites it.
-      const r = this.renderer;
-      r.setViewport(0, 0, sw, c.height);
-      r.setScissor(0, 0, sw, c.height);
-      r.setScissorTest(true);
-      r.clear();
-      r.render(this.scene, this.cam);
-      r.setScissorTest(false);
-    }
-    const s = Math.min(1, maxW / sw);
+    const sy = c.height - vp.y - vp.height; // GL viewports are bottom-up, the image is top-down
+    const s = Math.min(1, maxW / vp.width);
     const out = document.createElement('canvas');
-    out.width = Math.round(sw * s);
-    out.height = Math.round(c.height * s);
-    out.getContext('2d').drawImage(c, 0, 0, sw, c.height, 0, 0, out.width, out.height);
-    hidden.forEach((o) => (o.visible = true));
+    out.width = Math.round(vp.width * s);
+    out.height = Math.round(vp.height * s);
+    out.getContext('2d').drawImage(c, vp.x, sy, vp.width, vp.height, 0, 0, out.width, out.height);
     return out.toDataURL(type, 0.88);
+  }
+
+  /**
+   * A data URL of the current view with helpers hidden (a Promise). Woven, it is taken inside the
+   * next woven frame (left eye), so nothing is ever drawn to the woven canvas outside onFrame.
+   */
+  snapshot(maxW = 640, type = 'image/jpeg') {
+    if (this.woven) return new Promise((resolve) => { this.snapReq = { resolve, maxW, type }; });
+    const hidden = this.hideForSnapshot();
+    this.renderMono();
+    const url = this.cropToDataURL({ x: 0, y: 0, width: this.canvas.width, height: this.canvas.height }, { maxW, type });
+    hidden.forEach((o) => (o.visible = true));
+    return Promise.resolve(url);
   }
 
   /** Smoothly move the camera and orbit target. */
