@@ -390,6 +390,77 @@ const BUILD = {
       });
     });
   },
+  'material-forge'(g) {
+    // A material ball on a pedestal, cycling through finishes, in front of a wall of swatches.
+    box(g, 0.7, 0.8, 0.7, '#2b2e35', -0.6, 0, 0.2);
+    const ballMat = new THREE.MeshStandardMaterial({ color: '#b5531f', roughness: 0.4, metalness: 0.6 });
+    const ball = sphere(g, 0.42, ballMat, -0.6, 1.25, 0.2, 24);
+    const finishes = [['#b5531f', 0.85, 0], ['#c9cdd3', 0.25, 1], ['#7a2f1f', 0.9, 0], ['#e2bd63', 0.2, 1], ['#24d3ff', 0.4, 0.8]];
+    const tiles = [];
+    for (let i = 0; i < 12; i++) {
+      const c = ['#7a2f1f', '#9b6b3e', '#c9cdd3', '#3a3d44', '#e7e5e1', '#2f4a1a'][i % 6];
+      tiles.push(box(g, 0.42, 0.42, 0.06, c, 0.55 + (i % 4) * 0.48, 0.55 + Math.floor(i / 4) * 0.48, -0.95));
+    }
+    const brush = box(g, 0.06, 0.5, 0.06, glow('#ff6a3d', 0.8), 0.2, 0.9, 0.5, { shadow: false });
+    brush.rotation.z = 0.6;
+    animators.push((t) => {
+      const k = Math.floor(t / 2.5) % finishes.length, [c, r, m] = finishes[k];
+      ballMat.color.lerp(new THREE.Color(c), 0.05);
+      ballMat.roughness += (r - ballMat.roughness) * 0.05;
+      ballMat.metalness += (m - ballMat.metalness) * 0.05;
+      ball.rotation.y = t * 0.6;
+      brush.position.x = 0.2 + Math.sin(t * 2) * 0.25;
+      brush.position.y = 0.9 + Math.cos(t * 2) * 0.2;
+      tiles.forEach((tl, i) => (tl.position.z = -0.95 + (Math.floor(t * 2) % 12 === i ? 0.08 : 0)));
+    });
+  },
+  'vehicle-studio'(g) {
+    // A concept car on a turntable under light panels; the paint changes colour.
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.55, 0.12, 40), mat('#2a2d33'));
+    table.position.y = 0.06;
+    table.receiveShadow = true;
+    g.add(table);
+    const car = new THREE.Group();
+    car.position.y = 0.12;
+    g.add(car);
+    const paint = new THREE.MeshStandardMaterial({ color: '#b3121b', roughness: 0.25, metalness: 0.6 });
+    box(car, 1.9, 0.32, 0.8, paint, 0, 0.14, 0);
+    box(car, 0.9, 0.26, 0.66, '#1d2a33', -0.15, 0.46, 0);
+    box(car, 0.08, 0.06, 0.6, glow('#e8f2ff', 1.2), 0.95, 0.3, 0, { shadow: false });
+    box(car, 0.04, 0.06, 0.66, glow('#ff1020', 1.2), -0.96, 0.32, 0, { shadow: false });
+    for (const [x, z] of [[0.6, 0.42], [0.6, -0.42], [-0.6, 0.42], [-0.6, -0.42]]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.12, 16).rotateX(Math.PI / 2), mat('#111'));
+      w.position.set(x, 0.14, z);
+      car.add(w);
+    }
+    for (const x of [-0.9, 0.9]) box(g, 1.2, 0.04, 0.4, glow('#ffffff', 0.9), x, 2.3, 0, { shadow: false });
+    const paints = ['#b3121b', '#0d1f45', '#f2c21b', '#0f3b2a', '#eef0f2'];
+    animators.push((t) => {
+      car.rotation.y = t * 0.45;
+      table.rotation.y = t * 0.45;
+      paint.color.lerp(new THREE.Color(paints[Math.floor(t / 3) % paints.length]), 0.04);
+    });
+  },
+  'terra-studio'(g) {
+    // A terrain table model: voxel hills with elevation colours, a rising lake and a glowing pin.
+    box(g, 2.9, 0.75, 2.1, '#3a3128', 0, 0, 0);
+    const ramp = ['#2f6d3a', '#8fb35a', '#e5d68a', '#b98a54', '#8a6a5a', '#f4f4f4'];
+    const N = 12, s = 2.8 / N;
+    let peak = null;
+    for (let i = 0; i < N; i++) for (let j = 0; j < 8; j++) {
+      const x = (i - (N - 1) / 2) * s, z = (j - 3.5) * s;
+      const h = Math.max(0.03, 0.55 * Math.exp(-((x - 0.5) ** 2 + (z + 0.2) ** 2) * 1.6) + 0.3 * Math.exp(-((x + 0.8) ** 2 + (z - 0.4) ** 2) * 3) + 0.05 * Math.sin(i * 1.7 + j));
+      const m = box(g, s, h, s, ramp[Math.min(5, Math.floor((h / 0.62) * 6))], x, 0.75, z);
+      if (!peak || h > peak.h) peak = { x, z, h, m };
+    }
+    const lake = box(g, 2.8, 0.05, 2.0, new THREE.MeshStandardMaterial({ color: '#2a6f97', transparent: true, opacity: 0.7, roughness: 0.1 }), 0, 0.75, 0, { shadow: false });
+    const pin = sphere(g, 0.08, glow('#35c4a0', 1.2), peak.x, 0.75 + peak.h + 0.2, peak.z, 12);
+    animators.push((t) => {
+      lake.scale.y = 0.05 + (Math.sin(t * 0.5) * 0.5 + 0.5) * 0.22; // box() puts the height in scale.y
+      lake.position.y = 0.75 + lake.scale.y / 2;
+      pin.position.y = 0.75 + peak.h + 0.2 + Math.abs(Math.sin(t * 2.5)) * 0.15;
+    });
+  },
   'dual-view'(g) {
     // A 3D display on a stand sending two coloured beams to two viewers: one picture each.
     box(g, 0.5, 0.9, 0.4, '#2a3340', 0, 0, -0.4);

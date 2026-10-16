@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creator Hub · DisplayXR</title>
+<meta name="description" content="Three creator tools for glasses-free 3D: Material Forge, Vehicle Studio and Terra Studio. Upload or create, then push to DisplayXR HQ.">
+<style>
+  :root { --bg: #121419; --panel: #1b1e25; --line: #2e3440; --text: #ebe8e2; --muted: #a2a3a8; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: inherit; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 56px; }
+  .eyebrow { font: 600 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: #8fb3c9; margin: 0 0 6px; }
+  h1 { margin: 0 0 6px; font-size: 30px; }
+  .lede { margin: 0 0 26px; color: #cfccc4; max-width: 720px; }
+  .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .tool { display: flex; flex-direction: column; text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color .15s, translate .15s; }
+  .tool:hover { border-color: var(--a); translate: 0 -2px; }
+  .tool .art { height: 150px; display: grid; place-items: center; background: radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--a) 40%, transparent), transparent 70%), #15171c; font: 800 42px var(--mono); color: var(--a); letter-spacing: .04em; }
+  .tool .txt { padding: 14px 16px 16px; display: grid; gap: 6px; }
+  .tool h2 { margin: 0; font-size: 18px; }
+  .tool small { font: 600 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--a); }
+  .tool p { margin: 0; color: var(--muted); font-size: 14px; }
+  .tool ul { margin: 4px 0 0; padding-left: 18px; color: #cfccc4; font-size: 13.5px; }
+  h3 { margin: 36px 0 10px; font: 600 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; gap: 12px; align-items: center; }
+  h3 a { color: #ffc94a; letter-spacing: .06em; }
+  .pushed { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .pushed a { text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .pushed a:hover { border-color: #ffc94a; }
+  .pushed img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; background: #0d0f13; }
+  .pushed div { padding: 8px 10px; }
+  .pushed b { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pushed small { color: var(--muted); font: 11px var(--mono); }
+  .empty { color: var(--muted); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">DisplayXR Creator Hub</p>
+  <h1>Make 3D, push it to HQ</h1>
+  <p class="lede">Three pro-style creator tools that run in glasses-free 3D in the DisplayXR Browser on a Leia display, and in 2D in any browser. Upload your own files or build from scratch, then push the result to the DisplayXR HQ Creator Gallery.</p>
+
+  <section class="tools">
+    <a class="tool" href="material/" style="--a:#ff6a3d">
+      <div class="art">MF</div>
+      <div class="txt">
+        <small>Materials &amp; textures</small>
+        <h2>Material Forge</h2>
+        <p>Substance-style layered PBR materials.</p>
+        <ul>
+          <li>14 tileable generators, masks, blend modes</li>
+          <li>Sample colours and whole materials from photos</li>
+          <li>Paint straight onto 3D objects</li>
+          <li>Build objects from primitives or upload GLB/OBJ/STL</li>
+        </ul>
+      </div>
+    </a>
+    <a class="tool" href="vehicle/" style="--a:#4aa8ff">
+      <div class="art">VS</div>
+      <div class="txt">
+        <small>Automotive visualization</small>
+        <h2>Vehicle Studio</h2>
+        <p>VRED-style car configurator and presenter.</p>
+        <ul>
+          <li>Coupe, sedan, SUV, or upload your own car</li>
+          <li>Paint finishes, rims, calipers, glass, interior</li>
+          <li>Variant sets, viewpoints, turntable, renders</li>
+          <li>Studio, showroom, sunset, night and HDR lighting</li>
+        </ul>
+      </div>
+    </a>
+    <a class="tool" href="terra/" style="--a:#35c4a0">
+      <div class="art">TS</div>
+      <div class="txt">
+        <small>Geospatial</small>
+        <h2>Terra Studio</h2>
+        <p>ArcGIS-style 3D scenes from real terrain.</p>
+        <ul>
+          <li>Real elevation with imagery, topo or street basemaps</li>
+          <li>Contours, elevation tint, water level, OSM buildings</li>
+          <li>GeoJSON, CSV and heightmap upload</li>
+          <li>Identify, measure, profile, line of sight, sketch</li>
+        </ul>
+      </div>
+    </a>
+  </section>
+
+  <h3>Pushed to HQ <a href="view/">Open the HQ viewer &rarr;</a></h3>
+  <div class="pushed" id="pushed"><p class="empty">Nothing pushed from this browser yet.</p></div>
+
+  <footer>Part of <a href="https://joehillthunder.github.io/">DisplayXR HQ</a>. Creations are kept in this browser on this PC; download a .glb to move one elsewhere.</footer>
+</main>
+<script type="module">
+  import { listCreations, onHQChange } from './shared/hq.js';
+  async function render() {
+    const items = await listCreations().catch(() => []);
+    if (!items.length) return;
+    const host = document.getElementById('pushed');
+    host.replaceChildren(...items.slice(0, 12).map((c) => {
+      const a = document.createElement('a');
+      a.href = `view/?id=${encodeURIComponent(c.id)}`;
+      a.innerHTML = `<img alt=""><div><b></b><small></small></div>`;
+      a.querySelector('img').src = c.thumb;
+      a.querySelector('b').textContent = c.name;
+      a.querySelector('small').textContent = `${c.appName} · ${new Date(c.created).toLocaleDateString()}`;
+      return a;
+    }));
+  }
+  render();
+  onHQChange(render);
+</script>
+</body>
+</html>
