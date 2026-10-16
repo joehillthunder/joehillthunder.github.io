@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Forge · DisplayXR Creator Hub</title>
+<meta name="description" content="Layered procedural PBR materials, image sampling, 3D painting and object building, in glasses-free 3D on DisplayXR.">
+<link rel="stylesheet" href="../shared/style.css">
+<style>
+  body { --accent: #ff6a3d; }
+  .maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .maps figure { margin: 0; cursor: pointer; }
+  .maps canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 4px; border: 1px solid var(--line); image-rendering: auto; }
+  .maps figcaption { font: 10px var(--mono); color: var(--muted); text-align: center; margin-top: 2px; }
+  .layer-stack .item .sw { background-size: cover; }
+  .layer-stack .item .meta { min-width: 52px; text-align: right; }
+  .prim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .prim-grid .btn { justify-content: center; font-size: 12px; }
+  .sampler-wrap { position: relative; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; background: #0d0f13; min-height: 120px; display: grid; place-items: center; }
+  .sampler-wrap canvas { width: 100%; display: block; cursor: crosshair; }
+  .sampler-wrap .empty { color: var(--muted); font-size: 12px; padding: 24px; text-align: center; }
+  .palette { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .palette button { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); cursor: pointer; }
+  .loupe { position: absolute; width: 46px; height: 46px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #000; pointer-events: none; translate: -50% -130%; }
+  .brush-only { display: none; }
+  body.tool-paint .brush-only { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="../" title="Creator Hub">
+      <span class="logo">MF</span>
+      <span><b>Material Forge</b><small>DisplayXR Creator Hub</small></span>
+    </a>
+    <button class="btn" id="btnNewMat" title="New material from a preset">+ Material</button>
+    <button class="btn" id="btnUpload" title="Images go to the Sampler; GLB, OBJ and STL models become objects">Upload&hellip;</button>
+    <button class="btn" id="btnMaps" title="Download the active material's texture maps as PNG">Export maps</button>
+    <button class="btn" id="btnGlb" title="Download the scene as a .glb">Export .glb</button>
+    <span class="spacer"></span>
+    <a class="btn" href="../">Hub</a>
+    <button class="btn primary" id="btnPush">Push to HQ</button>
+  </header>
+
+  <aside class="left">
+    <div class="tabs" data-tabs="left">
+      <button data-tab="layers" class="on">Layers</button>
+      <button data-tab="objects">Objects</button>
+    </div>
+    <div data-pane="layers">
+      <section class="section">
+        <h3>Material library</h3>
+        <div class="body"><div class="grid-cards" id="matLib"></div></div>
+      </section>
+      <section class="section">
+        <h3>Layer stack <span class="act">
+          <button class="btn sm icon" id="layUp" title="Move up">&uarr;</button>
+          <button class="btn sm icon" id="layDown" title="Move down">&darr;</button>
+          <button class="btn sm icon" id="layDup" title="Duplicate">&#x2398;</button>
+          <button class="btn sm icon" id="layDel" title="Delete">&#x2715;</button>
+        </span></h3>
+        <div class="body">
+          <div class="row"><label>Add layer</label><select id="addLayer"></select><span></span></div>
+          <div class="list layer-stack" id="layerList" style="margin-top:6px"></div>
+          <p class="hint">Top of the list is the top layer. The paint tool (<span class="kbd">B</span>) paints the selected layer's mask, adding a paint layer if needed.</p>
+        </div>
+      </section>
+    </div>
+    <div data-pane="objects" hidden>
+      <section class="section">
+        <h3>Create</h3>
+        <div class="body">
+          <div class="prim-grid" id="prims"></div>
+          <div class="btn-row tight" style="margin-top:6px"><button class="btn" id="btnModel">Upload model (.glb .obj .stl)</button></div>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Scene <span class="act">
+          <button class="btn sm" id="objDup">Duplicate</button>
+          <button class="btn sm icon" id="objDel" title="Delete">&#x2715;</button>
+        </span></h3>
+        <div class="body"><div class="list" id="objList"></div></div>
+      </section>
+      <section class="section">
+        <h3>Selected object</h3>
+        <div class="body" id="objProps"></div>
+      </section>
+    </div>
+  </aside>
+
+  <main class="viewport" id="vp">
+    <canvas class="stage" id="stage" tabindex="0"></canvas>
+    <div class="vp-tools" id="tools"></div>
+    <div class="vp-chip" id="chip">
+      <div class="mode-label">2D preview</div>
+      <div class="vp-depth" hidden><span>Depth</span><input type="range" min="0" max="2" step="0.05"></div>
+      <button class="btn sm lens" hidden></button>
+    </div>
+    <div class="busy" id="busy" hidden>BAKING&hellip;</div>
+  </main>
+
+  <aside class="right">
+    <div class="tabs" data-tabs="right">
+      <button data-tab="layer" class="on">Layer</button>
+      <button data-tab="material">Material</button>
+      <button data-tab="sampler">Sampler</button>
+    </div>
+    <div data-pane="layer" id="layerPane"></div>
+    <div data-pane="material" id="matPane" hidden></div>
+    <div data-pane="sampler" id="samplerPane" hidden>
+      <section class="section">
+        <h3>Image sampler</h3>
+        <div class="body">
+          <div class="sampler-wrap" id="samplerWrap"><div class="empty">Upload or drop a photo, then click it to sample colours.</div></div>
+          <div class="btn-row tight" style="margin-top:8px">
+            <button class="btn sm" id="sampUpload">Upload photo</button>
+            <button class="btn sm" id="sampTarget" title="Which colour of the selected layer a sample sets">Sets: Color A</button>
+          </div>
+          <div class="palette" id="palette"></div>
+          <div class="btn-row tight" style="margin-top:8px">
+            <button class="btn sm" id="sampPalette" disabled>Extract palette</button>
+            <button class="btn sm" id="sampLayer" disabled>Photo &rarr; layer</button>
+            <button class="btn sm" id="sampMat" disabled>Photo &rarr; material</button>
+          </div>
+          <p class="hint">Tip: <span class="kbd">I</span> picks a colour straight off the 3D object. Shift-click sets Color B.</p>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <footer class="status">
+    <span class="mode" id="stTool">ORBIT</span>
+    <span class="grow" id="stMsg">Ready</span>
+    <span id="stInfo"></span>
+  </footer>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
