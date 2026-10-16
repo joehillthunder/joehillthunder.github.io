@@ -6,3 +6,6 @@ holds the rights and agreed to its use here). Anything else stays out of the rep
 
 | File | Source (URL) | Author | License | Used by |
 |---|---|---|---|---|
+| `apps/4dv-player/clips/cat_high_v2.*` | https://download.4dv.ai/4dv-player/web/samples/ | 4DV.ai | user-supplied (provided by Joe Hill for this demo) | 4dv-player |
+| `apps/4dv-player/clips/paparazzi_mv_red.*` | https://download.4dv.ai/4dv-player/web/samples/ | 4DV.ai | user-supplied (provided by Joe Hill for this demo) | 4dv-player |
+| `apps/4dv-player/clips/puppet.*` | https://download.4dv.ai/4dv-player/web/samples/ | 4DV.ai | user-supplied (provided by Joe Hill for this demo) | 4dv-player |

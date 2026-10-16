@@ -1,0 +1,9 @@
+{
+  "file": "cat_high.4dv",
+  "size": 23470515,
+  "parts": [
+    { "url": "cat_high_v2.part-000", "size": 8388608 },
+    { "url": "cat_high_v2.part-001", "size": 8388608 },
+    { "url": "cat_high_v2.part-002", "size": 6693299 }
+  ]
+}
