@@ -20,6 +20,7 @@ displayxr-demos/
   packages/importer/   ← dxr-import (Sketchfab, KitBash, Smithsonian)
   apps/energy-grid/    ← Future Grids Training (grid digital twin)
   apps/music-visualizer/
+  apps/4dv-player/     ← 4DV.ai volumetric video player (own CLAUDE.md)
   apps/battleship/     ← redirect stub (moved to the displayxr-battleship repo)
   apps/agent-voice/    ← Muse, Dot, Claude voice demo
   apps/aviation-coach/

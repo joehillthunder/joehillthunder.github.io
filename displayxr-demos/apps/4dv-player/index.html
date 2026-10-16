@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4DV Player · DisplayXR</title>
+<meta name="description" content="Play 4DV.ai volumetric video (4D Gaussian splats) in the browser, in glasses-free 3D on Leia displays through DisplayXR, or in 2D anywhere.">
+<style>
+  :root {
+    --bg: #05080f; --panel: #0c1220; --panel-2: #121a2c; --line: #1f2a3d; --text: #eef2f8; --muted: #9aa6b8;
+    --accent: #20e6e9; --accent-ink: #001417; --danger: #ff8a8a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+               font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+  button, select { font: inherit; color: inherit; }
+
+  /* The woven canvas: full window, no CSS effects on it or its ancestors. */
+  #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; will-change: transform; }
+  #cover { position: fixed; inset: 0; background: var(--bg); }
+
+  /* Chrome over the canvas: opaque, partial regions, no backdrop-filter. */
+  #panel { position: fixed; top: 16px; left: 16px; width: 280px; max-height: calc(100% - 110px); overflow: auto;
+           background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  #panel h1 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+  #panel h1 small { display: block; font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  #panel p { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
+  #clips { display: grid; gap: 6px; }
+  .clip { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .clip strong { display: block; font-size: 14px; }
+  .clip span { display: block; color: var(--muted); font-size: 12px; }
+  .clip:hover { border-color: #33435f; }
+  .clip[aria-current="true"] { border-color: var(--accent); }
+  .open { display: block; margin-top: 10px; text-align: center; padding: 8px; border: 1px dashed #33435f; border-radius: 8px; cursor: pointer; color: var(--muted); }
+  .open:hover { color: var(--text); border-color: var(--accent); }
+  #info { margin-top: 10px; color: var(--muted); font-size: 12px; min-height: 1em; }
+  .keys { margin-top: 10px; color: var(--muted); font-size: 12px; }
+  .keys summary { cursor: pointer; }
+  .keys table { border-collapse: collapse; margin-top: 6px; }
+  .keys td { padding: 1px 8px 1px 0; vertical-align: top; }
+  .keys kbd { font: 11px ui-monospace, monospace; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  .links { margin-top: 10px; font-size: 12px; }
+  .links a { color: var(--accent); }
+
+  #bar { position: fixed; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+         background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+  #bar button, #bar select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  #bar button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #play { min-width: 64px; background: var(--accent) !important; color: var(--accent-ink) !important; border-color: var(--accent) !important; font-weight: 700; }
+  #time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 92px; }
+  #scrub { flex: 1 1 200px; accent-color: var(--accent); }
+  .depth { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .depth input { width: 90px; accent-color: var(--accent); }
+
+  #loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px));
+             background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  #loadName { font-weight: 700; }
+  #loadStage { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+  .track { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+  #loadBar { height: 100%; width: 0; background: var(--accent); }
+  #loadBar.indeterminate { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { background: #0c7f81; } }
+  #error { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); max-width: calc(100% - 32px);
+           background: #2a1014; border: 1px solid #6b2a33; color: var(--danger); border-radius: 8px; padding: 8px 12px; }
+
+  body.bare #panel, body.bare #bar { display: none; }
+  @media (max-width: 720px) {
+    #panel { right: 16px; width: auto; max-height: 40%; }
+    #time { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="4DV volumetric video"></canvas>
+<div id="cover"></div>
+
+<aside id="panel" data-inline3d-overlay>
+  <h1><small>DisplayXR</small>4DV Player</h1>
+  <p>4DV.ai volumetric video: real people captured as 4D Gaussian splats. Drag to walk around them while they move.</p>
+  <div id="clips"></div>
+  <label class="open">Open a .4dv file…<input id="file" type="file" accept=".4dv" hidden></label>
+  <div id="info"></div>
+  <details class="keys">
+    <summary>Controls</summary>
+    <table>
+      <tr><td>Left-drag</td><td>Orbit</td></tr>
+      <tr><td>Right-drag</td><td>Pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Restart</td></tr>
+      <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next clip</td></tr>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Speed</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Less / more 3D</td></tr>
+      <tr><td><kbd>T</kbd></td><td>Turntable</td></tr>
+      <tr><td><kbd>Home</kbd></td><td>Reset view</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Loop</td></tr>
+      <tr><td><kbd>V</kbd></td><td>2D / 3D</td></tr>
+      <tr><td><kbd>H</kbd></td><td>Hide controls</td></tr>
+    </table>
+  </details>
+  <div class="links"><a href="https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/4dv-player">Source</a> · <a href="../../../">DisplayXR HQ</a> · <a href="https://www.4dv.ai/">4DV.ai</a></div>
+</aside>
+
+<div id="bar" data-inline3d-overlay>
+  <button id="play" type="button" aria-pressed="false">Play</button>
+  <span id="time">0:00.0 / 0:00.0</span>
+  <input id="scrub" type="range" min="0" max="1" step="0.0005" value="0" disabled aria-label="Seek">
+  <select id="speed" aria-label="Speed">
+    <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option><option value="1.5">1½×</option><option value="2">2×</option>
+  </select>
+  <button id="loop" type="button" aria-pressed="true">Loop</button>
+  <button id="turn" type="button" aria-pressed="false">Turntable</button>
+  <button id="reset" type="button">Reset view</button>
+  <label class="depth">3D <input id="depth" type="range" min="0" max="2" step="0.1" value="1" aria-label="3D strength"><span id="depthVal">1.0</span></label>
+  <button id="mode" type="button" aria-pressed="true" hidden>3D</button>
+  <button id="hide" type="button" title="Hide controls (H)">Hide</button>
+</div>
+
+<div id="loading" data-inline3d-overlay hidden>
+  <div id="loadName"></div>
+  <div id="loadStage"></div>
+  <div class="track"><div id="loadBar"></div></div>
+</div>
+<div id="error" data-inline3d-overlay hidden></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
