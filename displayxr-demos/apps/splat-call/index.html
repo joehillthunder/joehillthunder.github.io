@@ -49,6 +49,16 @@
   button.chip { font: inherit; font-size: 12px; cursor: pointer; }
   button.chip:hover { color: var(--text); border-color: rgba(95, 212, 255, 0.4); }
   .toast .btn { margin-left: 10px; padding: 4px 12px; }
+  .snapOnly { display: none !important; }
+  body.snapshot .snapOnly { display: inline-flex !important; }
+  .chip.snap { color: #ffd27a; border-color: rgba(255, 210, 122, 0.45); font-weight: 600; }
+  .engines { display: grid; gap: 12px; margin-top: 14px; }
+  .engine { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .engine h3 { margin: 0 0 4px; font-size: 16px; }
+  .engine p { margin: 4px 0; font-size: 13px; }
+  .engine .row { margin-top: 10px; align-items: center; }
+  .engine .state { color: var(--text); }
+  .card code { font-size: 12px; background: rgba(255, 255, 255, 0.06); padding: 2px 6px; border-radius: 6px; }
   .camList { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 13px; }
   .camList li { margin: 4px 0; }
   .camList b { color: var(--text); font-weight: 600; }
@@ -130,6 +140,7 @@
   </div>
   <div class="hud" aria-live="off">
     <span class="chip mode" id="hudMode">2D</span>
+    <span class="chip snap snapOnly" id="snapChip"></span>
     <span class="chip"><b id="hudFps">–</b></span>
     <span class="chip" id="hudSplats">–</span>
     <button class="chip opt" id="hudCam" title="Camera and FOV (C)"></button>
@@ -145,6 +156,7 @@
 </div>
 
 <div class="center" id="waiting" hidden><p>Reconstructing…</p></div>
+<div class="notice" id="snapBusy" hidden><span id="snapBusyText"></span></div>
 <div class="notice" id="noface" hidden>Looking for a face: face the camera, with your head and shoulders in frame</div>
 
 <div class="pip" id="pip">
@@ -155,6 +167,11 @@
 
 <nav class="bar" aria-label="Call controls">
   <select id="selCam" title="Video source" aria-label="Video source"><option value="">Choose a source…</option></select>
+  <select id="selModel" title="Live depth model" aria-label="Live depth model">
+    <option value="small">DA-V2 Small</option>
+    <option value="da3s">DA3 Small</option>
+    <option value="base">DA-V2 Base (NC)</option>
+  </select>
   <select id="selQuality" title="Quality (1, 2, 3)" aria-label="Quality">
     <option value="fast">Fast</option>
     <option value="hq">HQ</option>
@@ -171,6 +188,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 12a8 8 0 1 1-2.3-5.7L4 10"/></svg>Reset</button>
   <label class="depthCtl">3D depth <input type="range" id="rngDepth" min="0.2" max="2" step="0.05" value="1"></label>
   <span class="sep"></span>
+  <button class="btn" id="btnSnap" title="3D snapshot with a bigger model: Apple SHARP or Immersity AI (T)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Snapshot</button>
+  <button class="btn primary snapOnly" id="btnLive" title="Back to the live reconstruction (L)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>Live</button>
   <button class="btn" id="btnHelp" title="About (H)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg></button>
   <button class="btn call" id="btnCall" title="Start or join a call">
@@ -186,7 +207,7 @@
     <p>Splat Call turns an ordinary 2D webcam into a live 3D Gaussian-splat hologram, frame by frame, right in the browser. Nothing is uploaded: the models run on this PC's GPU.</p>
     <div class="pipeline" aria-label="How it works">
       <div><b>1 · Track</b>Face landmarks and a person mask (MediaPipe)</div>
-      <div><b>2 · Depth</b>Depth Anything V2 on the head crop (WebGPU)</div>
+      <div><b>2 · Depth</b>Depth Anything V2 or 3 on the head crop (WebGPU)</div>
       <div><b>3 · Scale</b>Iris size and landmarks fix depth in metres</div>
       <div><b>4 · Splat</b>A 3D Gaussian per pixel, sorted and woven</div>
     </div>
@@ -253,6 +274,34 @@
   </div>
 </div>
 
+<!-- Snapshot -->
+<div class="overlay dialog" id="snapDlg" hidden>
+  <div class="card">
+    <h2>3D snapshot</h2>
+    <p>Freeze one frame and rebuild it with a model too big to run live. The snapshot replaces the live view until you press <b>Live</b>. Both run through a small helper on this PC.</p>
+    <p><span id="snapHelper"></span></p>
+    <p id="snapHelperHow" hidden>Start it from the app folder: <code>pip install -r helper/requirements.txt</code> then <code>python helper/splat_helper.py</code>. Add <code>--mock-sharp --mock-immersity</code> to try the flow without the model or keys.</p>
+    <div class="engines">
+      <div class="engine">
+        <h3>Apple SHARP</h3>
+        <p>One photo to about a million metric 3D Gaussians in one pass, around a second on a good GPU. It rebuilds the whole scene, not just the head. Runs on this PC's GPU through DirectML (1.3 GB model). <b>Apple research licence: non-commercial.</b></p>
+        <p class="state" id="snapSharpState"></p>
+        <div class="row">
+          <button class="btn primary" id="btnSnapSharp">Take a SHARP snapshot</button>
+          <label><input type="checkbox" id="chkPerson"> Person only</label>
+        </div>
+      </div>
+      <div class="engine">
+        <h3>Immersity AI</h3>
+        <p>Leia's cloud 2D-to-3D depth for the head crop, turned into splats by this app. Needs an Immersity API client id and secret; each snapshot costs credits.</p>
+        <p class="state" id="snapImmState"></p>
+        <div class="row"><button class="btn primary" id="btnSnapImm">Take an Immersity snapshot</button></div>
+      </div>
+    </div>
+    <div class="row"><button class="btn" data-close>Close</button></div>
+  </div>
+</div>
+
 <!-- About -->
 <div class="overlay dialog" id="helpDlg" hidden>
   <div class="card">
@@ -260,12 +309,13 @@
     <p>Every frame from the camera becomes a new cloud of up to 131,000 3D Gaussians. Nothing is pre-scanned and there's no avatar: what you see is the live pixels, lifted into 3D.</p>
     <ul>
       <li><b>Track:</b> MediaPipe finds 478 face landmarks and segments the person from the background.</li>
-      <li><b>Depth:</b> Depth Anything V2 predicts relative depth for a square crop around the head and shoulders.</li>
+      <li><b>Depth:</b> Depth Anything (V2 Small by default, or 3 Small, or V2 Base) predicts relative depth for a square crop around the head and shoulders.</li>
+      <li><b>Snapshot:</b> freeze one frame through a bigger model: Apple SHARP (about a million real 3D Gaussians of the whole scene) or Immersity AI's cloud depth, through a small helper on this PC.</li>
       <li><b>Scale:</b> the iris (about 11.7 mm across) gives the camera distance, and a least-squares fit to the landmark depths turns the network's output into metres, every frame.</li>
       <li><b>Splat:</b> each pixel becomes a flat Gaussian spanning its cell, oriented by the surface. A mirrored back layer gives the head volume, and a temporal filter keeps still regions steady.</li>
     </ul>
-    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view · <kbd>C</kbd> cameras</p>
-    <p class="fine">After <a href="https://microsoft.github.io/VoluMe/" target="_blank" rel="noopener">VoluMe: Authentic 3D Video Calls from Live Gaussian Splat Prediction</a> (Microsoft, 2025). Uses <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" target="_blank" rel="noopener">Depth Anything V2</a> (Small: Apache-2.0; Base, used by Ultra: CC BY-NC 4.0), <a href="https://ai.google.dev/edge/mediapipe" target="_blank" rel="noopener">MediaPipe</a>, transformers.js, three.js, PeerJS and the DisplayXR inline-3D SDK.</p>
+    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live</p>
+    <p class="fine">After <a href="https://microsoft.github.io/VoluMe/" target="_blank" rel="noopener">VoluMe: Authentic 3D Video Calls from Live Gaussian Splat Prediction</a> (Microsoft, 2025). Uses <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" target="_blank" rel="noopener">Depth Anything V2</a> and <a href="https://github.com/ByteDance-Seed/Depth-Anything-3" target="_blank" rel="noopener">Depth Anything 3</a> (Small: Apache-2.0; V2 Base: CC BY-NC 4.0), <a href="https://github.com/apple/ml-sharp" target="_blank" rel="noopener">Apple SHARP</a> (research licence) and <a href="https://www.immersity.ai/" target="_blank" rel="noopener">Immersity AI</a> for snapshots, <a href="https://ai.google.dev/edge/mediapipe" target="_blank" rel="noopener">MediaPipe</a>, transformers.js, three.js, PeerJS and the DisplayXR inline-3D SDK.</p>
     <div class="row"><button class="btn" data-close>Close</button></div>
   </div>
 </div>

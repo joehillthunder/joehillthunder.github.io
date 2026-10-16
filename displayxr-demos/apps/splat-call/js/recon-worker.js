@@ -21,8 +21,13 @@ import { AutoModel, Tensor, env } from 'https://cdn.jsdelivr.net/npm/@huggingfac
 
 env.allowLocalModels = false;
 
+// Live depth models. `depth: true` marks a model that outputs depth (far = larger) rather than
+// disparity; infer() negates it, so everything downstream can keep "larger = nearer", and the
+// linear metric fit stays exact for affine depth. `views` = the extra view axis Depth Anything 3
+// takes ([1, views, 3, H, W]). `dtype` pins the only precision a repo ships.
 const MODELS = {
   small: { id: 'onnx-community/depth-anything-v2-small', license: 'Apache-2.0' },
+  da3s: { id: 'onnx-community/depth-anything-v3-small', license: 'Apache-2.0', depth: true, views: true, dtype: 'fp32' },
   base: { id: 'onnx-community/depth-anything-v2-base', license: 'CC-BY-NC-4.0' },
 };
 
@@ -71,7 +76,7 @@ async function load(name) {
   if (model) { await model.dispose?.(); model = null; }
   const pick = await pickDevice();
   device = pick.device;
-  dtype = pick.dtype;
+  dtype = MODELS[name].dtype || pick.dtype;
   const id = MODELS[name].id;
   const files = new Map();
   const progress_callback = (p) => {
@@ -103,7 +108,7 @@ async function load(name) {
     if (device !== 'webgpu') throw e;
     console.warn('[recon] WebGPU load failed, falling back to WASM', e);
     device = 'wasm';
-    dtype = 'q8';
+    dtype = MODELS[name].dtype || 'q8';
     model = await fetchModel();
   }
   modelName = name;
@@ -141,8 +146,10 @@ async function infer(rgba, S) {
     input[n + i] = (rgba[k + 1] / 255 - MEAN[1]) / STD[1];
     input[2 * n + i] = (rgba[k + 2] / 255 - MEAN[2]) / STD[2];
   }
+  const spec = MODELS[modelName];
+  const shape = spec.views ? [1, 1, 3, S, S] : [1, 3, S, S];
   const run = (half) => {
-    const t = half ? new Tensor('float16', Uint16Array.from(input, toHalf), [1, 3, S, S]) : new Tensor('float32', input, [1, 3, S, S]);
+    const t = half ? new Tensor('float16', Uint16Array.from(input, toHalf), shape) : new Tensor('float32', input, shape);
     return model({ pixel_values: t });
   };
   let out;
@@ -159,7 +166,11 @@ async function infer(rgba, S) {
   let data = pd.data;
   if (data instanceof Uint16Array) data = Float32Array.from(data, fromHalf);
   else if (!(data instanceof Float32Array)) data = Float32Array.from(data);
-  pd.dispose?.();
+  for (const k of Object.keys(out)) out[k]?.dispose?.();
+  if (spec.depth) {
+    data = Float32Array.from(data);
+    for (let i = 0; i < data.length; i++) data[i] = -data[i];
+  }
   return { disp: data, dw: w, dh: h };
 }
 
@@ -520,6 +531,63 @@ function sortInto(xyz, N, cam, dir, out) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Ready-made Gaussians (Apple SHARP via the helper): camera space in, our world space out
+
+/**
+ * m.means / m.cov / m.rgba: N splats in OpenCV camera space (metres; covariance in mm², as
+ * xx xy xz yy yz zz; sRGB + alpha). Re-centred on the head like a live frame, mirrored for a
+ * local camera, and optionally cut to the person mask.
+ */
+function buildExternal(m) {
+  const { means, cov, rgba, W, H, f, lm, opts } = m;
+  const n = rgba.length / 4;
+  const cx = W / 2, cy = H / 2;
+  const sx = opts.mirror ? -1 : 1;
+  // Head centre: the median depth of the splats seen through the eyes, 7 cm further in.
+  let ex = cx, ey = H * 0.4, ny = H * 0.45;
+  if (lm) {
+    ex = ((lm[468 * 3] + lm[473 * 3]) / 2) * W;
+    ey = ((lm[468 * 3 + 1] + lm[473 * 3 + 1]) / 2) * H;
+    ny = lm[1 * 3 + 1] * H;
+  }
+  const r2 = (W * 0.03) ** 2;
+  const zs = [];
+  for (let i = 0; i < n; i++) {
+    const z = means[i * 3 + 2];
+    if (!(z > 0.05)) continue;
+    const u = (f * means[i * 3]) / z + cx, v = (f * means[i * 3 + 1]) / z + cy;
+    if ((u - ex) ** 2 + (v - ey) ** 2 < r2 && rgba[i * 4 + 3] > 128) zs.push(z);
+  }
+  zs.sort((a, b) => a - b);
+  const zEyes = zs.length ? zs[zs.length >> 1] : st.zIris || opts.defaultDist;
+  const zc = zEyes + 0.07;
+  const cX = ((ex - cx) / f) * zc, cY = ((ny * 0.6 + ey * 0.4 - cy) / f) * zc, cZ = zc;
+
+  const B = takeBuffers(n);
+  const { pos, covA, covB, color } = B;
+  let N = 0;
+  for (let i = 0; i < n; i++) {
+    const x = means[i * 3], y = means[i * 3 + 1], z = means[i * 3 + 2];
+    if (!(z > 0.05 && z < 50)) continue;
+    const a = rgba[i * 4 + 3];
+    if (a < 4) continue;
+    if (opts.personOnly && m.mask) {
+      const u = (f * x) / z + cx, v = (f * y) / z + cy;
+      const mk = bilin(m.mask, m.mw, m.mh, (u / W) * m.mw - 0.5, (v / H) * m.mh - 0.5);
+      if (mk < 0.35 || z > zc + 0.5) continue;
+    }
+    const o = N * 4, o2 = N * 2, c = i * 6;
+    pos[o] = sx * (x - cX); pos[o + 1] = -(y - cY); pos[o + 2] = -(z - cZ); pos[o + 3] = a / 255;
+    // D Σ D with D = diag(sx, -1, -1).
+    covA[o] = cov[c]; covA[o + 1] = -sx * cov[c + 1]; covA[o + 2] = -sx * cov[c + 2]; covA[o + 3] = cov[c + 3];
+    covB[o2] = cov[c + 4]; covB[o2 + 1] = cov[c + 5];
+    color[o] = rgba[i * 4]; color[o + 1] = rgba[i * 4 + 1]; color[o + 2] = rgba[i * 4 + 2]; color[o + 3] = 255;
+    N++;
+  }
+  return { B, N, zEyes };
+}
+
+// ---------------------------------------------------------------------------------------------
 
 self.onmessage = async (e) => {
   const m = e.data;
@@ -539,7 +607,8 @@ self.onmessage = async (e) => {
       ctx2d.drawImage(m.bitmap, 0, 0, S, S);
       m.bitmap.close();
       const rgba = ctx2d.getImageData(0, 0, S, S).data;
-      const { disp, dw, dh } = await infer(rgba, S);
+      // A snapshot can bring its own disparity (Immersity AI, via the helper): larger = nearer.
+      const { disp, dw, dh } = m.disp ? { disp: m.disp, dw: m.dw, dh: m.dh } : await infer(rgba, S);
       const t1 = performance.now();
       const { B, N, fitOk, fit, zEyes } = build(m, disp, dw, dh, rgba);
       const count = sortInto(B.pos, N, m.cam, m.dir, B.order);
@@ -551,8 +620,23 @@ self.onmessage = async (e) => {
       const t2 = performance.now();
       postMessage(
         {
-          type: 'splats', id: m.id, N, count, bufs: B,
+          type: 'splats', id: m.id, N, count, bufs: B, snap: !!m.snap,
           stats: { modelMs: t1 - t0, buildMs: t2 - t1, fitOk, rms: fit?.rms ?? 0, zEyes, device, dtype },
+        },
+        [B.pos.buffer, B.covA.buffer, B.covB.buffer, B.color.buffer, B.order.buffer],
+      );
+    } else if (m.type === 'external') {
+      const t0 = performance.now();
+      const { B, N, zEyes } = buildExternal(m);
+      const count = sortInto(B.pos, N, m.cam, m.dir, B.order);
+      if (!current || current.xyz.length < N * 4) current = { xyz: new Float32Array(B.cap * 4) };
+      current.xyz.set(B.pos.subarray(0, N * 4));
+      current.id = m.id;
+      current.N = N;
+      postMessage(
+        {
+          type: 'splats', id: m.id, N, count, bufs: B, snap: true,
+          stats: { modelMs: 0, buildMs: performance.now() - t0, fitOk: true, rms: 0, zEyes, device, dtype },
         },
         [B.pos.buffer, B.covA.buffer, B.covB.buffer, B.color.buffer, B.order.buffer],
       );

@@ -13,11 +13,21 @@ const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 
 const QUALITY = {
-  fast: { model: 'small', S: 266, G: 160, label: 'Fast' },
-  hq: { model: 'small', S: 392, G: 224, label: 'HQ' },
-  ultra: { model: 'base', S: 518, G: 256, label: 'Ultra' },
+  fast: { S: 266, G: 160, label: 'Fast' },
+  hq: { S: 392, G: 224, label: 'HQ' },
+  ultra: { S: 518, G: 256, label: 'Ultra' },
+};
+// Live depth models, run in the browser (see recon-worker.js MODELS).
+const MODELS = {
+  small: { name: 'Depth Anything V2 Small', licence: 'Apache-2.0' },
+  da3s: { name: 'Depth Anything 3 Small', licence: 'Apache-2.0' },
+  base: { name: 'Depth Anything V2 Base', licence: 'CC BY-NC 4.0, non-commercial' },
 };
 const CAPACITY = 2 * 256 * 256;
+// Snapshots (Apple SHARP, Immersity AI) come from the local helper, helper/splat_helper.py.
+const HELPER = (params.get('helper') || 'http://127.0.0.1:8830').replace(/\/$/, '');
+const SNAP_CAP = 1 << 20;
+const SHARP_SIZE = 1536;
 const SAMPLE = {
   url: 'https://upload.wikimedia.org/wikipedia/commons/transcoded/3/31/Ward_Cunningham%2C_Inventor_of_the_Wiki.webm/Ward_Cunningham%2C_Inventor_of_the_Wiki.webm.480p.vp9.webm',
   start: 12,
@@ -26,6 +36,8 @@ const SAMPLE = {
 
 const opts = {
   quality: QUALITY[params.get('q')] ? params.get('q') : 'hq',
+  model: MODELS[params.get('model')] ? params.get('model') : 'small',
+  personOnly: params.get('scene') !== '1', // SHARP snapshots: the person only, or the whole scene
   back: params.get('back') !== '0',
   depthColor: params.has('depthcolor'),
   mirror: true,
@@ -40,6 +52,8 @@ const opts = {
 const stage = new Stage($('stage'));
 const splats = new LiveSplats(CAPACITY);
 stage.scene.add(splats.mesh);
+let snapSplats = null; // a second, much larger cloud for snapshots, made on first use
+const shown = () => (state.snap && snapSplats ? snapSplats : splats);
 stage.setView({ target: new THREE.Vector3(0, -0.05, 0), dist: 0.9 });
 stage.sway = params.has('sway');
 if (params.has('depth')) stage.depthGain = Number(params.get('depth')) || 1;
@@ -138,13 +152,30 @@ worker.onmessage = (e) => {
     state.modelReady = true;
     state.modelName = m.model;
     state.stats.device = `${m.device}/${m.dtype}`;
-    $('hudModel').textContent = `Depth Anything V2 ${m.model === 'base' ? 'Base' : 'Small'} · ${m.device === 'webgpu' ? 'WebGPU' : 'WASM'} ${m.dtype}`;
+    $('hudModel').textContent = `${MODELS[m.model]?.name || m.model} · ${m.device === 'webgpu' ? 'WebGPU' : 'WASM'} ${m.dtype}`;
     if (m.device !== 'webgpu') toast('WebGPU is not available, so depth runs on the CPU and will be slow.');
     loader.done('model');
     kick();
+  } else if (m.type === 'splats' && m.snap) {
+    if (state.snap && m.id === state.snap.id) {
+      snapSplats.setFrame({ ...m.bufs, N: m.N, count: m.count });
+      snapSplats.mesh.visible = true;
+      splats.mesh.visible = false;
+      state.shownId = m.id;
+      state.sortedCam.copy(state.frameCam);
+      state.snap.N = m.N;
+      state.stats.splats = m.N;
+      state.stats.zEyes = m.stats.zEyes;
+      state.stats.fitOk = m.stats.fitOk;
+      $('waiting').hidden = true;
+      const t = state.snap.inferMs ? ` · ${(state.snap.inferMs / 1000).toFixed(1)} s` : '';
+      $('snapChip').textContent = `${state.snap.label}${state.snap.provider === 'mock' ? ' (mock)' : ''} · ${(m.N / 1000).toFixed(0)}k splats${t}`;
+      setSnapBusy(false);
+    }
+    worker.postMessage({ type: 'recycle', bufs: m.bufs }, [m.bufs.pos.buffer, m.bufs.covA.buffer, m.bufs.covB.buffer, m.bufs.color.buffer, m.bufs.order.buffer]);
   } else if (m.type === 'splats') {
     state.busy = false;
-    if (m.id > state.shownId) {
+    if (m.id > state.shownId && !state.snap) {
       state.shownId = m.id;
       splats.setFrame({ ...m.bufs, N: m.N, count: m.count });
       const now = performance.now();
@@ -171,7 +202,7 @@ worker.onmessage = (e) => {
     state.sortPending = false;
     state.orderBuf = new Float32Array(m.buf);
     if (m.count >= 0 && m.id === state.shownId) {
-      splats.setOrder(state.orderBuf, m.count);
+      shown().setOrder(state.orderBuf, m.count);
       state.sortedCam.copy(state.sortReqCam);
     }
   } else if (m.type === 'error') {
@@ -238,7 +269,7 @@ async function processFrame() {
   const W = v.videoWidth, H = v.videoHeight;
   if (!W || !H) return false;
   const q = QUALITY[opts.quality];
-  if (state.modelName !== q.model) return false; // a model swap is loading
+  if (state.modelName !== opts.model) return false; // a model swap is loading
   const det = perception.detect(v);
   if (!det.mask) return false;
   if (!det.lm) {
@@ -267,7 +298,7 @@ async function processFrame() {
 
 /** Start the next frame if the worker is free; otherwise remember that one is waiting. */
 async function kick() {
-  if (!state.modelReady || !state.perceptionReady || state.mode === 'idle') return;
+  if (!state.modelReady || !state.perceptionReady || state.mode === 'idle' || state.snap) return;
   if (state.busy) { state.pending = true; return; }
   const v = source();
   if (v.readyState < 2 || v.paused && !v.srcObject) { state.pending = true; return; }
@@ -306,7 +337,7 @@ stage.onTick = (dt) => {
   const buf = state.orderBuf.buffer;
   worker.postMessage({ type: 'sort', id: state.shownId, cam: pos.toArray(), dir: dir.toArray(), buf }, [buf]);
 };
-stage.onEye = (cam, viewport) => splats.setViewport(viewport);
+stage.onEye = (cam, viewport) => shown().setViewport(viewport);
 
 // ---------------------------------------------------------------------------------------------
 // Sources
@@ -701,15 +732,193 @@ function setToggle(id, on) {
 function setQuality(q) {
   opts.quality = q;
   $('selQuality').value = q;
-  const want = QUALITY[q].model;
-  if (want !== state.modelName) {
+  resetRecon();
+  kick();
+}
+
+function setModel(name) {
+  if (!MODELS[name]) return;
+  opts.model = name;
+  $('selModel').value = name;
+  if (name !== state.modelName) {
     state.modelReady = false;
     $('loading').hidden = false;
     $('loading').classList.remove('failed');
     loader.parts.set('model', false);
-    $('loadText').textContent = want === 'base' ? 'Loading the larger depth model (non-commercial licence)…' : 'Loading depth model…';
-    worker.postMessage({ type: 'init', model: want });
+    $('loadText').textContent = `Loading ${MODELS[name].name}${name === 'base' ? ' (non-commercial licence)' : ''}…`;
+    worker.postMessage({ type: 'init', model: name });
   }
+  resetRecon();
+  kick();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Snapshots: one frame through a bigger model, via the local helper (helper/splat_helper.py)
+
+async function helperHealth() {
+  try {
+    const r = await fetch(`${HELPER}/health`, { cache: 'no-store', signal: AbortSignal.timeout(1500) });
+    state.helper = r.ok ? await r.json() : null;
+  } catch {
+    state.helper = null;
+  }
+  return state.helper;
+}
+
+async function fillSnapDialog() {
+  const h = await helperHealth();
+  const sh = h?.sharp, im = h?.immersity;
+  $('snapHelper').textContent = h ? `Helper running at ${HELPER}.` : `The helper isn't running at ${HELPER}.`;
+  $('snapHelperHow').hidden = !!h;
+  $('snapSharpState').textContent = !h ? 'Needs the helper.'
+    : sh.mock ? 'Mock mode: fake Gaussians, for testing.'
+    : sh.state === 'ready' ? `Ready on ${sh.provider.replace('ExecutionProvider', '')}.`
+    : sh.state === 'downloading' ? `Downloading the model: ${(sh.progress * 100).toFixed(0)}%…`
+    : sh.state === 'loading' ? 'Loading the model…'
+    : sh.state === 'error' ? `Error: ${sh.error}`
+    : sh.downloaded ? 'Loads on first use (a few seconds).' : 'Downloads 1.3 GB on first use.';
+  $('snapImmState').textContent = !h ? 'Needs the helper.'
+    : im.mock ? 'Mock mode: fake disparity, for testing.'
+    : im.configured ? 'Ready. Each snapshot uses credits.'
+    : 'Add IMMERSITY_CLIENT_ID and IMMERSITY_CLIENT_SECRET to displayxr-demos/.env, then restart the helper.';
+  $('btnSnapSharp').disabled = !h || sh.state === 'downloading' || sh.state === 'loading';
+  $('btnSnapImm').disabled = !h || !(im.configured || im.mock);
+  $('chkPerson').checked = opts.personOnly;
+  if (h && (sh.state === 'downloading' || sh.state === 'loading') && !$('snapDlg').hidden) setTimeout(fillSnapDialog, 1000);
+}
+
+function setSnapBusy(on, text = '') {
+  $('snapBusy').hidden = !on;
+  $('snapBusyText').textContent = text;
+}
+
+function ensureSnapSplats() {
+  if (snapSplats) return;
+  snapSplats = new LiveSplats(SNAP_CAP);
+  snapSplats.mesh.visible = false;
+  stage.scene.add(snapSplats.mesh);
+}
+
+/** The frame, its landmarks and mask, and the camera geometry, for a snapshot. */
+function grabFrame() {
+  const v = source();
+  const W = v.videoWidth, H = v.videoHeight;
+  if (!W || !H) throw new Error('there is no video to take a snapshot of');
+  const det = perception.detect(v);
+  const f = W / 2 / Math.tan(THREE.MathUtils.degToRad(sourceFov()) / 2);
+  return { v, W, H, f, det };
+}
+
+function beginSnap(label) {
+  ensureSnapSplats();
+  state.snap = { id: ++state.id, label, N: 0 };
+  document.body.classList.add('snapshot');
+  $('snapChip').textContent = `${label} · working…`;
+  closeDialogs();
+  return state.snap.id;
+}
+
+/** Apple SHARP: the whole frame -> ~1M metric Gaussians (the person only, or the whole scene). */
+async function snapshotSharp() {
+  let g;
+  try {
+    g = grabFrame();
+  } catch (e) {
+    return toast(`Snapshot: ${e.message}.`);
+  }
+  const id = beginSnap('Apple SHARP');
+  setSnapBusy(true, 'Apple SHARP is predicting 3D Gaussians…');
+  try {
+    const c = new OffscreenCanvas(SHARP_SIZE, SHARP_SIZE);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(g.v, 0, 0, SHARP_SIZE, SHARP_SIZE); // stretched, as SHARP's own predict does
+    const px = ctx.getImageData(0, 0, SHARP_SIZE, SHARP_SIZE).data;
+    const rgb = new Uint8Array(SHARP_SIZE * SHARP_SIZE * 3);
+    for (let i = 0, j = 0; i < px.length; i += 4, j += 3) {
+      rgb[j] = px[i];
+      rgb[j + 1] = px[i + 1];
+      rgb[j + 2] = px[i + 2];
+    }
+    const r = await fetch(`${HELPER}/sharp?w=${g.W}&h=${g.H}&f=${g.f.toFixed(2)}&keep=${SNAP_CAP}`, {
+      method: 'POST', body: rgb, headers: { 'Content-Type': 'application/octet-stream' },
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `helper error ${r.status}`);
+    const buf = await r.arrayBuffer();
+    const n = Number(r.headers.get('X-Count'));
+    if (state.snap?.id !== id) return; // went back to live meanwhile
+    state.snap.inferMs = Number(r.headers.get('X-Infer-Ms'));
+    state.snap.provider = r.headers.get('X-Provider') || '';
+    const means = new Float32Array(buf, 0, n * 3);
+    const cov = new Float32Array(buf, n * 12, n * 6);
+    const rgba = new Uint8Array(buf, n * 36, n * 4);
+    const { pos, dir } = camPose();
+    state.frameCam = pos.clone();
+    const { mask, lm, mw, mh } = g.det;
+    worker.postMessage({
+      type: 'external', id, means, cov, rgba, W: g.W, H: g.H, f: g.f, lm, mask, mw, mh,
+      opts: { mirror: opts.mirror, personOnly: opts.personOnly, defaultDist: opts.defaultDist },
+      cam: pos.toArray(), dir: dir.toArray(),
+    }, [buf, ...(mask ? [mask.buffer] : []), ...(lm ? [lm.buffer] : [])]);
+    setSnapBusy(true, 'Placing the Gaussians…');
+  } catch (e) {
+    failSnap(e);
+  }
+}
+
+/** Immersity AI (Leia's cloud 2D-to-3D): its disparity for the head crop, through our splat build. */
+async function snapshotImmersity() {
+  let g;
+  try {
+    g = grabFrame();
+  } catch (e) {
+    return toast(`Snapshot: ${e.message}.`);
+  }
+  const roi = g.det.lm ? cropFromFace(g.det.lm, g.W, g.H) : state.roi;
+  if (!roi) return toast('Snapshot: no face found yet.');
+  const id = beginSnap('Immersity AI');
+  setSnapBusy(true, 'Immersity AI is estimating depth…');
+  try {
+    const S = 518, G = 320;
+    const c = new OffscreenCanvas(1024, 1024);
+    c.getContext('2d').drawImage(g.v, roi.x0, roi.y0, roi.size, roi.size, 0, 0, 1024, 1024);
+    const jpeg = await c.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    const r = await fetch(`${HELPER}/immersity/disparity`, { method: 'POST', body: jpeg, headers: { 'Content-Type': 'image/jpeg' } });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `helper error ${r.status}`);
+    const disp = new Float32Array(await r.arrayBuffer());
+    if (state.snap?.id !== id) return;
+    state.snap.inferMs = Number(r.headers.get('X-Infer-Ms'));
+    state.snap.provider = r.headers.get('X-Provider') || '';
+    const bitmap = await createImageBitmap(g.v, roi.x0, roi.y0, roi.size, roi.size, { resizeWidth: S, resizeHeight: S, resizeQuality: 'high' });
+    const { pos, dir } = camPose();
+    state.frameCam = pos.clone();
+    const { mask, lm, mw, mh } = g.det;
+    worker.postMessage({
+      type: 'frame', id, snap: true, bitmap, S, W: g.W, H: g.H, f: g.f, roi, lm, mask, mw, mh, t: performance.now(),
+      disp, dw: Number(r.headers.get('X-W')), dh: Number(r.headers.get('X-H')),
+      opts: { G, back: opts.back, depthColor: opts.depthColor, mirror: opts.mirror, smooth: 0, defaultDist: opts.defaultDist },
+      cam: pos.toArray(), dir: dir.toArray(),
+    }, [bitmap, disp.buffer, ...(mask ? [mask.buffer] : []), ...(lm ? [lm.buffer] : [])]);
+    setSnapBusy(true, 'Building splats…');
+  } catch (e) {
+    failSnap(e);
+  }
+}
+
+function failSnap(e) {
+  console.error('[splat-call] snapshot', e);
+  const down = /Failed to fetch|NetworkError|Load failed/i.test(String(e?.message));
+  toast(down ? `The helper isn't reachable at ${HELPER}. Start it with: python helper/splat_helper.py` : `Snapshot failed: ${e.message}`);
+  exitSnapshot();
+}
+
+function exitSnapshot() {
+  if (!state.snap) return;
+  state.snap = null;
+  setSnapBusy(false);
+  document.body.classList.remove('snapshot');
+  if (snapSplats) snapSplats.mesh.visible = false;
+  splats.mesh.visible = true;
+  state.shownId = -1;
   resetRecon();
   kick();
 }
@@ -752,6 +961,12 @@ function bindUi() {
   watchDevices(onDevicesChanged);
 
   $('selQuality').onchange = () => setQuality($('selQuality').value);
+  $('selModel').onchange = () => setModel($('selModel').value);
+  $('btnSnap').onclick = () => { fillSnapDialog(); showDialog('snapDlg'); };
+  $('btnSnapSharp').onclick = () => snapshotSharp();
+  $('btnSnapImm').onclick = () => snapshotImmersity();
+  $('btnLive').onclick = () => exitSnapshot();
+  $('chkPerson').onchange = () => { opts.personOnly = $('chkPerson').checked; };
   $('tglBack').onclick = () => { opts.back = !opts.back; setToggle('tglBack', opts.back); };
   $('tglDepth').onclick = () => { opts.depthColor = !opts.depthColor; setToggle('tglDepth', opts.depthColor); };
   $('tglSway').onclick = () => { stage.sway = !stage.sway; setToggle('tglSway', stage.sway); };
@@ -778,6 +993,7 @@ function bindUi() {
   setToggle('tglDepth', opts.depthColor);
   setToggle('tglSway', stage.sway);
   $('selQuality').value = opts.quality;
+  $('selModel').value = opts.model;
 
   addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea')) return;
@@ -788,6 +1004,8 @@ function bindUi() {
     else if (k === 's') $('tglSway').click();
     else if (k === 'h' || k === '?') showDialog('helpDlg');
     else if (k === 'escape') closeDialogs();
+    else if (k === 't') $('btnSnap').click();
+    else if (k === 'l') exitSnapshot();
     else if (k === '1') setQuality('fast');
     else if (k === '2') setQuality('hq');
     else if (k === '3') setQuality('ultra');
@@ -831,7 +1049,7 @@ async function boot() {
     setToggle('tglSway', true);
   }
 
-  worker.postMessage({ type: 'init', model: QUALITY[opts.quality].model });
+  worker.postMessage({ type: 'init', model: opts.model });
   perception.init().then(() => {
     state.perceptionReady = true;
     loader.done('perception');
@@ -848,5 +1066,8 @@ async function boot() {
   else if (params.has('camera')) startCamera();
 }
 
-window.splatCall = { stage, splats, state, opts, worker, perception, call, setQuality, useClip, useCamera, SAMPLE };
+window.splatCall = {
+  stage, splats, state, opts, worker, perception, call, setQuality, setModel, useClip, useCamera,
+  snapshotSharp, snapshotImmersity, exitSnapshot, helperHealth, get snapSplats() { return snapSplats; }, SAMPLE,
+};
 boot();
