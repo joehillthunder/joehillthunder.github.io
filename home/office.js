@@ -293,6 +293,64 @@ const BUILD = {
       eye.material.emissiveIntensity = Math.sin(t * 6) > 0 ? 1.4 : 0.3;
     });
   },
+  'splat-call'(g) {
+    // A video-call desk: a laptop with its webcam lit, and the caller rebuilt beside it as a
+    // hologram made of glowing splats, turning slowly on a pad while a scan line sweeps it.
+    box(g, 1.5, 0.75, 0.9, '#3a3f48', -1.3, 0, 0.1);
+    box(g, 0.85, 0.05, 0.55, '#cfd6de', -1.3, 0.75, 0.2);
+    const lid = box(g, 0.85, 0.52, 0.04, '#1b2230', -1.3, 0.8, -0.08);
+    lid.rotation.x = -0.12;
+    const camLed = glow('#5fd4ff', 1.2);
+    box(g, 0.05, 0.05, 0.03, camLed, -1.3, 1.3, -0.1, { shadow: false });
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.82, 0.12, 32), mat('#2a3340'));
+    pad.position.set(0.8, 0.06, 0);
+    pad.receiveShadow = true;
+    g.add(pad);
+    const ringMat = glow('#5fd4ff', 0.9);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.02, 6, 48), ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(0.8, 0.13, 0);
+    g.add(ring);
+
+    // The bust: points on a head and shoulders, coloured like hair, skin and a jacket.
+    const holo = new THREE.Group();
+    holo.position.set(0.8, 0.16, 0);
+    g.add(holo);
+    const pts = [];
+    const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+    const shell = (n, cx, cy, cz, rx, ry, rz, pick, keep = () => true) => {
+      for (let i = 0; i < n; i++) {
+        const u = rnd() * 2 - 1, a = rnd() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+        const p = [cx + rx * r * Math.cos(a), cy + ry * u, cz + rz * r * Math.sin(a)];
+        if (keep(p)) pts.push([...p, pick(p)]);
+      }
+    };
+    shell(420, 0, 1.42, 0, 0.27, 0.34, 0.3, (p) => (p[1] > 1.55 || p[2] < -0.12 ? '#4a3426' : '#e0a989'));
+    shell(90, 0, 1.0, 0, 0.12, 0.14, 0.12, () => '#d69b7c');
+    shell(520, 0, 0.62, 0, 0.62, 0.36, 0.3, () => '#3d6bb3', (p) => p[1] > 0.45);
+    const dot = new THREE.IcosahedronGeometry(0.03, 0);
+    const splats = new THREE.InstancedMesh(dot, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9 }), pts.length);
+    const m4 = new THREE.Matrix4(), col = new THREE.Color();
+    pts.forEach(([x, y, z, c], i) => {
+      m4.makeTranslation(x, y, z);
+      splats.setMatrixAt(i, m4);
+      splats.setColorAt(i, col.set(c));
+    });
+    holo.add(splats);
+    const scanMat = glow('#8a7dff', 1.4);
+    const scan = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.012, 6, 40), scanMat);
+    scan.rotation.x = Math.PI / 2;
+    holo.add(scan);
+    animators.push((t) => {
+      holo.rotation.y = Math.sin(t * 0.5) * 0.7;
+      const h = (t * 0.45) % 1;
+      scan.position.y = 0.45 + h * 1.35;
+      scan.scale.setScalar(0.6 + 0.5 * Math.sin(h * Math.PI));
+      scanMat.emissiveIntensity = 0.4 + 1.2 * Math.sin(h * Math.PI);
+      camLed.emissiveIntensity = Math.sin(t * 3) > -0.2 ? 1.3 : 0.2;
+      ringMat.emissiveIntensity = 0.7 + 0.3 * Math.sin(t * 2);
+    });
+  },
   'flight-lines'(g) {
     // A glowing globe on a plinth with little airliners circling it on tilted flight rings.
     box(g, 1.2, 0.8, 1.2, '#2a3340', 0, 0, 0);
