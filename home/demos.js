@@ -106,6 +106,14 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-flight-lines',
         chatter: ['EK 1 over the Gulf at FL380', 'Flat map or globe? Press M', 'That A380 is to scale', 'Following LH 45 over Greenland'],
       },
+      {
+        id: 'splat-call',
+        name: 'Splat Call 3D',
+        desc: "A live 3D video call from one ordinary webcam: every frame becomes up to 131k Gaussian splats (after Microsoft's VoluMe), rebuilt in the browser.",
+        url: 'displayxr-demos/apps/splat-call/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/splat-call',
+        chatter: ['Depth fit locked at 52 cm', '45k splats, 25 fps', 'Look around my head!', 'Join code k7m2q'],
+      },
     ],
   },
   {

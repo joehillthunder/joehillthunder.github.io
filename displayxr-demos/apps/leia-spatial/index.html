@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leia Spatial · DisplayXR</title>
+<meta name="description" content="Making any display feel spatial: ten years of shipping glasses-free 3D, told in live 3D scenes that weave on a Leia display and run in 2D in any browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="#top" aria-label="Leia Spatial, back to top">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+      <span class="brand-name">Leia</span>
+      <span class="brand-sub">immersity</span>
+    </a>
+    <nav class="progress" aria-label="Five lessons">
+      <a href="#lesson-1"><b>01</b> 2D sacred</a>
+      <a href="#lesson-2"><b>02</b> Sharp</a>
+      <a href="#lesson-3"><b>03</b> Comfortable</a>
+      <a href="#lesson-4"><b>04</b> Free</a>
+      <a href="#lesson-5"><b>05</b> Easy</a>
+    </nav>
+    <span id="mode" class="mode" data-mode="2d"><span class="mode-dot" aria-hidden="true"></span><span class="mode-label">Checking display…</span></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero band" id="top">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Leia Inc. · Immersity platform</p>
+        <h1>Making any display feel <em>spatial</em></h1>
+        <p class="lede">Ten years of shipping glasses-free 3D, and what it takes to build one.</p>
+        <p>Phones, tablets, monitors and laptops that show content as if you're inside the scene. No headset and no new hardware category: a switchable 3D layer and the spatial AI software that drives it.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#hurdles">The five lessons</a>
+          <a class="btn" href="https://www.leiainc.com/" target="_blank" rel="noopener">leiainc.com</a>
+        </div>
+        <p id="mode-note" class="mode-note">You're seeing the 2D preview. Open this page in the <a href="https://github.com/DisplayXR/displayxr-browser" target="_blank" rel="noopener">DisplayXR Browser</a> on a Leia display and every scene weaves into real depth.</p>
+      </div>
+      <figure class="tile tile-hero" data-scene="hero">
+        <div class="screen"><canvas aria-label="A 3D display with objects floating in front of its glass"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>Tracked stereo · objects in front of the glass</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- MARKETS -->
+  <section class="band" id="markets">
+    <div class="wrap">
+      <p class="eyebrow">3D displays are having a renaissance</p>
+      <h2>Five markets, already shipping</h2>
+
+      <div class="market-group">
+        <h3 class="group-label">Consumer &amp; creator</h3>
+        <div class="markets markets-2">
+          <article class="market">
+            <p class="m-kind">Gaming</p>
+            <p class="m-line">Distance you can judge, not just see.</p>
+            <p class="m-products">Samsung Odyssey 3D · Acer Predator</p>
+            <p class="m-body">At retail since 2025, with a second generation announced.</p>
+            <dl class="m-stat"><div><dt>Optimised titles, 2025</dt><dd>28 → 50+</dd></div><div><dt>Targeted for 2026</dt><dd>120+</dd></div></dl>
+          </article>
+          <article class="market">
+            <p class="m-kind">Design / creator</p>
+            <p class="m-line">Judge form and proportion before tooling is cut.</p>
+            <p class="m-products">Acer SpatialLabs View Pro · Predator Helios 3D</p>
+            <p class="m-body">Shipping since 2023 across laptops and 27-inch monitors, with Unity, Unreal and OpenXR support.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="market-group">
+        <h3 class="group-label">Enterprise &amp; professional</h3>
+        <div class="markets markets-3">
+          <article class="market">
+            <p class="m-kind">Telepresence</p>
+            <p class="m-line">A remote colleague at life size, with real eye contact.</p>
+            <p class="m-products">HP Dimension with Google Beam</p>
+            <p class="m-body">Shipping in six countries. Bain, Deloitte, Salesforce, NEC and Duolingo are among the early deployments.</p>
+          </article>
+          <article class="market">
+            <p class="m-kind">Education</p>
+            <p class="m-line">Anatomy and molecules taught as volumes, not diagrams.</p>
+            <p class="m-products">zSpace Inspire</p>
+            <p class="m-body">Sold as curriculum rather than hardware.</p>
+          </article>
+          <article class="market">
+            <p class="m-kind">Medical</p>
+            <p class="m-line">Volumetric scans read as volumes, with no mental reconstruction.</p>
+            <p class="m-products">Barco Eonis 3D · Avatar Medical Vision</p>
+            <p class="m-body"><span class="tag">FDA 510(k) cleared</span> Avatar Medical software</p>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FIVE HURDLES -->
+  <section class="band band-alt" id="hurdles">
+    <div class="wrap">
+      <p class="eyebrow">What it takes</p>
+      <h2>Five hurdles</h2>
+      <p class="lede">All of this shipped only once five things became true at the same time.</p>
+      <ol class="hurdles">
+        <li><a href="#lesson-1"><b>01</b>2D is sacred</a></li>
+        <li><a href="#lesson-2"><b>02</b>3D must stay sharp</a></li>
+        <li><a href="#lesson-3"><b>03</b>3D must be comfortable</a></li>
+        <li><a href="#lesson-4"><b>04</b>3D must be (nearly) free</a></li>
+        <li><a href="#lesson-5"><b>05</b>3D must be easy to make</a></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- LESSON 1 -->
+  <section class="band lesson" id="lesson-1">
+    <div class="wrap lesson-grid">
+      <div class="lesson-copy">
+        <p class="eyebrow"><span class="num">01</span> Lesson 1</p>
+        <h2>2D is sacred</h2>
+        <p class="so">So we made 3D switchable, and invisible in 2D mode.</p>
+        <p>You shouldn't be able to tell it's a 3D panel. Three families of switchable optics exist: a parallax barrier, a diffractive backlight and a liquid-crystal lens. The LC lens is the architecture that scaled. Liquid crystal fills the interstitial region between a polymer lens and the cover glass, so it works on any display underneath.</p>
+        <dl class="stats">
+          <div><dt>Transmission</dt><dd>98%</dd></div>
+          <div><dt>Crosstalk</dt><dd>&lt;2%</dd></div>
+          <div><dt>Residual lensing</dt><dd>&lt;1%</dd></div>
+        </dl>
+        <p class="fine">Patent US 11281020 B2</p>
+      </div>
+      <figure class="tile" data-scene="lens">
+        <div class="screen"><canvas aria-label="A display whose lens layer switches between 2D and 3D"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>3D mode · LC lens active</span></figcaption>
+      </figure>
+    </div>
+    <div class="wrap">
+      <h3 class="table-title">Switchable 3D display technologies compared</h3>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead>
+            <tr><th scope="col"></th><th scope="col" class="lead-col">Switchable LC lens</th><th scope="col">Diffractive backlight (DLB)</th><th scope="col">Parallax barrier (PB)</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Structure</th><td class="lead-col">Printed lens in a matrix of switchable LC</td><td>Dual diffractive + standard backlight</td><td>Barrier display</td></tr>
+            <tr><th scope="row">2D mode</th><td class="lead-col">98% brightness</td><td>95% brightness, minor residual screen door</td><td>90% brightness, residual screen door</td></tr>
+            <tr><th scope="row">3D mode</th><td class="lead-col">98% brightness</td><td>40% brightness</td><td>40% brightness</td></tr>
+            <tr><th scope="row">Cost</th><td class="lead-col">Low</td><td>High (two backlights)</td><td>High (two displays)</td></tr>
+            <tr><th scope="row">Switching speed</th><td class="lead-col">2D→3D fast (ms); 3D→2D slow (&gt;100 ms), on the roadmap to ms</td><td>Ultra fast (µs)</td><td>Medium (&gt;10 ms)</td></tr>
+            <tr><th scope="row">Display compatibility</th><td class="lead-col">LCD, OLED, µLED</td><td>LCD only</td><td>LCD, OLED, µLED</td></tr>
+            <tr><th scope="row">Commercial use</th><td class="lead-col">Acer SpatialLabs products, Samsung Odyssey 3D, ZTE Nubia Pad 2, Red Magic</td><td>ZTE Nubia Pad 1, Leia Lume Pad 2</td><td>Nintendo 3DS, Coolpad Grand View</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- LESSON 2 -->
+  <section class="band band-alt lesson" id="lesson-2">
+    <div class="wrap lesson-grid">
+      <div class="lesson-copy">
+        <p class="eyebrow"><span class="num">02</span> Lesson 2</p>
+        <h2>3D must stay sharp</h2>
+        <p class="so">So we track your eyes instead of spraying resolution across views.</p>
+        <p>You don't want to see the pixels. Some resolution loss is inherent to how we see 3D, and the theoretical limit is a 2× linear loss. The job is to stay as close to that limit as possible.</p>
+        <p>Multiview (lightfield) panels spread resolution across many fixed views. Tracked stereo renders two views at full resolution and aims them at your eyes.</p>
+      </div>
+      <figure class="tile" data-scene="views">
+        <div class="screen"><canvas aria-label="View cones from a display: two tracked views versus nine fixed views"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>Tracked stereo · two views at full resolution</span></figcaption>
+      </figure>
+    </div>
+    <div class="wrap">
+      <div class="timeline">
+        <div class="era era-multi">
+          <p class="era-title">Learned the hard way <span>multiview</span></p>
+          <ol>
+            <li><time>2018</time>RED Hydrogen</li>
+            <li><time>2019</time>Continental HMI</li>
+            <li><time>2021</time>Lume Pad 1</li>
+          </ol>
+        </div>
+        <div class="era era-tracked">
+          <p class="era-title">Never went back <span>tracked stereo</span></p>
+          <ol>
+            <li><time>2023</time>Lume Pad 2 · Nubia Pad</li>
+            <li><time>2024</time>ConceptD · Nubia Pad 2</li>
+            <li><time>2025</time>Predator · Odyssey 3D</li>
+          </ol>
+        </div>
+      </div>
+      <p class="timeline-note">Every tracked-stereo product was received better than the multiview ones before it. <strong>Next:</strong> switching 3D pixel by pixel, from fast global switching with time multiplexing to per-pixel local switching.</p>
+    </div>
+  </section>
+
+  <!-- LESSON 3 -->
+  <section class="band lesson" id="lesson-3">
+    <div class="wrap lesson-grid">
+      <div class="lesson-copy">
+        <p class="eyebrow"><span class="num">03</span> Lesson 3</p>
+        <h2>3D must be comfortable</h2>
+        <p class="so">So we hold the bar on calibration and predictive tracking.</p>
+        <div class="two-lists">
+          <div>
+            <h3 class="mini">What makes people queasy</h3>
+            <ul class="ticks">
+              <li>A new visual signal, like a new pair of glasses</li>
+              <li>Static ghosting</li>
+              <li>Dynamic ghosting</li>
+              <li>Accommodation–vergence conflict</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mini">What fixes it</h3>
+            <ul class="ticks">
+              <li>Calibration first: a per-pixel ghosting map from the factory</li>
+              <li>Precise eye location at presentation time. XY is easy; Z is less forgiving on large panels; predictive tracking masks latency</li>
+              <li>Correction embedded in the interlacing shader, with no rendering penalty. It removes all ghosting except on a pure black background</li>
+              <li>Comfort as a layout rule: guardrails in the SDK based on viewer distance and content distance</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <figure class="tile" data-scene="calibration">
+        <div class="screen"><canvas aria-label="A per-pixel ghosting map flattening as a calibration sweep passes, inside a comfort zone"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>Calibration sweep</span></figcaption>
+      </figure>
+    </div>
+    <div class="wrap">
+      <p class="fine">Same 3D module, measured with and without Leia calibration and software, for static off-angle crosstalk and dynamic crosstalk. The module is identical; the software is what changes the result.</p>
+    </div>
+  </section>
+
+  <!-- THE REAL LESSON -->
+  <section class="band band-quote">
+    <div class="wrap">
+      <p class="eyebrow">The real lesson</p>
+      <p class="quote">Software now exceeds optical complexity.</p>
+      <p class="lede">This is what customers really pay for.</p>
+    </div>
+  </section>
+
+  <!-- LESSON 4 -->
+  <section class="band band-alt lesson" id="lesson-4">
+    <div class="wrap lesson-grid">
+      <div class="lesson-copy">
+        <p class="eyebrow"><span class="num">04</span> Lesson 4</p>
+        <h2>3D must be (nearly) free</h2>
+        <p class="so">So we drive nanoimprint and the supply chain toward touch-like cost.</p>
+        <h3 class="mini">As cheap as adding touch</h3>
+        <ul class="ticks">
+          <li>A thin, transparent optical layer</li>
+          <li>Weaving firmware in the ASIC or TCON</li>
+          <li>One-time factory calibration</li>
+        </ul>
+        <h3 class="mini">Nanoimprint lithography</h3>
+        <p>A roll-to-plate process with high replication fidelity, so the cost of the lens layer scales down as glass size goes up.</p>
+        <dl class="lines">
+          <div><dt>Leia Suzhou</dt><dd>Gen 5</dd></div>
+          <div><dt>BOE</dt><dd>Gen 6</dd></div>
+        </dl>
+      </div>
+      <figure class="tile" data-scene="nanoimprint">
+        <div class="screen"><canvas aria-label="A roller imprinting lens ribs onto a glass plate"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>Roll-to-plate</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- LESSON 5 -->
+  <section class="band lesson" id="lesson-5">
+    <div class="wrap lesson-grid">
+      <div class="lesson-copy">
+        <p class="eyebrow"><span class="num">05</span> Lesson 5</p>
+        <h2>3D must be easy to make</h2>
+        <p class="so">So we make conversion automatic and the tools open: the SDK and DisplayXR.</p>
+        <h3 class="mini">2D to 3D conversion is the starting point</h3>
+        <ul class="chips">
+          <li>AI depth + view synthesis</li>
+          <li>Image to Gaussian splat</li>
+          <li>Game mods</li>
+        </ul>
+        <p>Billions of 3D capture devices are already in the wild, and native 3D content comes from the authoring tools creators already use.</p>
+        <p><strong>DisplayXR</strong> is a standard for 3D display content: one interface for any 3D display or headset, plus display-specific extensions. It points toward a cross-reality OS.</p>
+      </div>
+      <figure class="tile" data-scene="conversion">
+        <div class="screen"><canvas aria-label="A flat picture lifting into a point cloud using an AI depth map"></canvas><div class="cover" hidden><span>Weaving 3D…</span></div></div>
+        <figcaption><span class="ch">LIVE</span><span data-status>2D to 3D · AI depth</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ALL CLEARED -->
+  <section class="band band-alt" id="cleared">
+    <div class="wrap">
+      <p class="eyebrow">Five for five</p>
+      <h2>Five hurdles. All cleared.</h2>
+      <p class="lede">For the first time, none are left standing.</p>
+      <ol class="hurdles cleared">
+        <li><a href="#lesson-1"><b>01</b>2D is sacred</a></li>
+        <li><a href="#lesson-2"><b>02</b>3D must stay sharp</a></li>
+        <li><a href="#lesson-3"><b>03</b>3D must be comfortable</a></li>
+        <li><a href="#lesson-4"><b>04</b>3D must be (nearly) free</a></li>
+        <li><a href="#lesson-5"><b>05</b>3D must be easy to make</a></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section class="band" id="stack">
+    <div class="wrap stack-grid">
+      <div class="stack-visual" aria-hidden="true">
+        <div class="plates">
+          <div class="plate p4"><span>4</span></div>
+          <div class="plate p3"><span>3</span></div>
+          <div class="plate p2"><span>2</span></div>
+          <div class="plate p1"><span>1</span></div>
+        </div>
+      </div>
+      <div>
+        <p class="eyebrow">The stack underneath</p>
+        <h2>Four layers for spatial computing to scale. Leia builds three.</h2>
+        <ol class="layers">
+          <li data-plate="p1">
+            <p class="l-name"><b>1</b>Display hardware</p>
+            <p class="l-body">2D–3D switchable display optics, calibration and metrology.</p>
+            <p class="l-own">Leia IP · partner-built</p>
+          </li>
+          <li data-plate="p2">
+            <p class="l-name"><b>2</b>Spatial software</p>
+            <p class="l-body">2D-to-3D conversion, real-time Gaussian splats, predictive eye tracking and crosstalk-free weaving.</p>
+            <p class="l-own">Leia · licensed</p>
+          </li>
+          <li data-plate="p3">
+            <p class="l-name"><b>3</b>Edge compute</p>
+            <p class="l-body">Leia's spatial software runs on the compute you already ship: DSP and NPU.</p>
+            <p class="l-own l-own-yours">Yours · we run on it</p>
+          </li>
+          <li data-plate="p4">
+            <p class="l-name"><b>4</b>Interoperable dev tools</p>
+            <p class="l-body">One interface for any 3D display or headset, with no custom integration per device. DisplayXR is an open standard, free to every display vendor.</p>
+            <p class="l-own">Leia-built · free to all</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLATFORM -->
+  <section class="band band-alt" id="platform">
+    <div class="wrap">
+      <p class="eyebrow">immersity platform</p>
+      <h2>Spatial AI software, switchable-display hardware</h2>
+      <div class="platform-grid">
+        <div class="pillar">
+          <h3>Spatial AI software</h3>
+          <p>Understands the viewer's position and the depth of the content, then renders and weaves two views to match.</p>
+        </div>
+        <div class="pillar">
+          <h3>Switchable-display hardware</h3>
+          <p>Designed, manufactured and validated by Leia Inc., for OEMs to integrate into their own devices.</p>
+        </div>
+      </div>
+      <div class="value-grid">
+        <div><h3 class="mini">Consumers</h3><p>Immersive content on the phones, tablets, monitors and laptops they already use.</p></div>
+        <div><h3 class="mini">OEMs</h3><p>A 3D mode that leaves the 2D panel untouched, at a cost close to adding touch.</p></div>
+        <div><h3 class="mini">Global tech platforms</h3><p>One open interface across every 3D display, through DisplayXR.</p></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="band foot">
+  <div class="wrap foot-grid">
+    <div>
+      <p class="foot-thanks">Thank you</p>
+      <p><a href="https://www.leiainc.com/" target="_blank" rel="noopener">www.leiainc.com</a></p>
+    </div>
+    <address>Leia Inc.<br>2440 Sand Hill Road, Suite 200<br>Menlo Park, CA 94025</address>
+    <p class="fine">Content from Leia's OEM presentation (August 2026) and leiainc.com. Part of the <a href="../../">DisplayXR demos</a>.</p>
+  </div>
+</footer>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js" } }
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
