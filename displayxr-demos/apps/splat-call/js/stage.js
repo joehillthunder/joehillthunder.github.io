@@ -136,7 +136,7 @@ export class Stage {
     );
     this.cam.lookAt(this.target);
     this.cam.near = Math.max(0.01, this.dist * 0.02);
-    this.cam.far = this.dist * 20;
+    this.cam.far = Math.max(this.dist * 20, 40); // the scenes reach ~16 m
     this.cam.updateProjectionMatrix();
   }
 

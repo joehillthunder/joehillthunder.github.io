@@ -7,6 +7,8 @@ import { Stage } from './stage.js';
 import { LiveSplats } from './splats.js';
 import { Perception } from './perception.js';
 import { Call, cameraPermission, listCameras, openCamera, play, stopStream, streamLabel, watchDevices } from './sources.js';
+import { SCENES } from './scenes.js';
+import { EXPERIENCES, FaceRig, LOOKS, makeAvatar } from './looks.js';
 import { KINDS, bestCamera, cleanLabel, hfovFor, rankOf, recognise, saveFov, savedFov, usable, usbId } from './cameras.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,6 +25,10 @@ const MODELS = {
   da3s: { name: 'Depth Anything 3 Small', licence: 'Apache-2.0' },
   base: { name: 'Depth Anything V2 Base', licence: 'CC BY-NC 4.0, non-commercial' },
 };
+// Detail: the splat grid relative to the quality preset, with edge-aware (joint bilateral)
+// upsampling of depth and mask above 1x. The grid is capped at 512 x 512 (about 500k splats).
+const DETAIL = [1, 1.5, 2, 3];
+const MAX_G = 512;
 const CAPACITY = 2 * 256 * 256;
 // Snapshots (Apple SHARP, Immersity AI) come from the local helper, helper/splat_helper.py.
 const HELPER = (params.get('helper') || 'http://127.0.0.1:8830').replace(/\/$/, '');
@@ -38,6 +44,7 @@ const opts = {
   quality: QUALITY[params.get('q')] ? params.get('q') : 'hq',
   model: MODELS[params.get('model')] ? params.get('model') : 'small',
   personOnly: params.get('scene') !== '1', // SHARP snapshots: the person only, or the whole scene
+  detail: DETAIL.includes(Number(params.get('detail'))) ? Number(params.get('detail')) : 1,
   back: params.get('back') !== '0',
   depthColor: params.has('depthcolor'),
   mirror: true,
@@ -50,64 +57,160 @@ const opts = {
 // Scene
 
 const stage = new Stage($('stage'));
-const splats = new LiveSplats(CAPACITY);
-stage.scene.add(splats.mesh);
+// The caller, as one group: the live splats, the snapshot splats and any avatar head. An
+// experience scales and moves it (the hologram message stands the caller on a projector), so
+// splat sorting happens in this group's space (camPose).
+const subject = new THREE.Group();
+stage.scene.add(subject);
+let splats = new LiveSplats(CAPACITY);
+subject.add(splats.mesh);
 let snapSplats = null; // a second, much larger cloud for snapshots, made on first use
 const shown = () => (state.snap && snapSplats ? snapSplats : splats);
 stage.setView({ target: new THREE.Vector3(0, -0.05, 0), dist: 0.9 });
 stage.sway = params.has('sway');
 if (params.has('depth')) stage.depthGain = Number(params.get('depth')) || 1;
-addSet(stage.scene);
+// Light for the scenes' and avatars' lit materials (the splats carry their own colour).
+stage.scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x302a26, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+key.position.set(0.6, 1, 1.2);
+stage.scene.add(key);
 
-function addSet(scene) {
-  // A soft backdrop dome and a glowing pad under the bust, so the caller sits in a space.
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(8, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: {},
-      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: `varying vec3 vP;
-        void main(){
-          float h = vP.y * 0.5 + 0.5;
-          vec3 c = mix(vec3(0.015,0.02,0.04), vec3(0.05,0.07,0.13), smoothstep(0.2, 0.75, h));
-          c += vec3(0.10,0.05,0.22) * pow(max(0.0, vP.z), 6.0) * 0.6;
-          gl_FragColor = vec4(c, 1.0);
-        }`,
-    }),
-  );
-  dome.renderOrder = -10;
-  scene.add(dome);
+// ---------------------------------------------------------------------------------------------
+// Scenes, looks, avatars and experiences (scenes.js, looks.js)
 
-  const pad = new THREE.Group();
-  pad.position.y = -0.36;
-  const ring = (r0, r1, color, opacity) => {
-    const m = new THREE.Mesh(
-      new THREE.RingGeometry(r0, r1, 96),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
-    );
-    m.rotation.x = -Math.PI / 2;
-    pad.add(m);
-    return m;
-  };
-  ring(0.26, 0.268, 0x5fd4ff, 0.8);
-  ring(0.2, 0.203, 0x8a7dff, 0.5);
-  const glow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.3, 64),
-    new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'varying vec2 vU; void main(){ float d = length(vU - 0.5) * 2.0; gl_FragColor = vec4(vec3(0.2,0.55,1.0) * pow(1.0 - clamp(d,0.0,1.0), 2.0) * 0.35, 1.0); }',
-    }),
-  );
-  glow.rotation.x = -Math.PI / 2;
-  pad.add(glow);
-  scene.add(pad);
-  stage.pad = pad;
+const look = { scene: null, sceneId: '', lookId: 'natural', avatar: null, exp: '', beamT: -1, t: 0 };
+const faceRig = new FaceRig();
+
+function setScene(id) {
+  if (!SCENES[id]) return;
+  if (look.scene) {
+    stage.scene.remove(look.scene);
+    look.scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material && !Array.isArray(o.material)) o.material.dispose?.(); });
+  }
+  look.scene = SCENES[id].build();
+  look.sceneId = id;
+  stage.scene.add(look.scene);
+  markPicked('bgGrid', id);
 }
+
+function splatSets() {
+  return [splats, snapSplats].filter(Boolean);
+}
+
+function setLook(id) {
+  const L = LOOKS[id];
+  if (!L) return;
+  look.lookId = id;
+  for (const sp of splatSets()) {
+    sp.material.uniforms.uStyle.value = L.style;
+    sp.material.uniforms.uHideHead.value = L.hideHead ? 1 : 0;
+  }
+  if (look.avatar) subject.remove(look.avatar.group);
+  look.avatar = makeAvatar(L.avatar);
+  if (look.avatar) subject.add(look.avatar.group);
+  look.beamT = L.style === 2 ? 0 : -1; // the transporter materialises the caller once
+  markPicked('lookGrid', id);
+}
+
+function setExperience(id) {
+  const E = EXPERIENCES[id];
+  look.exp = E ? id : '';
+  setScene(E ? E.scene : 'studio');
+  setLook(E ? E.look : 'natural');
+  subject.scale.setScalar(E?.scale || 1);
+  subject.position.set(0, E?.y || 0, 0);
+  const v = E?.view || {};
+  stage.setView({ target: new THREE.Vector3(0, v.y ?? -0.05, 0), dist: v.dist ?? 0.9 });
+  $('caption').textContent = E?.caption || '';
+  $('caption').hidden = !E?.caption;
+  markPicked('expGrid', look.exp);
+  state.sortedCam.set(1e9, 0, 0); // re-sort in the new subject space
+}
+
+/** The splat grid for the current quality and detail. */
+function gridG() {
+  return Math.min(MAX_G, Math.round((QUALITY[opts.quality].G * opts.detail) / 8) * 8);
+}
+
+/** Make sure the live cloud can hold a frame at the current grid (two layers per cell). */
+function ensureCapacity() {
+  const need = 2 * gridG() ** 2;
+  if (splats.capacity >= need) return;
+  const old = splats;
+  splats = new LiveSplats(need);
+  splats.material.uniforms.uStyle.value = old.material.uniforms.uStyle.value;
+  splats.material.uniforms.uHideHead.value = old.material.uniforms.uHideHead.value;
+  splats.mesh.visible = old.mesh.visible;
+  subject.remove(old.mesh);
+  subject.add(splats.mesh);
+  old.geometry.dispose();
+  old.material.dispose();
+  for (const t of [old.tPos, old.tCovA, old.tCovB, old.tColor]) t.dispose();
+  state.shownId = -1;
+}
+
+function setDetail(d) {
+  if (!DETAIL.includes(d)) return;
+  opts.detail = d;
+  $('selDetail').value = String(d);
+  ensureCapacity();
+  resetRecon();
+  kick();
+}
+
+function tickLooks(dt) {
+  look.t += dt;
+  look.scene?.userData.tick?.(look.t, dt);
+  for (const sp of splatSets()) sp.material.uniforms.uTime.value = look.t;
+  if (look.beamT >= 0) {
+    look.beamT += dt;
+    const b = Math.min(1, look.beamT / 2.6);
+    for (const sp of splatSets()) sp.material.uniforms.uBeam.value = b;
+    if (b >= 1) look.beamT = -1;
+  } else {
+    for (const sp of splatSets()) sp.material.uniforms.uBeam.value = 1;
+  }
+  if (look.avatar) {
+    const fresh = performance.now() - faceRig.seen < 1500;
+    look.avatar.group.visible = fresh;
+    look.avatar.group.quaternion.copy(faceRig.quat);
+    look.avatar.update(faceRig, look.t, dt);
+  }
+}
+
+/** Highlight the picked chip in one of the Look dialog's grids. */
+function markPicked(grid, id) {
+  for (const b of document.querySelectorAll(`#${grid} button`)) b.classList.toggle('on', b.dataset.id === id);
+}
+
+function fillLookDialog() {
+  const make = (grid, items, onPick, sub) => {
+    const el = $(grid);
+    el.innerHTML = '';
+    for (const [id, it] of Object.entries(items)) {
+      const b = document.createElement('button');
+      b.className = 'pick';
+      b.dataset.id = id;
+      b.innerHTML = `<b></b>${sub ? '<span></span>' : ''}`;
+      b.querySelector('b').textContent = it.name;
+      if (sub) b.querySelector('span').textContent = sub(it);
+      b.onclick = () => onPick(id);
+      el.append(b);
+    }
+  };
+  make('expGrid', EXPERIENCES, (id) => setExperience(look.exp === id ? '' : id), (e) => `${e.homage} homage`);
+  make('lookGrid', LOOKS, (id) => setLook(id), (l) => (l.avatar ? '3D avatar' : 'filter'));
+  make('bgGrid', SCENES, (id) => setScene(id));
+  markPicked('expGrid', look.exp);
+  markPicked('lookGrid', look.lookId);
+  markPicked('bgGrid', look.sceneId);
+  $('selDetail').value = String(opts.detail);
+}
+
+const cycle = (obj, cur, dir = 1) => {
+  const ids = Object.keys(obj);
+  return ids[(ids.indexOf(cur) + dir + ids.length) % ids.length];
+};
 
 // ---------------------------------------------------------------------------------------------
 // Reconstruction pipeline
@@ -215,12 +318,17 @@ worker.onmessage = (e) => {
   }
 };
 
+const subjectInv = new THREE.Matrix4();
+/** The camera's position and view direction in the SUBJECT's space, where the splats live. */
 function camPose() {
   const cam = stage.cam;
   cam.updateMatrixWorld();
-  const pos = new THREE.Vector3().setFromMatrixPosition(cam.matrixWorld);
+  subject.updateMatrixWorld();
+  subjectInv.copy(subject.matrixWorld).invert();
+  const pos = new THREE.Vector3().setFromMatrixPosition(cam.matrixWorld).applyMatrix4(subjectInv);
   const dir = new THREE.Vector3();
   cam.getWorldDirection(dir);
+  dir.transformDirection(subjectInv);
   return { pos, dir };
 }
 
@@ -272,6 +380,9 @@ async function processFrame() {
   if (state.modelName !== opts.model) return false; // a model swap is loading
   const det = perception.detect(v);
   if (!det.mask) return false;
+  const now = performance.now();
+  faceRig.update(det.pose, det.blend, opts.mirror, state.lastDetT ? Math.min(0.2, (now - state.lastDetT) / 1000) : 0.05);
+  state.lastDetT = now;
   if (!det.lm) {
     state.noFaceSince ||= performance.now();
     if (performance.now() - state.noFaceSince > 1500) $('noface').hidden = false;
@@ -290,7 +401,7 @@ async function processFrame() {
   worker.postMessage({
     type: 'frame', id, bitmap, S: q.S, W, H, f, roi, lm: det.lm, mask: det.mask, mw: det.mw, mh: det.mh,
     t: performance.now(),
-    opts: { G: q.G, back: opts.back, depthColor: opts.depthColor, mirror: opts.mirror, smooth: opts.smooth, defaultDist: opts.defaultDist },
+    opts: { G: gridG(), edge: opts.detail > 1, back: opts.back, depthColor: opts.depthColor, mirror: opts.mirror, smooth: opts.smooth, defaultDist: opts.defaultDist },
     cam: pos.toArray(), dir: dir.toArray(),
   }, transfer);
   return true;
@@ -329,6 +440,7 @@ watchVideo(remoteVideo);
 // Re-sort when the view has moved since the last order, e.g. while orbiting a paused clip.
 stage.onTick = (dt) => {
   state.stats.render = state.stats.render ? state.stats.render * 0.95 + (1 / dt) * 0.05 : 1 / dt;
+  tickLooks(dt);
   if (state.shownId < 0 || state.sortPending) return;
   const { pos, dir } = camPose();
   if (pos.distanceTo(state.sortedCam) < 0.004) return;
@@ -796,7 +908,8 @@ function ensureSnapSplats() {
   if (snapSplats) return;
   snapSplats = new LiveSplats(SNAP_CAP);
   snapSplats.mesh.visible = false;
-  stage.scene.add(snapSplats.mesh);
+  subject.add(snapSplats.mesh);
+  setLook(look.lookId); // carry the current look over to the new cloud
 }
 
 /** The frame, its landmarks and mask, and the camera geometry, for a snapshot. */
@@ -962,6 +1075,8 @@ function bindUi() {
 
   $('selQuality').onchange = () => setQuality($('selQuality').value);
   $('selModel').onchange = () => setModel($('selModel').value);
+  $('btnLook').onclick = () => { fillLookDialog(); showDialog('lookDlg'); };
+  $('selDetail').onchange = () => setDetail(Number($('selDetail').value));
   $('btnSnap').onclick = () => { fillSnapDialog(); showDialog('snapDlg'); };
   $('btnSnapSharp').onclick = () => snapshotSharp();
   $('btnSnapImm').onclick = () => snapshotImmersity();
@@ -1005,6 +1120,10 @@ function bindUi() {
     else if (k === 'h' || k === '?') showDialog('helpDlg');
     else if (k === 'escape') closeDialogs();
     else if (k === 't') $('btnSnap').click();
+    else if (k === 'v') setLook(cycle(LOOKS, look.lookId, e.shiftKey ? -1 : 1));
+    else if (k === 'g') setScene(cycle(SCENES, look.sceneId, e.shiftKey ? -1 : 1));
+    else if (k === 'x') setExperience(cycle({ '': 0, ...EXPERIENCES }, look.exp, e.shiftKey ? -1 : 1));
+    else if (k === 'y') { fillLookDialog(); showDialog('lookDlg'); }
     else if (k === 'l') exitSnapshot();
     else if (k === '1') setQuality('fast');
     else if (k === '2') setQuality('hq');
@@ -1049,6 +1168,12 @@ async function boot() {
     setToggle('tglSway', true);
   }
 
+  if (params.get('exp') && EXPERIENCES[params.get('exp')]) setExperience(params.get('exp'));
+  else {
+    setScene(SCENES[params.get('bg')] ? params.get('bg') : 'studio');
+    if (LOOKS[params.get('look')]) setLook(params.get('look'));
+  }
+  ensureCapacity();
   worker.postMessage({ type: 'init', model: opts.model });
   perception.init().then(() => {
     state.perceptionReady = true;
@@ -1069,5 +1194,6 @@ async function boot() {
 window.splatCall = {
   stage, splats, state, opts, worker, perception, call, setQuality, setModel, useClip, useCamera,
   snapshotSharp, snapshotImmersity, exitSnapshot, helperHealth, get snapSplats() { return snapSplats; }, SAMPLE,
+  setScene, setLook, setExperience, setDetail, look, faceRig, subject, get liveSplats() { return splats; },
 };
 boot();
