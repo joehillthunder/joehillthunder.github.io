@@ -40,8 +40,13 @@ const SAMPLE = {
   credit: 'Sample: “Ward Cunningham, Inventor of the Wiki”, Wikimedia Commons, CC BY-SA 3.0',
 };
 
+// A phone or small tablet (touch first, small screen): lighter defaults and the compact layout.
+const PHONE = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+// Phones, and any small window: icon-only controls, settings in a sheet (index.html has the same query).
+const COMPACT = matchMedia('(max-width: 720px), (max-height: 500px)');
+
 const opts = {
-  quality: QUALITY[params.get('q')] ? params.get('q') : 'hq',
+  quality: QUALITY[params.get('q')] ? params.get('q') : PHONE ? 'fast' : 'hq',
   model: MODELS[params.get('model')] ? params.get('model') : 'small',
   personOnly: params.get('scene') !== '1', // SHARP snapshots: the person only, or the whole scene
   detail: DETAIL.includes(Number(params.get('detail'))) ? Number(params.get('detail')) : 1,
@@ -178,9 +183,70 @@ function tickLooks(dt) {
   }
 }
 
-/** Highlight the picked chip in one of the Look dialog's grids. */
+/** Highlight the picked chip in one of the Look dialog's grids, and in the filter strip. */
 function markPicked(grid, id) {
   for (const b of document.querySelectorAll(`#${grid} button`)) b.classList.toggle('on', b.dataset.id === id);
+  syncLens();
+}
+
+// The filter strip above the controls: one row of chips for the tab's filters, backgrounds or
+// themes. Always on screen (F hides it), so the looks are one tap away, phone or desktop.
+const LENS = {
+  look: { items: () => LOOKS, cur: () => look.lookId, pick: (id) => setLook(id) },
+  bg: { items: () => SCENES, cur: () => look.sceneId, pick: (id) => setScene(id) },
+  exp: { items: () => ({ '': { name: 'Off', swatch: '#1a2133' }, ...EXPERIENCES }), cur: () => look.exp, pick: (id) => setExperience(look.exp === id ? '' : id) },
+};
+let lensTab = 'look';
+
+function fillLens(tab = lensTab) {
+  lensTab = tab;
+  for (const b of document.querySelectorAll('.lensTabs button')) {
+    b.classList.toggle('on', b.dataset.tab === tab);
+    b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+  }
+  const row = $('lensRow');
+  row.innerHTML = '<span class="pad"></span>';
+  for (const [id, it] of Object.entries(LENS[tab].items())) {
+    const b = document.createElement('button');
+    b.className = 'lchip';
+    b.dataset.id = id;
+    b.innerHTML = '<i></i><span></span>';
+    b.querySelector('i').style.background = it.swatch || '#2a3550';
+    b.querySelector('span').textContent = it.name;
+    if (it.homage) b.title = `${it.homage} homage`;
+    b.onclick = () => LENS[tab].pick(id);
+    row.append(b);
+  }
+  const more = document.createElement('button');
+  more.className = 'lchip more';
+  more.textContent = 'More…';
+  more.title = 'Everything, with detail (Y)';
+  more.onclick = () => { fillLookDialog(); showDialog('lookDlg'); };
+  row.append(more, Object.assign(document.createElement('span'), { className: 'pad' }));
+  syncLens(true);
+}
+
+function syncLens(jump = false) {
+  const row = $('lensRow');
+  if (!row) return;
+  const cur = LENS[lensTab].cur();
+  let on = null;
+  for (const b of row.querySelectorAll('.lchip[data-id]')) {
+    const hit = b.dataset.id === cur;
+    b.classList.toggle('on', hit);
+    if (hit) on = b;
+  }
+  // Keep the picked chip in view (keys V, G and X cycle through them).
+  if (on && row.scrollWidth > row.clientWidth) {
+    const x = on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2;
+    row.scrollTo({ left: x, behavior: jump ? 'auto' : 'smooth' });
+  }
+}
+
+/** Compact layout: the source, model, quality and view controls move into the Settings sheet. */
+function applyCompact() {
+  if (COMPACT.matches) $('setBox').append($('grpSet'));
+  else $('bar').insertBefore($('grpSet'), $('btnSettings').nextSibling);
 }
 
 function fillLookDialog() {
@@ -506,6 +572,22 @@ function setCamera(deviceId, label, profile) {
   if (!$('camDlg').hidden) fillCamDialog();
 }
 
+localVideo.addEventListener('resize', () => {
+  const c = state.cam;
+  if (!c || (c.w === localVideo.videoWidth && c.h === localVideo.videoHeight)) return;
+  setCamera(c.deviceId, c.label, c.profile);
+});
+
+/** Switch between this phone's front and back cameras (the main back lens first). */
+async function flipCamera() {
+  const cams = await listCameras();
+  const want = state.cam?.profile.kind === 'front' ? 'rear' : 'front';
+  const pick = cams.filter((c) => c.profile.kind === want).sort((a, b) => (a.profile.name === 'Back camera' ? -1 : 0) - (b.profile.name === 'Back camera' ? -1 : 0))[0];
+  if (pick) return useCamera(pick.deviceId);
+  if (!cams.some((c) => c.label)) return useCamera(); // no permission yet
+  toast('This device has no other camera to switch to.');
+}
+
 /** The horizontal FOV of whatever is being reconstructed (?fov= wins). */
 function sourceFov() {
   if (opts.fov) return opts.fov;
@@ -574,10 +656,10 @@ function setLocal(kind, label) {
   state.sourceKind = kind;
   if (state.mode !== 'call') {
     state.mode = 'local';
-    opts.mirror = kind === 'camera';
+    opts.mirror = selfMirror();
     resetRecon();
   }
-  document.body.classList.toggle('mirror-pip', kind === 'camera');
+  document.body.classList.toggle('mirror-pip', selfMirror());
   $('credit').textContent = kind === 'sample' ? SAMPLE.credit : '';
   if (kind !== 'camera') {
     state.cam = null;
@@ -587,6 +669,11 @@ function setLocal(kind, label) {
   $('srcLabel').textContent = kind === 'camera' ? cleanLabel(label) : kind === 'file' ? 'Video file' : kind === 'sample' ? 'Sample clip' : 'Video';
   hideStart();
   kick();
+}
+
+/** The local picture is mirrored like a mirror: any camera except a phone's back camera. */
+function selfMirror() {
+  return state.sourceKind === 'camera' && state.cam?.profile.kind !== 'rear';
 }
 
 function resetRecon() {
@@ -639,6 +726,8 @@ async function fillCameraList(activeId) {
   }
   sel.append(og);
   sel.value = state.sourceKind === 'camera' ? activeId || state.cam?.deviceId || '' : state.sourceKind === 'sample' ? '__sample' : '';
+  const kinds = new Set(cams.map((c) => c.profile.kind));
+  $('btnFlip').hidden = !(kinds.has('front') && kinds.has('rear'));
 }
 
 async function startCamera() {
@@ -776,7 +865,7 @@ function endCall() {
   state.remoteCam = null;
   if (state.mode === 'call') {
     state.mode = state.sourceKind ? 'local' : 'idle';
-    opts.mirror = state.sourceKind === 'camera';
+    opts.mirror = selfMirror();
     resetRecon();
     if (state.mode === 'idle') showStart();
     kick();
@@ -1076,6 +1165,21 @@ function bindUi() {
   $('selQuality').onchange = () => setQuality($('selQuality').value);
   $('selModel').onchange = () => setModel($('selModel').value);
   $('btnLook').onclick = () => { fillLookDialog(); showDialog('lookDlg'); };
+  for (const b of document.querySelectorAll('.lensTabs button')) b.onclick = () => fillLens(b.dataset.tab);
+  // A mouse wheel scrolls the strip sideways.
+  $('lensRow').addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    $('lensRow').scrollLeft += e.deltaY;
+  }, { passive: false });
+  $('btnSettings').onclick = () => showDialog('setDlg');
+  $('btnSetCams').onclick = () => openCamDialog();
+  $('btnSetLook').onclick = () => { fillLookDialog(); showDialog('lookDlg'); };
+  $('btnSetHelp').onclick = () => showDialog('helpDlg');
+  $('btnSetLens').onclick = () => { toggleLens(); closeDialogs(); };
+  $('btnFlip').onclick = () => flipCamera();
+  COMPACT.addEventListener('change', applyCompact);
+  applyCompact();
   $('selDetail').onchange = () => setDetail(Number($('selDetail').value));
   $('btnSnap').onclick = () => { fillSnapDialog(); showDialog('snapDlg'); };
   $('btnSnapSharp').onclick = () => snapshotSharp();
@@ -1130,6 +1234,7 @@ function bindUi() {
     else if (k === '3') setQuality('ultra');
     else if (k === 'p') document.body.classList.toggle('no-pip');
     else if (k === 'c') openCamDialog();
+    else if (k === 'f') toggleLens();
   });
 
   // Drop a video anywhere.
@@ -1139,6 +1244,11 @@ function bindUi() {
     const f = [...(e.dataTransfer?.files ?? [])].find((x) => x.type.startsWith('video/'));
     if (f) useClip(f, 'file');
   });
+}
+
+function toggleLens() {
+  const off = document.body.classList.toggle('no-lens');
+  $('btnSetLens').textContent = off ? 'Show filter strip' : 'Hide filter strip';
 }
 
 function hud() {
@@ -1155,6 +1265,7 @@ setInterval(hud, 500);
 // Boot
 
 async function boot() {
+  document.body.classList.toggle('phone', PHONE);
   bindUi();
   const { woven, firstWoven } = await stage.start();
   document.body.classList.toggle('woven', woven);
@@ -1174,6 +1285,7 @@ async function boot() {
     if (LOOKS[params.get('look')]) setLook(params.get('look'));
   }
   ensureCapacity();
+  fillLens();
   worker.postMessage({ type: 'init', model: opts.model });
   perception.init().then(() => {
     state.perceptionReady = true;
@@ -1195,5 +1307,6 @@ window.splatCall = {
   stage, splats, state, opts, worker, perception, call, setQuality, setModel, useClip, useCamera,
   snapshotSharp, snapshotImmersity, exitSnapshot, helperHealth, get snapSplats() { return snapSplats; }, SAMPLE,
   setScene, setLook, setExperience, setDetail, look, faceRig, subject, get liveSplats() { return splats; },
+  fillLens, flipCamera, PHONE,
 };
 boot();

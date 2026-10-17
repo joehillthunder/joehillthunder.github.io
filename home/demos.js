@@ -109,10 +109,10 @@ export const WINGS = [
       {
         id: 'splat-call',
         name: 'Splat Call 3D',
-        desc: "A live 3D video call from one ordinary webcam: every frame becomes thousands of Gaussian splats (after Microsoft's VoluMe). Become a hologram, robot or cartoon, step into 10 backgrounds, or take an Apple SHARP 3D snapshot.",
+        desc: "A live 3D video call from one ordinary webcam: every frame becomes thousands of Gaussian splats (after Microsoft's VoluMe). One-tap filters turn you into a hologram, robot or cartoon in 10 backgrounds, on desktop or phone, or take an Apple SHARP 3D snapshot.",
         url: 'displayxr-demos/apps/splat-call/',
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/splat-call',
-        chatter: ['Depth fit locked at 52 cm', 'Incoming hologram message', 'The asteroid came out of the glass', 'Robot mode: blink to test'],
+        chatter: ['Depth fit locked at 52 cm', 'Incoming hologram message', 'Filter strip: one tap to robot', 'Calling from a phone, in 3D'],
       },
     ],
   },

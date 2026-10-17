@@ -574,14 +574,14 @@ function deepSpace() {
 
 /** id → { name, build } . Lights: every scene gets the app's hemisphere + key light. */
 export const SCENES = {
-  studio: { name: 'Studio', build: studio },
-  hologram: { name: 'Hologram hold', build: hologramMessage },
-  holodeck: { name: 'Holodeck grid', build: holodeck },
-  warp: { name: 'Warp speed', build: warp },
-  year3000: { name: 'Year 3000 city', build: year3000 },
-  sitcom: { name: 'Cartoon suburb', build: sitcom },
-  stone: { name: 'Stone age', build: stoneAge },
-  portal: { name: 'Portal lab', build: portalLab },
-  time1985: { name: 'Neon 1985', build: time1985 },
-  space: { name: 'Deep space', build: deepSpace },
+  studio: { name: 'Studio', swatch: 'radial-gradient(circle at 50% 30%, #4a5a80, #121a2c)', build: studio },
+  hologram: { name: 'Hologram hold', swatch: 'radial-gradient(circle at 50% 80%, #5fc8ff, #0a1830 60%)', build: hologramMessage },
+  holodeck: { name: 'Holodeck grid', swatch: 'repeating-linear-gradient(90deg, #111 0 4px, #ffcc33 4px 5px)', build: holodeck },
+  warp: { name: 'Warp speed', swatch: 'radial-gradient(circle, #ffffff, #5f7dff 30%, #05081f)', build: warp },
+  year3000: { name: 'Year 3000 city', swatch: 'linear-gradient(#7ad0ff, #ff9ad5)', build: year3000 },
+  sitcom: { name: 'Cartoon suburb', swatch: 'linear-gradient(#7cc8ff 55%, #5fbf4a 55%)', build: sitcom },
+  stone: { name: 'Stone age', swatch: 'linear-gradient(#ffb36b, #a0703a)', build: stoneAge },
+  portal: { name: 'Portal lab', swatch: 'radial-gradient(circle, #d8ff5a, #2f9b2a 60%, #0b3a10)', build: portalLab },
+  time1985: { name: 'Neon 1985', swatch: 'linear-gradient(#ff3ec8 0 45%, #2a0a5a 45%)', build: time1985 },
+  space: { name: 'Deep space', swatch: 'radial-gradient(circle at 30% 30%, #8a7dff, #05080f 70%)', build: deepSpace },
 };

@@ -40,7 +40,8 @@ pip install -r helper/requirements.txt
 python helper/splat_helper.py            # --mock-sharp --mock-immersity to try it without either
 ```
 
-**Look** (<kbd>Y</kbd>) changes how the call looks:
+The **filter strip** above the controls switches filters, backgrounds and themes in one tap.
+**Look** (<kbd>Y</kbd>, or **More…** on the strip) has everything, plus detail:
 - **Avatars and filters:** 13 options. Filters restyle your live 3D self (hologram, transporter
   beam, cel toon, yellow toon, stone age, portal acid, neon 1985, voxel, gold statue). The robot,
   alien and astronaut-helmet avatars are 3D heads that follow your head, blinks and jaw.
@@ -49,6 +50,14 @@ python helper/splat_helper.py            # --mock-sharp --mock-immersity to try 
   projector), Star Trek, Futurama, The Simpsons, The Flintstones, Rick and Morty and Back to the
   Future. They copy the look and mood only, with no characters, logos, music or quotes.
 - **Detail:** up to 3× more splats, with edge-aware upsampling.
+
+## On a phone
+
+Open the page on a phone or tablet and it switches to a compact layout: icons in the control bar,
+source and quality under **Settings**, the filter strip above. Prop the phone at about arm's length
+with the front camera on your head and shoulders; **Flip** switches to the back camera to put
+someone else in 3D. Drag to look around, pinch to zoom, double-tap to reset. On a 3D phone or
+tablet with inline-3D support, the call is woven in glasses-free 3D, either way up.
 
 ## Use it
 

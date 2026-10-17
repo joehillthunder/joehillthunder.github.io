@@ -12,6 +12,8 @@ import { createInline3D, inline3dDisplayModesSupported } from '@displayxr/inline
 import { EyeCamera, cameraRigFromCamera } from '@displayxr/inline3d/three';
 
 const MAX_EYE_W = 2560; // per-eye backing-store cap
+const FOV = 35; // vertical FOV on landscape screens, degrees
+const NARROW = 0.8; // below this aspect (portrait phones), widen the FOV to keep the width framed
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Stage {
@@ -140,33 +142,59 @@ export class Stage {
     this.cam.updateProjectionMatrix();
   }
 
+  /** Pan the orbit target by a screen-space move of (dx, dy) CSS pixels. */
+  pan(dx, dy) {
+    const s = (this.dist * Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2)) * 2) / (this.canvas.clientHeight || 600);
+    const right = new THREE.Vector3().setFromMatrixColumn(this.cam.matrixWorld, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(this.cam.matrixWorld, 1);
+    this.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
+  }
+
+  // Mouse: drag orbits, right- or shift-drag pans, the wheel zooms. Touch: one finger orbits, two
+  // fingers pinch to zoom and drag to pan, a double tap resets.
   bindPointer() {
     const c = this.canvas;
-    let last = null;
+    const pts = new Map(); // pointerId → { x, y }
+    let pan = false, pinch = null;
+    const two = () => {
+      const [a, b] = [...pts.values()];
+      return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    };
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     c.addEventListener('pointerdown', (e) => {
-      c.setPointerCapture(e.pointerId);
-      last = { x: e.clientX, y: e.clientY, pan: e.button !== 0 || e.shiftKey };
+      try { c.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      pan = e.button !== 0 || e.shiftKey;
+      pinch = pts.size === 2 ? two() : null;
       this.dragging = true;
     });
     c.addEventListener('pointermove', (e) => {
-      if (!last) return;
-      const dx = e.clientX - last.x, dy = e.clientY - last.y;
-      last.x = e.clientX;
-      last.y = e.clientY;
-      if (last.pan) {
-        const s = (this.dist * Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2)) * 2) / (c.clientHeight || 600);
-        const right = new THREE.Vector3().setFromMatrixColumn(this.cam.matrixWorld, 0);
-        const up = new THREE.Vector3().setFromMatrixColumn(this.cam.matrixWorld, 1);
-        this.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
+      const p = pts.get(e.pointerId);
+      if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX;
+      p.y = e.clientY;
+      if (pts.size >= 2) {
+        if (!pinch) { pinch = two(); return; }
+        const now = two();
+        this.dist = clamp((this.dist * pinch.d) / now.d, this.minDist, this.maxDist);
+        this.pan(now.x - pinch.x, now.y - pinch.y);
+        pinch = now;
+      } else if (pan) {
+        this.pan(dx, dy);
       } else {
         this.yaw -= dx * 0.006;
         this.pitch = clamp(this.pitch + dy * 0.006, -1.4, 1.4);
       }
     });
-    const end = () => { last = null; this.dragging = false; };
+    const end = (e) => {
+      pts.delete(e.pointerId);
+      pinch = null;
+      this.dragging = pts.size > 0;
+    };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
+    c.addEventListener('dblclick', () => this.resetView());
     c.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.dist = clamp(this.dist * Math.exp(e.deltaY * 0.001), this.minDist, this.maxDist);
@@ -183,7 +211,10 @@ export class Stage {
     // Woven: a DOUBLE-WIDTH side-by-side store (left eye | right eye) in the same CSS box.
     const bw = this.woven ? w * 2 : w;
     if (this.canvas.width !== bw || this.canvas.height !== h) this.renderer.setSize(bw, h, false);
-    this.cam.aspect = w / h;
+    // Portrait: keep about a 0.8-aspect width in view, so the caller is not cropped to a nose.
+    const a = w / h;
+    this.cam.fov = a >= NARROW ? FOV : THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * NARROW) / a));
+    this.cam.aspect = a;
     this.cam.updateProjectionMatrix();
   }
 

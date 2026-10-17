@@ -10,6 +10,8 @@
 //   webcam     an ordinary colour camera (laptop or USB)
 //   pro        a USB webcam we know the lens of
 //   ptz        an auto-framing camera: digital zoom changes the FOV, so framing should be locked
+//   front      this phone's or tablet's own front (selfie) camera
+//   rear       this phone's or tablet's back cameras: not mirrored, never auto-picked over the front
 //   phone      a phone used as a webcam (Continuity Camera, DroidCam, Camo, Iriun, …)
 //   capture    an HDMI capture card (DSLR, mirrorless, camcorder): FOV depends on the lens
 //   virtual    a software camera (OBS, NVIDIA Broadcast, …): FOV unknown, may be pre-cropped
@@ -26,7 +28,9 @@ export const KINDS = {
   'stereo': ['Stereo 3D cameras', 4],
   'ptz': ['Auto-framing cameras', 3],
   'webcam': ['Webcams', 2],
+  'front': ['This device: front camera', 2],
   'phone': ['Phones', 2],
+  'rear': ['This device: back cameras', 1],
   'capture': ['Capture cards', 1],
   'virtual': ['Virtual cameras', 0],
   'depth': ['Not usable (depth / infrared)', -1],
@@ -95,7 +99,7 @@ const PROFILES = [
   { re: /LifeCam Studio/i, name: 'Microsoft LifeCam Studio', kind: 'pro', ...D(75) },
   { re: /LifeCam Cinema/i, name: 'Microsoft LifeCam Cinema', kind: 'pro', ...D(73) },
   { re: /LifeCam/i, name: 'Microsoft LifeCam', kind: 'pro', ...D(68.5) },
-  { re: /Microsoft Modern Webcam|Surface.*Camera Front|Front Camera/i, name: 'Microsoft / Surface camera', kind: 'webcam', ...D(78) },
+  { re: /Microsoft Modern Webcam|Surface.*Camera Front/i, name: 'Microsoft / Surface camera', kind: 'webcam', ...D(78) },
   { re: /UltraSharp.*Webcam|WB7022/i, name: 'Dell UltraSharp Webcam', kind: 'pro', ...D(78) },
   { re: /Dell Pro Webcam|WB5023/i, name: 'Dell Pro Webcam', kind: 'pro', ...D(78) },
   { re: /PowerConf C3\d\d/i, name: 'Anker PowerConf C300', kind: 'pro', ...D(115) },
@@ -106,6 +110,13 @@ const PROFILES = [
   { re: /EMEET/i, name: 'EMEET webcam', kind: 'pro', ...D(88) },
   { re: /Lenovo.*(Performance|Essential|FHD) Webcam|Lenovo 300/i, name: 'Lenovo webcam', kind: 'pro', ...D(95) },
   { re: /HP 9[56]\d|HP 4K Streaming|HP.*Webcam/i, name: 'HP webcam', kind: 'pro', ...D(78) },
+
+  // ---- this phone's or tablet's own cameras. iOS: "Front Camera", "Back Ultra Wide Camera"…;
+  // Android: "camera2 1, facing front"; Surface: "Microsoft Camera Front"/"Rear".
+  { re: /\bBack Ultra ?Wide\b|\bRear Ultra ?Wide\b/i, name: 'Back ultra-wide camera', kind: 'rear', ...D(120), note: 'Very wide: stand back so the caller is not stretched.' },
+  { re: /\bBack Telephoto\b|\bRear Telephoto\b/i, name: 'Back telephoto camera', kind: 'rear', ...D(34) },
+  { re: /^Back\b|^Rear\b|facing back|\bCamera Rear\b|\bRear Camera\b/i, name: 'Back camera', kind: 'rear', ...D(79), note: 'Point it at the person you want in 3D, about 1 m away.' },
+  { re: /^Front\b|facing front|\bCamera Front\b|\bFront Camera\b/i, name: 'Front camera', kind: 'front', ...D(84), note: 'Hold the phone at about arm\'s length, with your head and shoulders in frame.' },
 
   // ---- phones as webcams
   { re: /Desk View/i, name: 'iPhone Desk View', kind: 'virtual', note: 'A downward desk shot, not a face camera.' },
