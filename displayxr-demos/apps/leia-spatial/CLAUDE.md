@@ -1,12 +1,17 @@
 # CLAUDE.md — leia-spatial
 
 The Leia Inc. site, reimagined as a scroll story with live woven 3D tiles. Content comes from
-Leia's OEM presentation ("Making Any Display Feel Spatial", August 2026, source PDF
-`eand-OEM-261002.pdf`) and leiainc.com. The deck's business-model content is deliberately left
+Leia's OEM presentation ("Making Any Display Feel Spatial", August 2026; the PDF is on the user's
+PC at `C:\Users\4kDemo\Downloads\eand-OEM-261002.pdf`, extract it with `pdftotext -layout`) and
+leiainc.com. The deck's SharePoint link needs email verification, so use the PDF. The deck's business-model content is deliberately left
 out. Read `../../CLAUDE.md` first: its rules apply here too.
 
 **Live:** https://joehillthunder.github.io/displayxr-demos/apps/leia-spatial/
-**Branch:** `app/leia-spatial`. Ship through a PR to `main`.
+**Branch:** `app/leia-spatial` (or `app/leia-spatial-<topic>`). Ship through a PR to `main`.
+**In DisplayXR HQ:** the `leia-spatial` entry is the 7th room of the Creator Studio & Spatial UI
+wing (`home/demos.js`), with a `BUILD['leia-spatial']` set piece in `home/office.js`: a panel
+whose lens ribs switch 2D/3D, floating knot/sphere/icosahedron, and a spinning four-plate stack.
+Keep its `desc` and `chatter` in step when the app changes.
 
 ## Files
 - `index.html`: all copy. Sections in order: hero, five markets (flip cards), five hurdles (flip
@@ -70,6 +75,20 @@ out. Read `../../CLAUDE.md` first: its rules apply here too.
   the rAF of tiles scrolled into view can stall and CSS animations get caught mid-flight, so test
   a single tile on a scratch page, or use `--timeout` (real time) instead.
 - Real 3D can only be judged on the Leia panel in the DisplayXR Browser. Ask the user to look.
+
+## Shipping when git push fails
+The repo is large and this PC's connection drops: a full clone and `git push` from a shallow,
+blobless clone have both failed ("remote end hung up"). What works:
+- Clone with `git clone --depth 1 --filter=blob:none --sparse …` and
+  `git sparse-checkout set home displayxr-demos/apps/leia-spatial`.
+- Commit locally, then recreate the commit through the API: `POST git/blobs` per changed file,
+  `POST git/trees` with `base_tree` = the parent's tree, `POST git/commits`, then
+  `POST git/refs` (new branch) or `PATCH git/refs/heads/<branch>`. Check the new tree sha equals
+  `git rev-parse HEAD^{tree}`.
+- If `main` moved and the PR conflicts (other sessions edit `home/demos.js`, `home/office.js` and
+  the hub `CLAUDE.md` constantly), fetch main's copies of those files, re-apply your edits to
+  them, and build the commit on main's tree instead.
+- Pages takes a minute or two to deploy; poll the live URL with a cache-busting query.
 
 ## Content notes
 - The comparison table in lesson 1 was rebuilt from the PDF's text layer. Re-check the 2D/3D
