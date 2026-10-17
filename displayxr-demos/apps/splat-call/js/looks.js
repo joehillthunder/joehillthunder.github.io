@@ -10,42 +10,42 @@
 
 import * as THREE from 'three';
 
-/** id → { name, style (splats.js uStyle), avatar?, hideHead? } */
+/** id → { name, swatch (CSS background for the filter strip), style (splats.js uStyle), avatar?, hideHead? } */
 export const LOOKS = {
-  natural: { name: 'Natural', style: 0 },
-  hologram: { name: 'Hologram', style: 1 },
-  transporter: { name: 'Transporter beam', style: 2 },
-  toon: { name: 'Cel toon', style: 3 },
-  yellow: { name: 'Yellow toon', style: 4 },
-  stone: { name: 'Stone age', style: 5 },
-  portal: { name: 'Portal acid', style: 6 },
-  neon: { name: 'Neon 1985', style: 7 },
-  voxel: { name: 'Voxel', style: 8 },
-  gold: { name: 'Gold statue', style: 9 },
-  robot: { name: 'Robot', style: 0, avatar: 'robot', hideHead: true },
-  alien: { name: 'Alien', style: 0, avatar: 'alien', hideHead: true },
-  astronaut: { name: 'Astronaut', style: 0, avatar: 'astronaut' },
+  natural: { name: 'Natural', swatch: 'radial-gradient(circle at 40% 35%, #f3d2bd, #a8775c)', style: 0 },
+  hologram: { name: 'Hologram', swatch: 'repeating-linear-gradient(0deg, #6fd6ff 0 2px, #1b5f9a 2px 4px)', style: 1 },
+  transporter: { name: 'Transporter beam', swatch: 'radial-gradient(circle, #fffbe0 10%, #ffd36b 35%, #2a6bd8)', style: 2 },
+  toon: { name: 'Cel toon', swatch: 'linear-gradient(135deg, #ffb46b 50%, #e2763a 50%)', style: 3 },
+  yellow: { name: 'Yellow toon', swatch: '#ffd83a', style: 4 },
+  stone: { name: 'Stone age', swatch: 'radial-gradient(circle at 35% 35%, #c8ae8c, #6d5639)', style: 5 },
+  portal: { name: 'Portal acid', swatch: 'radial-gradient(circle, #e8ff7a, #39c43a 55%, #145a1a)', style: 6 },
+  neon: { name: 'Neon 1985', swatch: 'linear-gradient(135deg, #ff3ec8, #3ee8ff)', style: 7 },
+  voxel: { name: 'Voxel', swatch: 'conic-gradient(#5fd4ff 0 25%, #2a6bd8 0 50%, #5fd4ff 0 75%, #2a6bd8 0)', style: 8 },
+  gold: { name: 'Gold statue', swatch: 'linear-gradient(135deg, #fff0b0, #d9a63a 50%, #8a5c12)', style: 9 },
+  robot: { name: 'Robot', swatch: 'radial-gradient(circle at 35% 35%, #ffffff, #8d99a8)', style: 0, avatar: 'robot', hideHead: true },
+  alien: { name: 'Alien', swatch: 'radial-gradient(circle at 35% 35%, #c4ff9a, #4f9e3b)', style: 0, avatar: 'alien', hideHead: true },
+  astronaut: { name: 'Astronaut', swatch: 'radial-gradient(circle at 35% 30%, #ffffff, #9fb8d8 60%, #3b4c66)', style: 0, avatar: 'astronaut' },
 };
 
 /**
- * id → { name, homage, scene, look, scale?, y?, view?: { y, dist }, caption?, beam? }
+ * id → { name, swatch, homage, scene, look, scale?, y?, view?: { y, dist }, caption?, beam? }
  * `scale` / `y` place the caller (the subject group); `view` aims the orbit camera.
  */
 export const EXPERIENCES = {
   message: {
-    name: 'Hologram message', homage: 'Star Wars', scene: 'hologram', look: 'hologram',
+    name: 'Hologram message', swatch: 'radial-gradient(circle, #bff0ff, #2f8fd8 60%, #0b2a4a)', homage: 'Star Wars', scene: 'hologram', look: 'hologram',
     scale: 0.42, y: -0.075, view: { y: -0.1, dist: 0.62 },
     caption: 'Incoming hologram message · play it back as many times as you need',
   },
   holodeck: {
-    name: 'Holodeck', homage: 'Star Trek', scene: 'holodeck', look: 'transporter', beam: true,
+    name: 'Holodeck', swatch: 'repeating-linear-gradient(90deg, #111 0 4px, #ffcc33 4px 5px)', homage: 'Star Trek', scene: 'holodeck', look: 'transporter', beam: true,
     caption: 'Program running · materialising',
   },
-  year3000: { name: 'Year 3000', homage: 'Futurama', scene: 'year3000', look: 'toon', caption: 'Calling from the year 3000' },
-  sitcom: { name: 'Yellow sitcom', homage: 'The Simpsons', scene: 'sitcom', look: 'yellow', caption: 'Couch not included' },
-  stone: { name: 'Stone age call', homage: 'The Flintstones', scene: 'stone', look: 'stone', caption: 'Live from the quarry' },
-  portal: { name: 'Portal adventure', homage: 'Rick and Morty', scene: 'portal', look: 'portal', caption: 'Calling from another dimension' },
-  time1985: { name: '1985 time circuits', homage: 'Back to the Future', scene: 'time1985', look: 'neon', caption: 'Calling from 1985 · hold on tight' },
+  year3000: { name: 'Year 3000', swatch: 'linear-gradient(#7ad0ff, #ff9ad5)', homage: 'Futurama', scene: 'year3000', look: 'toon', caption: 'Calling from the year 3000' },
+  sitcom: { name: 'Yellow sitcom', swatch: 'linear-gradient(#7cc8ff 55%, #5fbf4a 55%)', homage: 'The Simpsons', scene: 'sitcom', look: 'yellow', caption: 'Couch not included' },
+  stone: { name: 'Stone age call', swatch: 'linear-gradient(#ffb36b, #a0703a)', homage: 'The Flintstones', scene: 'stone', look: 'stone', caption: 'Live from the quarry' },
+  portal: { name: 'Portal adventure', swatch: 'radial-gradient(circle, #d8ff5a, #2f9b2a 60%, #0b3a10)', homage: 'Rick and Morty', scene: 'portal', look: 'portal', caption: 'Calling from another dimension' },
+  time1985: { name: '1985 time circuits', swatch: 'linear-gradient(#ff3ec8, #2a0a5a)', homage: 'Back to the Future', scene: 'time1985', look: 'neon', caption: 'Calling from 1985 · hold on tight' },
 };
 
 // ------------------------------------------------------------------------------------------------

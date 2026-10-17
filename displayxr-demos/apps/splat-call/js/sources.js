@@ -48,7 +48,7 @@ export async function openCamera(deviceId, profile = null) {
   const [w, h] = profile?.res || [1280, 720];
   const raw = await navigator.mediaDevices.getUserMedia({
     video: {
-      ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+      ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' }), // phones: the selfie camera
       width: { ideal: w },
       height: { ideal: h },
       frameRate: { ideal: 30 },

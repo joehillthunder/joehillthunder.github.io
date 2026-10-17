@@ -117,6 +117,37 @@ The **Look** button (<kbd>Y</kbd>) opens one dialog with four parts.
   experience can scale or move it, so `camPose()` returns the camera in the subject's space for
   sorting.
 - In a call, looks and backgrounds apply on the viewer's side, to the person they're viewing.
+- The filter strip above the controls is the quick way in (see below); the Look dialog adds Detail.
+
+## Filter strip and phone layout
+
+- **Filter strip** (`.lens` in index.html, `LENS` / `fillLens` / `syncLens` in main.js): tabs for
+  Filters, Backgrounds and Themes over one scrolling row of chips, always on screen above the
+  control bar (<kbd>F</kbd> or Settings hides it). Chips use each entry's `swatch` (a CSS
+  background in `LOOKS`, `SCENES`, `EXPERIENCES`). `markPicked` keeps the strip and the Look dialog
+  in sync. Added because the Look button was the 10th control in a sideways-scrolling bar and
+  people never found the filters.
+- **Compact layout** (`COMPACT`, the media query `(max-width: 720px), (max-height: 500px)`, kept
+  the same in CSS and JS): icon-only bar (labels in `.lbl`), and `applyCompact()` moves `#grpSet`
+  (source, model, quality, volume, depth, sway, reset, 3D depth) into the Settings sheet
+  (`#setDlg`), moving it back when the window widens. Safe-area insets come from
+  `viewport-fit=cover`.
+- **Phones** (`PHONE`: coarse pointer and a screen under 820 px): Fast quality by default, start
+  card tip, `body.phone`.
+- **Phone cameras** (`cameras.js`): kinds `front` (rank 2) and `rear` (rank 1, never auto-picked
+  over the front). Labels: iOS "Front Camera" / "Back Camera" / "Back Ultra Wide Camera" /
+  "Back Telephoto Camera", Android "camera2 1, facing front", Surface "Microsoft Camera
+  Front/Rear". The **Flip** button shows when both kinds exist. A back camera is not mirrored
+  (`selfMirror()`). With no permission yet, `openCamera` asks for `facingMode: 'user'`. Rotating
+  the phone re-runs `setCamera` (video `resize`), so the horizontal FOV follows the orientation.
+- **Portrait framing** (`stage.js` `sizeToCanvas`): below aspect 0.8 the vertical FOV widens so
+  a 0.8-aspect width stays in view; otherwise a portrait phone shows only a nose.
+- **Touch** (`stage.js` `bindPointer`): one finger orbits, two fingers pinch to zoom and drag to
+  pan, double tap resets.
+- 3D phones and tablets: the stage weaves wherever the browser offers an inline-3D session
+  (`createInline3D`), in either orientation; elsewhere it is 2D with drag to orbit. Untested on
+  a real 3D phone.
+- Tested at 1280×720, 390×844 and 844×390 (Playwright `is_mobile`, `has_touch`).
 
 ## Coordinates
 
