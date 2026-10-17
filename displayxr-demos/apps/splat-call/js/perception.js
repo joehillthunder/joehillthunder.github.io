@@ -17,6 +17,9 @@ export class Perception {
         numFaces: 1,
         minFaceDetectionConfidence: 0.4,
         minTrackingConfidence: 0.4,
+        // Head pose and expression, for the 3D avatars (looks.js).
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: true,
       }),
       ImageSegmenter.createFromOptions(files, {
         baseOptions: { modelAssetPath: SEG_MODEL, delegate },
@@ -38,7 +41,8 @@ export class Perception {
 
   /**
    * Run both models on the current video frame.
-   * @returns {{ lm: Float32Array|null, mask: Float32Array, mw: number, mh: number }}
+   * @returns {{ lm: Float32Array|null, mask: Float32Array, mw: number, mh: number,
+   *            pose: number[]|null, blend: Record<string, number>|null }}
    */
   detect(source) {
     let ts = performance.now();
@@ -56,6 +60,13 @@ export class Perception {
         lm[i * 3 + 2] = pts[i].z;
       }
     }
+    const pose = fr.facialTransformationMatrixes?.[0]?.data ? Array.from(fr.facialTransformationMatrixes[0].data) : null;
+    let blend = null;
+    const cats = fr.faceBlendshapes?.[0]?.categories;
+    if (cats) {
+      blend = {};
+      for (const c of cats) blend[c.categoryName] = c.score;
+    }
 
     let mask = null, mw = 0, mh = 0;
     this.seg.segmentForVideo(source, ts, (res) => {
@@ -69,6 +80,6 @@ export class Perception {
       for (let i = 0; i < a.length; i++) mask[i] = 1 - a[i];
       for (const m of res.confidenceMasks) m.close();
     });
-    return { lm, mask, mw, mh };
+    return { lm, mask, mw, mh, pose, blend };
   }
 }

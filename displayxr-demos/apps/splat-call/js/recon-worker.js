@@ -201,6 +201,73 @@ function bilinRGB(a, S, x, y, out, o) {
   for (let c = 0; c < 3; c++) out[o + c] = a[i00 + c] * w00 + a[i10 + c] * w10 + a[i01 + c] * w01 + a[i11 + c] * w11;
 }
 
+// Joint bilateral upsampling (Kopf et al. 2007): when the splat grid is finer than the depth map
+// or the person mask, interpolate them with weights that also fall off with COLOUR difference
+// against the crop image, so depth edges and the silhouette follow the image's edges instead of
+// blurring across them. Colour distance is L1 in 0..765; the LUT holds exp(-d² / 2σ²), σ = 28.
+const COLOR_W = new Float32Array(766);
+for (let d = 0; d < 766; d++) COLOR_W[d] = Math.exp(-(d * d) / (2 * 28 * 28));
+// Spatial weight on squared tap distance (taps are within ~2.9 px², so a 64-step LUT is plenty).
+const SPACE_LUT = new Float32Array(65);
+for (let i = 0; i <= 64; i++) SPACE_LUT[i] = Math.exp(-(i / 8) / (2 * 0.55 * 0.55));
+const SPACE_W = (d2) => SPACE_LUT[Math.min(64, (d2 * 8 + 0.5) | 0)];
+
+/** Depth at grid point (x, y) of a w×h map, guided by the S×S crop image `rgba` and colour c. */
+function jbuDepth(a, w, h, x, y, rgba, S, c, o, flat) {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  // Smooth here (the four nearest samples agree): plain bilinear is the same answer, far cheaper.
+  if (x0 >= 0 && y0 >= 0 && x0 + 1 < w && y0 + 1 < h) {
+    const i = y0 * w + x0;
+    const a0 = a[i], a1 = a[i + 1], a2 = a[i + w], a3 = a[i + w + 1];
+    if (Math.max(a0, a1, a2, a3) - Math.min(a0, a1, a2, a3) < flat) return bilin(a, w, h, x, y);
+  }
+  let sw = 0, sv = 0;
+  for (let ty = y0 - 1; ty <= y0 + 2; ty++) {
+    if (ty < 0 || ty >= h) continue;
+    const gy = Math.min(S - 1, Math.round(((ty + 0.5) * S) / h - 0.5));
+    for (let tx = x0 - 1; tx <= x0 + 2; tx++) {
+      if (tx < 0 || tx >= w) continue;
+      const gx = Math.min(S - 1, Math.round(((tx + 0.5) * S) / w - 0.5));
+      const gi = (gy * S + gx) * 4;
+      const dc = Math.abs(rgba[gi] - c[o]) + Math.abs(rgba[gi + 1] - c[o + 1]) + Math.abs(rgba[gi + 2] - c[o + 2]);
+      const wt = SPACE_W((tx - x) ** 2 + (ty - y) ** 2) * COLOR_W[Math.min(765, Math.round(dc))];
+      sw += wt;
+      sv += wt * a[ty * w + tx];
+    }
+  }
+  return sw > 1e-6 ? sv / sw : bilin(a, w, h, x, y);
+}
+
+/** The person mask (frame-sized, mw×mh) at frame pixel (px, py), guided by the crop image. */
+function jbuMask(m, roi, W, H, px, py, rgba, S, c, o) {
+  const mx = (px / W) * m.mw - 0.5, my = (py / H) * m.mh - 0.5;
+  const x0 = Math.floor(mx), y0 = Math.floor(my);
+  // Well inside or well outside the person: nothing to sharpen.
+  if (x0 >= 0 && y0 >= 0 && x0 + 1 < m.mw && y0 + 1 < m.mh) {
+    const i = y0 * m.mw + x0, k = m.mask;
+    const lo = Math.min(k[i], k[i + 1], k[i + m.mw], k[i + m.mw + 1]), hi = Math.max(k[i], k[i + 1], k[i + m.mw], k[i + m.mw + 1]);
+    if (lo > 0.97 || hi < 0.03) return bilin(k, m.mw, m.mh, mx, my);
+  }
+  let sw = 0, sv = 0;
+  for (let ty = y0 - 1; ty <= y0 + 2; ty++) {
+    if (ty < 0 || ty >= m.mh) continue;
+    for (let tx = x0 - 1; tx <= x0 + 2; tx++) {
+      if (tx < 0 || tx >= m.mw) continue;
+      // Where this mask sample sits in the crop image (outside it, no colour guidance).
+      const u = (((tx + 0.5) / m.mw) * W - roi.x0) / roi.size, v = (((ty + 0.5) / m.mh) * H - roi.y0) / roi.size;
+      let wc = 0.4;
+      if (u >= 0 && v >= 0 && u < 1 && v < 1) {
+        const gi = (Math.floor(v * S) * S + Math.floor(u * S)) * 4;
+        wc = COLOR_W[Math.min(765, Math.round(Math.abs(rgba[gi] - c[o]) + Math.abs(rgba[gi + 1] - c[o + 1]) + Math.abs(rgba[gi + 2] - c[o + 2])))];
+      }
+      const wt = SPACE_W((tx - mx) ** 2 + (ty - my) ** 2) * wc;
+      sw += wt;
+      sv += wt * m.mask[ty * m.mw + tx];
+    }
+  }
+  return sw > 1e-6 ? sv / sw : bilin(m.mask, m.mw, m.mh, mx, my);
+}
+
 const smoothstep = (a, b, v) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -331,15 +398,27 @@ function build(m, disp, dw, dh, rgba) {
   const n = G * G;
   const dG = new Float32Array(n), mG = new Float32Array(n), cG = new Float32Array(n * 3), zG = new Float32Array(n);
   const cell = roi.size / G;
+  // "Flat" for the edge-aware depth: 1.5% of the map's range between neighbouring samples.
+  let flat = 0;
+  if (opts.edge) {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < disp.length; i += 7) { const v = disp[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    flat = (hi - lo) * 0.015;
+  }
   for (let j = 0; j < G; j++) {
     const v = (j + 0.5) / G;
     for (let i = 0; i < G; i++) {
       const u = (i + 0.5) / G;
       const k = j * G + i;
-      dG[k] = bilin(disp, dw, dh, u * dw - 0.5, v * dh - 0.5);
       const px = roi.x0 + u * roi.size, py = roi.y0 + v * roi.size;
-      mG[k] = bilin(m.mask, m.mw, m.mh, (px / W) * m.mw - 0.5, (py / H) * m.mh - 0.5);
       bilinRGB(rgba, S, u * S - 0.5, v * S - 0.5, cG, k * 3);
+      if (opts.edge) {
+        dG[k] = jbuDepth(disp, dw, dh, u * dw - 0.5, v * dh - 0.5, rgba, S, cG, k * 3, flat);
+        mG[k] = jbuMask(m, roi, W, H, px, py, rgba, S, cG, k * 3);
+      } else {
+        dG[k] = bilin(disp, dw, dh, u * dw - 0.5, v * dh - 0.5);
+        mG[k] = bilin(m.mask, m.mw, m.mh, (px / W) * m.mw - 0.5, (py / H) * m.mh - 0.5);
+      }
     }
   }
   if (fit) {

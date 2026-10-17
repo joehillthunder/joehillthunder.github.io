@@ -50,6 +50,15 @@
   button.chip:hover { color: var(--text); border-color: rgba(95, 212, 255, 0.4); }
   .toast .btn { margin-left: 10px; padding: 4px 12px; }
   .snapOnly { display: none !important; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+  .pick { text-align: left; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; color: var(--text); font: inherit; cursor: pointer; }
+  .pick b { display: block; font-size: 13px; font-weight: 600; }
+  .pick span { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .pick:hover { border-color: rgba(95, 212, 255, 0.45); }
+  .pick.on { border-color: var(--accent); background: rgba(95, 212, 255, 0.12); }
+  .card.wide { width: min(760px, 100%); }
+  .card h3.sec { margin: 18px 0 2px; font-size: 15px; }
+  .caption { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); max-width: calc(100vw - 32px); text-align: center; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: #9fd8ff; text-shadow: 0 0 12px rgba(95, 180, 255, 0.7); pointer-events: none; }
   body.snapshot .snapOnly { display: inline-flex !important; }
   .chip.snap { color: #ffd27a; border-color: rgba(255, 210, 122, 0.45); font-weight: 600; }
   .engines { display: grid; gap: 12px; margin-top: 14px; }
@@ -156,6 +165,7 @@
 </div>
 
 <div class="center" id="waiting" hidden><p>Reconstructing…</p></div>
+<div class="caption" id="caption" hidden></div>
 <div class="notice" id="snapBusy" hidden><span id="snapBusyText"></span></div>
 <div class="notice" id="noface" hidden>Looking for a face: face the camera, with your head and shoulders in frame</div>
 
@@ -188,6 +198,8 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 12a8 8 0 1 1-2.3-5.7L4 10"/></svg>Reset</button>
   <label class="depthCtl">3D depth <input type="range" id="rngDepth" min="0.2" max="2" step="0.05" value="1"></label>
   <span class="sep"></span>
+  <button class="btn" id="btnLook" title="Avatars, backgrounds, experiences and detail (Y)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="9" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/><path d="M18 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg>Look</button>
   <button class="btn" id="btnSnap" title="3D snapshot with a bigger model: Apple SHARP or Immersity AI (T)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Snapshot</button>
   <button class="btn primary snapOnly" id="btnLive" title="Back to the live reconstruction (L)">
@@ -274,6 +286,34 @@
   </div>
 </div>
 
+<!-- Look -->
+<div class="overlay dialog" id="lookDlg" hidden>
+  <div class="card wide">
+    <h2>Look</h2>
+    <p>Turn the caller into an avatar, put them somewhere else, or both. Backgrounds put things behind <i>and</i> in front of the caller, so on a 3D display they come out of the glass.</p>
+    <h3 class="sec">Experiences</h3>
+    <p class="fine" style="margin-top:2px">Homages in look and mood only: no characters, logos, music or quotes. You bring the performance. <kbd>X</kbd> cycles.</p>
+    <div class="picks" id="expGrid"></div>
+    <h3 class="sec">Avatars and filters</h3>
+    <p class="fine" style="margin-top:2px">Filters restyle your live 3D self. The 3D avatars follow your head, blinks and jaw. <kbd>V</kbd> cycles.</p>
+    <div class="picks" id="lookGrid"></div>
+    <h3 class="sec">Backgrounds</h3>
+    <p class="fine" style="margin-top:2px"><kbd>G</kbd> cycles.</p>
+    <div class="picks" id="bgGrid"></div>
+    <h3 class="sec">Detail</h3>
+    <p class="fine" style="margin-top:2px">More splats per frame, with edge-aware upsampling of depth and the person mask so hair and edges stay crisp. Higher detail lowers the frame rate.</p>
+    <div class="row" style="margin-top:8px">
+      <select id="selDetail" aria-label="Detail">
+        <option value="1">1× (standard)</option>
+        <option value="1.5">1.5× upsampled</option>
+        <option value="2">2× upsampled</option>
+        <option value="3">3× upsampled (max 512²)</option>
+      </select>
+    </div>
+    <div class="row"><button class="btn" data-close>Close</button></div>
+  </div>
+</div>
+
 <!-- Snapshot -->
 <div class="overlay dialog" id="snapDlg" hidden>
   <div class="card">
@@ -314,7 +354,7 @@
       <li><b>Scale:</b> the iris (about 11.7 mm across) gives the camera distance, and a least-squares fit to the landmark depths turns the network's output into metres, every frame.</li>
       <li><b>Splat:</b> each pixel becomes a flat Gaussian spanning its cell, oriented by the surface. A mirrored back layer gives the head volume, and a temporal filter keeps still regions steady.</li>
     </ul>
-    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live</p>
+    <p><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset · <kbd>B</kbd> volume · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> quality · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live · <kbd>Y</kbd> look · <kbd>V</kbd> avatar · <kbd>G</kbd> background · <kbd>X</kbd> experience</p>
     <p class="fine">After <a href="https://microsoft.github.io/VoluMe/" target="_blank" rel="noopener">VoluMe: Authentic 3D Video Calls from Live Gaussian Splat Prediction</a> (Microsoft, 2025). Uses <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" target="_blank" rel="noopener">Depth Anything V2</a> and <a href="https://github.com/ByteDance-Seed/Depth-Anything-3" target="_blank" rel="noopener">Depth Anything 3</a> (Small: Apache-2.0; V2 Base: CC BY-NC 4.0), <a href="https://github.com/apple/ml-sharp" target="_blank" rel="noopener">Apple SHARP</a> (research licence) and <a href="https://www.immersity.ai/" target="_blank" rel="noopener">Immersity AI</a> for snapshots, <a href="https://ai.google.dev/edge/mediapipe" target="_blank" rel="noopener">MediaPipe</a>, transformers.js, three.js, PeerJS and the DisplayXR inline-3D SDK.</p>
     <div class="row"><button class="btn" data-close>Close</button></div>
   </div>

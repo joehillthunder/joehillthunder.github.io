@@ -76,6 +76,48 @@ replaces the live one until **Live** / **L**.
 - **Splatter Image**, **DepthSplat**, **TRELLIS**: single/multi-view Gaussian reconstruction;
   object-centric or offline.
 
+## Looks, backgrounds, experiences, detail (`looks.js`, `scenes.js`)
+
+The **Look** button (<kbd>Y</kbd>) opens one dialog with four parts.
+
+- **Avatars and filters** (`LOOKS`, <kbd>V</kbd>, `?look=`):
+  - *Filters* are splat shader styles (`splats.js` `uStyle`): hologram, transporter beam (the caller
+    materialises over 2.6 s via `uBeam`), cel toon, yellow toon (skin detected in HSV → yellow),
+    stone age, portal acid, neon 1985, voxel (positions snapped to 9 mm, isotropic covariance,
+    square falloff in the fragment shader) and gold statue. The caller stays their live 3D self.
+  - *3D avatars* (robot, alien, astronaut helmet) are three.js primitives driven by `FaceRig`,
+    which reads MediaPipe's `facialTransformationMatrixes` and `faceBlendshapes` (enabled in
+    `perception.js`). It mirrors the pose for local cameras (`S R S`, S = diag(−1, 1, 1)) and
+    swaps the blink sides. Robot and alien set `hideHead`, so the splat shader drops splats in an
+    ellipsoid around the head centre (world origin) and the real shoulders stay.
+- **Backgrounds** (`SCENES`, <kbd>G</kbd>, `?bg=`): studio, hologram hold, holodeck grid, warp
+  speed, year 3000 city, cartoon suburb, stone age, portal lab, neon 1985, deep space.
+  - Each has far, mid and **foreground** layers (particles, clouds, sparks, boulders, a flying car,
+    asteroids, warp streaks) in front of the caller, so they come out of the glass on the panel.
+  - The splats draw with depth testing off at renderOrder 10, so foreground pieces must use
+    renderOrder 20 (`fg()` in scenes.js). Avatar glass uses 30.
+  - Keep scenery within ~16 m (the sky spheres are 16 m). On the Leia panel the runtime picks the
+    eye frustums' far plane; in 2D, `stage.js` sets far ≥ 40 m.
+  - A scene's `userData.tick(t, dt)` animates it.
+- **Experiences** (`EXPERIENCES`, <kbd>X</kbd>, `?exp=`): a scene + a look + framing + a caption.
+  - message (Star Wars homage): a small blue hologram on a projector, with the subject group
+    scaled 0.42.
+  - holodeck (Star Trek homage), year3000 (Futurama), sitcom (The Simpsons), stone (The
+    Flintstones), portal (Rick and Morty) and time1985 (Back to the Future).
+  - These are **homages in look and mood only**: no characters, logos, music or quotes, because
+    the page is public. Keep it that way when adding more.
+- **Detail** (`?detail=1|1.5|2|3`): the splat grid is `G × detail`, capped at 512² (about 500k
+  splats). `ensureCapacity()` rebuilds the live cloud bigger when needed.
+  - Above 1×, the worker upsamples depth and the person mask with **joint bilateral
+    upsampling** guided by the crop image (`jbuDepth`, `jbuMask`). It runs only where
+    neighbouring samples disagree (depth edges, the silhouette); smooth cells use bilinear.
+  - Measured with the sample clip: 1× about 24 fps, 2× about 10 fps (build about 70 ms), 3×
+    about 7 fps.
+- **The subject group** holds the live splats, the snapshot splats and any avatar. An
+  experience can scale or move it, so `camPose()` returns the camera in the subject's space for
+  sorting.
+- In a call, looks and backgrounds apply on the viewer's side, to the person they're viewing.
+
 ## Coordinates
 
 Worker output is world space in metres. The head centre (between the eyes, 7 cm behind them) is at

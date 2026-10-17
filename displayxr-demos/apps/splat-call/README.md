@@ -40,6 +40,16 @@ pip install -r helper/requirements.txt
 python helper/splat_helper.py            # --mock-sharp --mock-immersity to try it without either
 ```
 
+**Look** (<kbd>Y</kbd>) changes how the call looks:
+- **Avatars and filters:** 13 options. Filters restyle your live 3D self (hologram, transporter
+  beam, cel toon, yellow toon, stone age, portal acid, neon 1985, voxel, gold statue). The robot,
+  alien and astronaut-helmet avatars are 3D heads that follow your head, blinks and jaw.
+- **Backgrounds:** 10 scenes, each with pieces in front of you that come out of the glass.
+- **Experiences:** themed presets that are homages to Star Wars (a hologram message on a
+  projector), Star Trek, Futurama, The Simpsons, The Flintstones, Rick and Morty and Back to the
+  Future. They copy the look and mood only, with no characters, logos, music or quotes.
+- **Detail:** up to 3× more splats, with edge-aware upsampling.
+
 ## Use it
 
 | Source | How |
@@ -51,10 +61,11 @@ python helper/splat_helper.py            # --mock-sharp --mock-immersity to try 
 
 Keys: <kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom · <kbd>R</kbd> reset ·
 <kbd>B</kbd> volume (back layer) · <kbd>D</kbd> depth colours · <kbd>S</kbd> sway ·
-<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live.
+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> Fast / HQ / Ultra · <kbd>P</kbd> self view · <kbd>C</kbd> cameras · <kbd>T</kbd> snapshot · <kbd>L</kbd> back to live ·
+<kbd>Y</kbd> look · <kbd>V</kbd> avatar · <kbd>G</kbd> background · <kbd>X</kbd> experience.
 
 URL options: `?sample`, `?src=`, `?camera`, `?cam=<label>`, `?join=<code>`, `?q=fast|hq|ultra`,
-`?model=small|da3s|base`, `?helper=<url>`, `?scene=1` (SHARP keeps the whole scene), `?fov=<deg>`, `?back=0`, `?depthcolor`, `?sway` / `?nosway`, `?depth=<gain>`.
+`?model=small|da3s|base`, `?look=<id>`, `?bg=<id>`, `?exp=<id>`, `?detail=1|1.5|2|3`, `?helper=<url>`, `?scene=1` (SHARP keeps the whole scene), `?fov=<deg>`, `?back=0`, `?depthcolor`, `?sway` / `?nosway`, `?depth=<gain>`.
 
 ## Licences
 
