@@ -7,6 +7,7 @@ let depth = new Float32Array(0);
 let keys = new Uint32Array(0);
 let buckets = new Uint16Array(0);
 const counts = new Uint32Array(65536);
+const depthRange = [0, 0];
 
 const MIN_ALPHA = 1 / 255;
 const MIN_TEMPORAL = 0.05; // 4DV's own TEMPORAL_FILTER_MIN_OPACITY
@@ -81,6 +82,17 @@ function sort(seg, t, cam, dir, out) {
     buckets[k] = b;
     counts[b]++;
   }
+  // The 5th and 95th percentile depths, for the stereo depth budget.
+  let acc = 0, near = lo, far = hi;
+  const qFar = n * 0.05, qNear = n * 0.95;
+  let gotFar = false;
+  for (let b = 0; b < 65536; b++) {
+    acc += counts[b];
+    if (!gotFar && acc >= qFar) { far = hi - (b / 65535) * (hi - lo); gotFar = true; }
+    if (acc >= qNear) { near = hi - (b / 65535) * (hi - lo); break; }
+  }
+  depthRange[0] = near;
+  depthRange[1] = far;
   let sum = 0;
   for (let b = 0; b < 65536; b++) {
     const c = counts[b];
@@ -119,6 +131,6 @@ self.onmessage = (e) => {
     if (out.length < seg.N) out = new Float32Array(seg.N);
     const t0 = performance.now();
     const count = sort(seg, m.t, m.cam, m.dir, out);
-    self.postMessage({ type: 'sorted', key: m.key, count, ms: performance.now() - t0, buf: out.buffer }, [out.buffer]);
+    self.postMessage({ type: 'sorted', key: m.key, count, ms: performance.now() - t0, near: depthRange[0], far: depthRange[1], buf: out.buffer }, [out.buffer]);
   }
 };

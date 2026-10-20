@@ -1,6 +1,9 @@
 // One decoded 4DV segment on the GPU: an instanced quad per splat, data in textures, drawn back to
 // front in the order the sort worker hands over. The temporal model (position = mean + v·dt,
 // opacity × exp(−½ dt²/σt²)) runs in the vertex shader, so playback between sorts stays smooth.
+// Colour is the DC term plus spherical-harmonic bands 1..3 from the clip's shared codebook,
+// evaluated per eye from that eye's own position, as 4DV.ai's viewer does. The footprint and the
+// opacity-adaptive cut-off (√(2 ln(α/α_min)), at most 3.33σ) follow 4DV.ai's rasteriser too.
 
 import * as THREE from 'three';
 
@@ -14,6 +17,9 @@ uniform sampler2D tVel;
 uniform sampler2D tCovA;
 uniform sampler2D tCovB;
 uniform sampler2D tColor;
+uniform sampler2D tLabel;
+uniform sampler2D tSh;
+uniform int uShK; // SH coefficients per channel beyond DC: 0, 3, 8 or 15
 uniform int uTexW;
 uniform float uTime;
 uniform vec2 uViewport;
@@ -22,6 +28,38 @@ uniform float uSplatScale;
 in float splatIndex;
 out vec4 vColor;
 out vec2 vPos;
+flat out float vCut2;
+
+const float MIN_ALPHA = 1.0 / 255.0;
+
+vec3 coeff(int base, int c) {
+  int i = base + c;
+  return texelFetch(tSh, ivec2(i % (64 * uShK), i / (64 * uShK)), 0).rgb;
+}
+
+// 4DV.ai's sh_coeffs_to_color_fast, bands 1..3, dir from the eye to the splat in the splats' frame.
+vec3 shColor(int label, vec3 dir) {
+  vec3 n = normalize(dir);
+  float x = n.x, y = n.y, z = n.z;
+  int b = label * uShK; // entry e, coefficient c = pixel e·k + c of a 64·k-wide image
+  vec3 r = 0.48860252 * (-y * coeff(b, 0) + z * coeff(b, 1) - x * coeff(b, 2));
+  if (uShK < 8) return r;
+  float z2 = z * z;
+  float t0 = -1.0925485 * z;
+  float c1 = x * x - y * y;
+  float s1 = 2.0 * x * y;
+  r += 0.54627424 * s1 * coeff(b, 3) + t0 * y * coeff(b, 4) + (0.9461747 * z2 - 0.31539157) * coeff(b, 5)
+     + t0 * x * coeff(b, 6) + 0.54627424 * c1 * coeff(b, 7);
+  if (uShK < 15) return r;
+  float t0c = -2.285229 * z2 + 0.4570458;
+  float t1b = 1.4453057 * z;
+  float c2 = x * c1 - y * s1;
+  float s2 = x * s1 + y * c1;
+  r += -0.5900436 * s2 * coeff(b, 8) + t1b * s1 * coeff(b, 9) + t0c * y * coeff(b, 10)
+     + z * (1.8658817 * z2 - 1.119529) * coeff(b, 11) + t0c * x * coeff(b, 12) + t1b * c1 * coeff(b, 13)
+     - 0.5900436 * c2 * coeff(b, 14);
+  return r;
+}
 
 void main() {
   gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
@@ -32,9 +70,10 @@ void main() {
   vec4 col = texelFetch(tColor, uv, 0);
   float dt = uTime - pt.w;
   float alpha = col.a * exp(-0.5 * dt * dt * vl.w);
-  if (alpha < 1.0 / 255.0) return;
+  if (alpha < MIN_ALPHA) return;
 
-  vec4 cam = modelViewMatrix * vec4(pt.xyz + vl.xyz * dt, 1.0);
+  vec3 p = pt.xyz + vl.xyz * dt;
+  vec4 cam = modelViewMatrix * vec4(p, 1.0);
   vec4 clip = projectionMatrix * cam;
   float bound = 1.2 * clip.w;
   if (clip.w <= 0.0 || abs(clip.x) > bound || abs(clip.y) > bound) return;
@@ -60,13 +99,23 @@ void main() {
   // Major-axis angle of [[a b] [b d]].
   float theta = 0.5 * atan(2.0 * b, (a - d) + 1e-9);
   vec2 dir = vec2(cos(theta), sin(theta));
-  vec2 major = min(sqrt(2.0 * l1), 1024.0) * dir;
-  vec2 minor = min(sqrt(2.0 * l2), 1024.0) * vec2(-dir.y, dir.x);
+  // Out to where this splat's Gaussian falls below 1/255: 3.33σ when opaque, less when faint.
+  float cut = sqrt(2.0 * log(alpha / MIN_ALPHA));
+  vec2 major = min(cut * sqrt(l1), 2048.0) * dir;
+  vec2 minor = min(cut * sqrt(l2), 2048.0) * vec2(-dir.y, dir.x);
 
-  vPos = position.xy * 2.0;
-  vec2 px = vPos.x * major + vPos.y * minor;
+  vPos = position.xy * cut; // in σ units
+  vCut2 = cut * cut;
+  vec2 px = position.x * major + position.y * minor;
   gl_Position = clip + vec4(px / uViewport * 2.0 * clip.w, 0.0, 0.0);
-  vColor = vec4(col.rgb, alpha);
+
+  vec3 rgb = col.rgb;
+  if (uShK > 0) {
+    // The eye in the splats' own frame (the root is a rigid transform).
+    vec3 eye = transpose(mat3(modelMatrix)) * (cameraPosition - modelMatrix[3].xyz);
+    rgb += shColor(int(texelFetch(tLabel, uv, 0).r + 0.5), p - eye);
+  }
+  vColor = vec4(max(rgb, 0.0), alpha);
 }
 `;
 
@@ -74,11 +123,12 @@ const fragmentShader = /* glsl */ `
 precision highp float;
 in vec4 vColor;
 in vec2 vPos;
+flat in float vCut2;
 out vec4 fragColor;
 void main() {
   float r2 = dot(vPos, vPos);
-  if (r2 > 4.0) discard;
-  float a = exp(-r2) * vColor.a;
+  if (r2 > vCut2) discard;
+  float a = exp(-0.5 * r2) * vColor.a;
   if (a < 1.0 / 255.0) discard;
   fragColor = vec4(vColor.rgb * a, a);
 }
@@ -103,7 +153,9 @@ export class SplatSegment {
       dataTexture(data.velT, texW, rows, THREE.RGBAFormat, THREE.FloatType),
       dataTexture(data.covA, texW, rows, THREE.RGBAFormat, THREE.HalfFloatType),
       dataTexture(data.covB, texW, rows, THREE.RGFormat, THREE.HalfFloatType),
-      dataTexture(data.color, texW, rows, THREE.RGBAFormat, THREE.UnsignedByteType),
+      dataTexture(data.colorH, texW, rows, THREE.RGBAFormat, THREE.HalfFloatType),
+      data.sh ? dataTexture(data.sh.labels, texW, rows, THREE.RedFormat, THREE.FloatType) : dataTexture(new Float32Array(1), 1, 1, THREE.RedFormat, THREE.FloatType),
+      data.sh ? dataTexture(data.sh.book, data.sh.w, data.sh.h, THREE.RGBAFormat, THREE.HalfFloatType) : dataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType),
     ];
     const geo = new THREE.InstancedBufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
@@ -113,13 +165,14 @@ export class SplatSegment {
     geo.setAttribute('splatIndex', this.index);
     geo.instanceCount = 0;
     this.geometry = geo;
-    const [tPosT, tVel, tCovA, tCovB, tColor] = this.textures;
+    const [tPosT, tVel, tCovA, tCovB, tColor, tLabel, tSh] = this.textures;
     this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader,
       fragmentShader,
       uniforms: {
         tPosT: { value: tPosT }, tVel: { value: tVel }, tCovA: { value: tCovA }, tCovB: { value: tCovB }, tColor: { value: tColor },
+        tLabel: { value: tLabel }, tSh: { value: tSh }, uShK: { value: data.sh ? data.sh.k : 0 },
         uTexW: { value: texW },
         uTime: { value: 0 },
         uViewport: { value: new THREE.Vector2(1, 1) },

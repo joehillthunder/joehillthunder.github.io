@@ -9,8 +9,11 @@
 //   covar      six 14-bit values, low bytes in covar_0/1 RGB and high 6 bits in covar_2/3 RGB:
 //              the upper triangle of L = logm(Σ). Σ = expm(L), via a symmetric eigensolve.
 //   sh0        10-bit (sh0_u << 8 | sh0_l): RGB = the DC colour coefficient, A = linear opacity
+//   shN        view-dependent colour (spherical harmonics bands 1..3, k = 3/8/15 coefficients): a shared
+//              codebook of `count` entries, 64 entries per row of k pixels each, RGB = channel, 10-bit
+//              ((u & 3) << 8 | l) / 1023 · 8 − 4; shN_labels R | G << 8 = the splat's codebook entry.
+//              (shN_mask/shN_res carry per-splat corrections for ≤ 5% of splats; not applied.)
 // At time t a splat sits at mean + motion·(t − time) with opacity × exp(−½ (t − time)² / σt²).
-// The shN (view-dependent colour) codebook is not decoded: DC colour only.
 
 import { Zip } from './zip.js';
 
@@ -154,7 +157,8 @@ async function decodeSegment(seg, onStage) {
   const velT = new Float32Array(T * 4); // xyz = velocity, w = 1/σt²
   const covA = new Uint16Array(T * 4); // half: s00 s01 s02 s11 (×COV_SCALE)
   const covB = new Uint16Array(T * 2); // half: s12 s22
-  const color = new Uint8Array(T * 4); // sRGB-ish DC colour + opacity
+  const color = new Uint8Array(T * 4); // DC colour + opacity, 8-bit (the sort worker and framing read alpha)
+  const colorH = new Uint16Array(T * 4); // half: unclamped DC colour + opacity, for the GPU
 
   // means
   {
@@ -194,9 +198,13 @@ async function decodeSegment(seg, onStage) {
       const j = i * 4;
       for (let c = 0; c < 3; c++) {
         const dc = r[c][0] + (((su[j + c] & 3) << 8 | sl[j + c]) / 1023) * r[c][1];
-        color[j + c] = Math.max(0, Math.min(255, Math.round((0.5 + SH_C0 * dc) * 255)));
+        const v = 0.5 + SH_C0 * dc;
+        color[j + c] = Math.max(0, Math.min(255, Math.round(v * 255)));
+        colorH[j + c] = toHalf(v);
       }
-      color[j + 3] = Math.round((((su[j + 3] & 3) << 8 | sl[j + 3]) / 1023) * 255);
+      const a = Math.min(1 - 1e-6, Math.max(1e-6, ((su[j + 3] & 3) << 8 | sl[j + 3]) / 1023));
+      color[j + 3] = Math.round(a * 255);
+      colorH[j + 3] = toHalf(a);
     }
   }
   // covariance
@@ -224,6 +232,27 @@ async function decodeSegment(seg, onStage) {
     }
   }
 
+  // view-dependent colour: codebook + per-splat labels
+  let sh = null;
+  if (meta.shN?.files?.length >= 3 && meta.shN.bands >= 1) {
+    const k = (meta.shN.bands + 1) ** 2 - 1;
+    const [cl, cu, lab] = [
+      await img(meta.shN.files[0], 'Lighting'), await img(meta.shN.files[1], 'Lighting'), await img(meta.shN.files[2], 'Lighting'),
+    ];
+    const entries = meta.shN.count;
+    const w = 64 * k;
+    const h = Math.ceil(entries / 64);
+    if (cl.length < w * h * 4) throw new Error(`shN codebook is ${cl.length / 4} pixels, expected ${w * h}`);
+    const book = new Uint16Array(w * h * 4);
+    for (let p = 0; p < w * h; p++) {
+      const j = p * 4;
+      for (let c = 0; c < 3; c++) book[j + c] = toHalf((((cu[j + c] & 3) << 8) | cl[j + c]) / 1023 * 8 - 4);
+    }
+    const labels = new Float32Array(T);
+    for (let i = 0; i < N; i++) labels[i] = lab[i * 4] | (lab[i * 4 + 1] << 8);
+    sh = { k, w, h, book, labels };
+  }
+
   // Samples of solid splats near mid-segment, for framing: all of them, and the dynamic ones (short
   // lived or moving), which are the performers rather than the set around them.
   const mid = seg.duration / 2; // splat times are local to the segment
@@ -242,7 +271,7 @@ async function decodeSegment(seg, onStage) {
   }
   const sample = new Float32Array(dyn.length > 6000 ? dyn : all);
   const tr = [meta.time.mins[0], meta.time.maxs[0]];
-  return { N, texW: TEX_W, rows, posT, velT, covA, covB, color, sample, timeRange: tr };
+  return { N, texW: TEX_W, rows, posT, velT, covA, covB, color, colorH, sh, sample, timeRange: tr };
 }
 
 self.onmessage = async (e) => {
@@ -256,7 +285,8 @@ self.onmessage = async (e) => {
       const d = await decodeSegment(m.seg, (stage) => self.postMessage({ type: 'stage', id: m.id, stage }));
       d.ms = Math.round(performance.now() - t0);
       self.postMessage({ type: 'segment', id: m.id, index: m.index, data: d }, [
-        d.posT.buffer, d.velT.buffer, d.covA.buffer, d.covB.buffer, d.color.buffer, d.sample.buffer,
+        d.posT.buffer, d.velT.buffer, d.covA.buffer, d.covB.buffer, d.color.buffer, d.colorH.buffer, d.sample.buffer,
+        ...(d.sh ? [d.sh.book.buffer, d.sh.labels.buffer] : []),
       ]);
     }
   } catch (err) {

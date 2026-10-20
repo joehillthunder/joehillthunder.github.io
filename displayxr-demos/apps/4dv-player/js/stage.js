@@ -12,6 +12,12 @@ import { createInline3D, inline3dDisplayModesSupported } from '@displayxr/inline
 import { EyeCamera, cameraRigFromCamera } from '@displayxr/inline3d/three';
 
 const MAX_EYE_W = 2560; // per-eye backing-store cap
+// Stereo depth budget: the largest screen disparity (a fraction of the view's width) that the 5th- and
+// 95th-percentile splat depths may reach at 3D strength 1. Past about 1% the lenticular weave shows
+// double edges (crosstalk) on Leia panels, which reads as soft, ghosted, "wispy" splats.
+const DISPARITY_BUDGET = 0.012;
+const MIN_DEPTH_SHARE = 0.4; // the budget never flattens a scene below this share of its natural depth
+const EYE_SEPARATION = 0.063; // metres, at ipdFactor 1 on a camera rig
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Stage {
@@ -100,9 +106,25 @@ export class Stage {
     return true;
   }
 
+  /** Near / far depth of the visible splats (5th / 95th percentile, from the sort), smoothed. */
+  setDepthRange(near, far) {
+    const k = this.invNear ? 0.1 : 1;
+    this.invNear = (this.invNear ?? 0) * (1 - k) + k / Math.max(near, 1e-3);
+    this.invFar = (this.invFar ?? 0) * (1 - k) + k / Math.max(far, 1e-3);
+  }
+
   currentRig() {
-    // 63 mm eyes at ipdFactor 1; scale with distance so a 3 m orbit reads like a close-up.
-    const ipd = this.depthGain * clamp(this.dist / 2.2, 0.08, 4);
+    // 63 mm eyes at ipdFactor 1; scale with distance so a 3 m orbit reads like a close-up ...
+    let ipd = clamp(this.dist / 2.2, 0.08, 4);
+    // ... but never past the disparity budget at the scene's near and far depths. Disparity of a point at
+    // depth z with convergence c, as a fraction of the view width: e·|1/z − 1/c| / (2·tan(hfov/2)).
+    if (this.invNear) {
+      const inv = 1 / Math.max(0.1, this.dist);
+      const spread = Math.max(Math.abs(this.invNear - inv), Math.abs(inv - this.invFar), 1e-6);
+      const tanH = Math.tan(THREE.MathUtils.degToRad(this.cam.fov) / 2) * this.cam.aspect;
+      ipd = Math.max(ipd * MIN_DEPTH_SHARE, Math.min(ipd, (DISPARITY_BUDGET * 2 * tanH) / (EYE_SEPARATION * spread)));
+    }
+    this.ipd = ipd *= this.depthGain;
     return cameraRigFromCamera(THREE, this.cam, {
       convergence: Math.max(0.1, this.dist),
       ipdFactor: ipd,
