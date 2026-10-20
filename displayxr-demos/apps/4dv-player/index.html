@@ -30,6 +30,9 @@
   .clip { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
   .clip strong { display: block; font-size: 14px; }
   .clip span { display: block; color: var(--muted); font-size: 12px; }
+  .clip em { display: block; color: var(--accent); font-size: 11px; font-style: normal; margin-top: 2px; }
+  .clip em:empty { display: none; }
+  .group { margin: 4px 0 0; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
   .clip:hover { border-color: #33435f; }
   .clip[aria-current="true"] { border-color: var(--accent); }
   .open { display: block; margin-top: 10px; text-align: center; padding: 8px; border: 1px dashed #33435f; border-radius: 8px; cursor: pointer; color: var(--muted); }
@@ -81,9 +84,9 @@
 
 <aside id="panel" data-inline3d-overlay>
   <h1><small>DisplayXR</small>4DV Player</h1>
-  <p>4DV.ai volumetric video: real people captured as 4D Gaussian splats. Drag to walk around them while they move.</p>
+  <p>Volumetric video: real scenes captured as 4D Gaussian splats. Drag to walk around them while they move. Plays 4DV.ai <code>.4dv</code> and splaTV / Spacetime Gaussians <code>.splatv</code>.</p>
   <div id="clips"></div>
-  <label class="open">Open a .4dv file…<input id="file" type="file" accept=".4dv" hidden></label>
+  <label class="open">Open a .4dv or .splatv file…<input id="file" type="file" accept=".4dv,.splatv" hidden></label>
   <div id="info"></div>
   <div id="where" hidden></div>
   <details class="keys">

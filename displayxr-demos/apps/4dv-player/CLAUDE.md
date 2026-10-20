@@ -1,6 +1,7 @@
 # 4DV Player: rules for agents
 
-Plays 4DV.ai volumetric video (`.4dv`, 4D Gaussian splats) in the browser: woven glasses-free 3D in the
+Plays 4D Gaussian splat volumetric video in the browser (4DV.ai `.4dv` and splaTV / Spacetime Gaussians
+`.splatv`): woven glasses-free 3D in the
 DisplayXR Browser, 2D anywhere else. Plain ES modules, no build step. Served at
 https://joehillthunder.github.io/displayxr-demos/apps/4dv-player/ . Read `../../CLAUDE.md` (the
 displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` → `docs/woven-canvas-rules.md` first.
@@ -13,11 +14,11 @@ displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` �
 | `js/main.js` | UI, chunked clip downloads with progress, file open / drag-and-drop, keyboard, `window.fourdv` (debug handle). |
 | `js/stage.js` | One persistent canvas; DisplayXR camera rig (attach pattern, convergence on the orbit target, ipd scaled with distance and capped by a disparity budget, `depthGain` = the 3D slider); 2D mono loop fallback; orbit / pan / zoom / turntable. |
 | `js/player.js` | Opens a `.4dv`, streams segments (keeps 3 resident, prefetches the next), drives the sort worker, the audio-locked clock, and auto-framing from the capture cameras. |
-| `js/loader-worker.js` | Zip read + lossless WebP decode (WebGL2 `readPixels`, never a 2D canvas) + the 4dv-sog math → GPU arrays. |
+| `js/loader-worker.js` | Sniffs the format (zip = `.4dv`, magic `0x674b` = `.splatv`). `.4dv`: zip read + lossless WebP decode (WebGL2 `readPixels`, never a 2D canvas) + the 4dv-sog math. `.splatv`: header + 64-byte splats. Both → the same GPU arrays, in seconds. |
 | `js/sort-worker.js` | Per-frame temporal cull + 16-bit counting sort (back to front), from the centre camera, shared by both eyes. Time-binned index so it only scans splats alive near t. |
-| `js/splats.js` | `SplatSegment`: data textures + instanced quads; EWA projection and the temporal model in the vertex shader. |
+| `js/splats.js` | `SplatSegment`: data textures + instanced quads; EWA projection and the temporal model in the vertex shader. `uKind` 0 = `.4dv` (linear motion, fixed Σ, SH), 1 = `.splatv` (cubic motion, rotating quaternion, Σ rebuilt per frame). |
 | `js/zip.js` | Minimal Blob zip reader (stored + deflate via `DecompressionStream`). |
-| `clips/` | Sample clips as 8 MiB parts + `*.manifest.json`; `clips.json` is the list the panel shows. |
+| `clips/` | Hosted 4DV.ai clips as 8 MiB parts + `*.manifest.json`; `clips.json` is the list the panel shows (`by` = credit line; `src` = stream from a CORS URL instead of hosting). |
 
 ## The 4dv-sog format (reverse-engineered from 4DV.ai's web viewer shaders; verified on all three samples)
 
@@ -42,6 +43,24 @@ displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` �
 - **Times are local to their segment** (segment k plays global `start + t`).
 - Cameras are OpenCV (x right, y down, z forward), `x_cam = R·X + T`. Up = −R row 1; the orbit target is the
   least-squares focus of all optical axes; distance = 1.8 × the capture's own framing.
+
+## The .splatv format (splaTV, MIT; github.com/antimatter15/splaTV `hybrid.js`)
+
+- `uint32 0x674b`, `uint32 n`, `n` bytes of JSON: an array of chunks `{type, size, …}`; the bytes of each chunk
+  follow in order. The `splat` chunk has `texwidth/texheight` and `cameras` (3DGS `cameras.json` style: `position`
+  = camera centre, `rotation` = camera-to-world, OpenCV axes, `fx/fy/width/height`; one entry per frame × view).
+- 64 bytes per splat (16 uint32): f32 `x y z` · half2 `rot w,x` · half2 `rot y,z` · half2 `scale x,y` (already exp'd)
+  · half2 `scale z,_` · RGBA8 (sigmoid'd opacity) · half2×5 motion `m0..m8` · half2×2 `ω` · half2 `t_center,
+  t_scale`. Rows with alpha 0 are padding.
+- Time t ∈ [0, 1] over the clip (Spacetime Gaussians trains 50 frames at 30 fps, so D = 1.667 s unless the
+  chunk says `duration` or `frames`/`fps`). At t: `pos += m0..2·dt + m3..5·dt² + m6..8·dt³`, `q = normalize(rot +
+  ω·dt)`, opacity × `exp(−(dt/t_scale)²)` (t_scale = ∞ means always on). Converted to seconds on load.
+- Plays ping-pong (0 → D → 0, as splaTV does) via `info.pingpong`; framed from the camera wall
+  (`info.forwardFacing`: view from the rig's centre at the median splat depth, orbit limited to ±0.45 rad),
+  because these are front-facing captures with nothing modelled behind or beside.
+- Sample `.splatv` files: huggingface.co/cakewalk/splat-data (`sear`, `flame`, `birthday`), which sends CORS
+  headers, so the page streams them instead of hosting copies. Licences differ per scene: see
+  `../../assets/LICENSES.md`.
 
 ## Gotchas (each cost a debugging round)
 
@@ -70,7 +89,9 @@ no error) the moment the user's own DisplayXR Browser window takes it.
 
 ## Adding a clip
 
-Split the `.4dv` into 8 MiB parts (`split -b 8388608 -d -a 3 x.4dv x.part-`), write `x.manifest.json`
+Credit every clip with `by` in `clips.json` (4DV.ai's own clips say "4DV.ai"). Content that can stream from a
+CORS-enabled source gets `src` (+ `size` for progress) and a row in the "streamed" table of
+`../../assets/LICENSES.md`; nothing is copied into the repo. To host a `.4dv` here instead: split the `.4dv` into 8 MiB parts (`split -b 8388608 -d -a 3 x.4dv x.part-`), write `x.manifest.json`
 (`{ file, size, parts: [{ url, size }] }`), add it to `clips/clips.json`, and add a row to
 `../../assets/LICENSES.md`. Anyone can also drop or open their own `.4dv` in the page.
 

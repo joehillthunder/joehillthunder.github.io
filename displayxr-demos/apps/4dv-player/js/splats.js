@@ -4,6 +4,9 @@
 // Colour is the DC term plus spherical-harmonic bands 1..3 from the clip's shared codebook,
 // evaluated per eye from that eye's own position, as 4DV.ai's viewer does. The footprint and the
 // opacity-adaptive cut-off (√(2 ln(α/α_min)), at most 3.33σ) follow 4DV.ai's rasteriser too.
+//
+// uKind 1 is a .splatv (Spacetime Gaussians): cubic motion, a quaternion that turns over time and a
+// per-axis scale, so Σ = R S² Rᵀ is rebuilt per frame instead of read from tCovA.
 
 import * as THREE from 'three';
 
@@ -20,6 +23,11 @@ uniform sampler2D tColor;
 uniform sampler2D tLabel;
 uniform sampler2D tSh;
 uniform int uShK; // SH coefficients per channel beyond DC: 0, 3, 8 or 15
+uniform int uKind; // 0 = .4dv, 1 = .splatv
+uniform sampler2D tAcc;
+uniform sampler2D tJerk;
+uniform sampler2D tQuat;
+uniform sampler2D tOmega;
 uniform int uTexW;
 uniform float uTime;
 uniform vec2 uViewport;
@@ -73,14 +81,28 @@ void main() {
   if (alpha < MIN_ALPHA) return;
 
   vec3 p = pt.xyz + vl.xyz * dt;
+  if (uKind == 1) p += texelFetch(tAcc, uv, 0).xyz * dt * dt + texelFetch(tJerk, uv, 0).xyz * dt * dt * dt;
   vec4 cam = modelViewMatrix * vec4(p, 1.0);
   vec4 clip = projectionMatrix * cam;
   float bound = 1.2 * clip.w;
   if (clip.w <= 0.0 || abs(clip.x) > bound || abs(clip.y) > bound) return;
 
-  vec4 ca = texelFetch(tCovA, uv, 0) * 1e-4;
-  vec2 cb = texelFetch(tCovB, uv, 0).rg * 1e-4;
-  mat3 sigma = mat3(ca.x, ca.y, ca.z, ca.y, ca.w, cb.x, ca.z, cb.x, cb.y) * (uSplatScale * uSplatScale);
+  mat3 sigma;
+  if (uKind == 1) {
+    vec4 q = normalize(texelFetch(tQuat, uv, 0) + texelFetch(tOmega, uv, 0) * dt);
+    float w = q.x, x = q.y, y = q.z, zq = q.w;
+    mat3 R = mat3(
+      1.0 - 2.0 * (y * y + zq * zq), 2.0 * (x * y + w * zq), 2.0 * (x * zq - w * y),
+      2.0 * (x * y - w * zq), 1.0 - 2.0 * (x * x + zq * zq), 2.0 * (y * zq + w * x),
+      2.0 * (x * zq + w * y), 2.0 * (y * zq - w * x), 1.0 - 2.0 * (x * x + y * y));
+    vec3 sc = texelFetch(tCovA, uv, 0).xyz;
+    sigma = R * mat3(sc.x * sc.x, 0.0, 0.0, 0.0, sc.y * sc.y, 0.0, 0.0, 0.0, sc.z * sc.z) * transpose(R);
+  } else {
+    vec4 ca = texelFetch(tCovA, uv, 0) * 1e-4;
+    vec2 cb = texelFetch(tCovB, uv, 0).rg * 1e-4;
+    sigma = mat3(ca.x, ca.y, ca.z, ca.y, ca.w, cb.x, ca.z, cb.x, cb.y);
+  }
+  sigma *= uSplatScale * uSplatScale;
 
   // EWA splatting: screen covariance = J W Σ Wᵀ Jᵀ, with three's camera looking down −z.
   float fx = projectionMatrix[0][0] * uViewport.x * 0.5;
@@ -157,6 +179,9 @@ export class SplatSegment {
       data.sh ? dataTexture(data.sh.labels, texW, rows, THREE.RedFormat, THREE.FloatType) : dataTexture(new Float32Array(1), 1, 1, THREE.RedFormat, THREE.FloatType),
       data.sh ? dataTexture(data.sh.book, data.sh.w, data.sh.h, THREE.RGBAFormat, THREE.HalfFloatType) : dataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType),
     ];
+    const m = data.motion;
+    const f4 = (a) => (a ? dataTexture(a, texW, rows, THREE.RGBAFormat, THREE.FloatType) : dataTexture(new Float32Array(4), 1, 1, THREE.RGBAFormat, THREE.FloatType));
+    this.textures.push(f4(m?.acc), f4(m?.jerk), f4(m?.quat), f4(m?.omega));
     const geo = new THREE.InstancedBufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
     geo.setIndex([0, 1, 2, 0, 2, 3]);
@@ -165,7 +190,7 @@ export class SplatSegment {
     geo.setAttribute('splatIndex', this.index);
     geo.instanceCount = 0;
     this.geometry = geo;
-    const [tPosT, tVel, tCovA, tCovB, tColor, tLabel, tSh] = this.textures;
+    const [tPosT, tVel, tCovA, tCovB, tColor, tLabel, tSh, tAcc, tJerk, tQuat, tOmega] = this.textures;
     this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader,
@@ -173,6 +198,7 @@ export class SplatSegment {
       uniforms: {
         tPosT: { value: tPosT }, tVel: { value: tVel }, tCovA: { value: tCovA }, tCovB: { value: tCovB }, tColor: { value: tColor },
         tLabel: { value: tLabel }, tSh: { value: tSh }, uShK: { value: data.sh ? data.sh.k : 0 },
+        uKind: { value: data.kind ?? 0 }, tAcc: { value: tAcc }, tJerk: { value: tJerk }, tQuat: { value: tQuat }, tOmega: { value: tOmega },
         uTexW: { value: texW },
         uTime: { value: 0 },
         uViewport: { value: new THREE.Vector2(1, 1) },

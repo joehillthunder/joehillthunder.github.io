@@ -52,7 +52,7 @@ function buildIndex(seg, duration) {
 }
 
 function sort(seg, t, cam, dir, out) {
-  const { posT, velT, alpha } = seg;
+  const { posT, velT, alpha, acc, jerk } = seg;
   const [cx, cy, cz] = cam;
   const [dx, dy, dz] = dir;
   let n = 0;
@@ -64,7 +64,14 @@ function sort(seg, t, cam, dir, out) {
     const dt = t - posT[j + 3];
     const w = Math.exp(-0.5 * dt * dt * velT[j + 3]);
     if (w < MIN_TEMPORAL || w * alpha[i] < MIN_ALPHA) return;
-    const d = (posT[j] + velT[j] * dt - cx) * dx + (posT[j + 1] + velT[j + 1] * dt - cy) * dy + (posT[j + 2] + velT[j + 2] * dt - cz) * dz;
+    let px = posT[j] + velT[j] * dt, py = posT[j + 1] + velT[j + 1] * dt, pz = posT[j + 2] + velT[j + 2] * dt;
+    if (acc) {
+      const t2 = dt * dt, t3 = t2 * dt;
+      px += acc[j] * t2 + jerk[j] * t3;
+      py += acc[j + 1] * t2 + jerk[j + 1] * t3;
+      pz += acc[j + 2] * t2 + jerk[j + 2] * t3;
+    }
+    const d = (px - cx) * dx + (py - cy) * dy + (pz - cz) * dz;
     if (d <= 0) return; // behind the camera
     depth[n] = d;
     keys[n] = i;
@@ -83,13 +90,13 @@ function sort(seg, t, cam, dir, out) {
     counts[b]++;
   }
   // The 5th and 95th percentile depths, for the stereo depth budget.
-  let acc = 0, near = lo, far = hi;
+  let cum = 0, near = lo, far = hi;
   const qFar = n * 0.05, qNear = n * 0.95;
   let gotFar = false;
   for (let b = 0; b < 65536; b++) {
-    acc += counts[b];
-    if (!gotFar && acc >= qFar) { far = hi - (b / 65535) * (hi - lo); gotFar = true; }
-    if (acc >= qNear) { near = hi - (b / 65535) * (hi - lo); break; }
+    cum += counts[b];
+    if (!gotFar && cum >= qFar) { far = hi - (b / 65535) * (hi - lo); gotFar = true; }
+    if (cum >= qNear) { near = hi - (b / 65535) * (hi - lo); break; }
   }
   depthRange[0] = near;
   depthRange[1] = far;
@@ -106,10 +113,10 @@ function sort(seg, t, cam, dir, out) {
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'segment') {
-    const { N, posT, velT, color } = m;
+    const { N, posT, velT, color, acc, jerk } = m;
     const alpha = new Float32Array(N);
     for (let i = 0; i < N; i++) alpha[i] = color[i * 4 + 3] / 255;
-    const seg = { N, posT, velT, alpha };
+    const seg = { N, posT, velT, alpha, acc, jerk };
     buildIndex(seg, m.duration);
     segs.set(m.key, seg);
     if (depth.length < N) {

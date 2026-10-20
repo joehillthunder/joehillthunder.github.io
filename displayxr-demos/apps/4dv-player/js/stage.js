@@ -134,14 +134,15 @@ export class Stage {
   }
 
   /** Aim the orbit: target point, distance, yaw/pitch in radians. */
-  setView({ target, dist, yaw = 0, pitch = 0 }) {
+  setView({ target, dist, yaw = 0, pitch = 0, orbitLimit = null }) {
+    this.orbitLimit = orbitLimit; // radians either side of home, for forward-facing captures
     this.target.copy(target);
     this.dist = dist;
     this.yaw = yaw;
     this.pitch = pitch;
     this.minDist = dist * 0.15;
     this.maxDist = dist * 4;
-    this.home = { target: target.clone(), dist, yaw, pitch };
+    this.home = { target: target.clone(), dist, yaw, pitch, orbitLimit };
   }
 
   resetView() {
@@ -149,7 +150,11 @@ export class Stage {
   }
 
   updateCamera(dt) {
-    if (this.turntable && !this.dragging) this.yaw += dt * 0.35;
+    if (this.turntable && !this.dragging) {
+      // A forward-facing capture sways within its limit instead of spinning.
+      this.turnPhase = (this.turnPhase ?? 0) + dt * 0.35;
+      this.yaw = this.orbitLimit ? Math.sin(this.turnPhase) * this.orbitLimit : this.yaw + dt * 0.35;
+    }
     const cp = Math.cos(this.pitch);
     this.cam.position.set(
       this.target.x + Math.sin(this.yaw) * cp * this.dist,
@@ -184,6 +189,10 @@ export class Stage {
       } else {
         this.yaw -= dx * 0.006;
         this.pitch = clamp(this.pitch + dy * 0.006, -1.4, 1.4);
+        if (this.orbitLimit) {
+          this.yaw = clamp(this.yaw, -this.orbitLimit, this.orbitLimit);
+          this.pitch = clamp(this.pitch, -this.orbitLimit * 0.6, this.orbitLimit * 0.6);
+        }
       }
     });
     const end = () => { last = null; this.dragging = false; };
