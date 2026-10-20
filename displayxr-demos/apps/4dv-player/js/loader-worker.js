@@ -299,10 +299,13 @@ function openRemote(clip) {
 }
 
 async function readPlyHeader(blob) {
-  const head = new Uint8Array(await blob.slice(0, 16384).arrayBuffer());
-  const text = new TextDecoder('latin1').decode(head);
-  const end = text.indexOf('end_header\n');
-  if (end < 0) throw new Error('PLY header not found.');
+  // Headers can be large (some 4DV.ai files carry every capture camera as comments): read until end_header.
+  let text = '', end = -1;
+  for (let n = 65536; end < 0; n *= 4) {
+    text = new TextDecoder('latin1').decode(new Uint8Array(await blob.slice(0, n).arrayBuffer()));
+    end = text.indexOf('end_header\n');
+    if (end < 0 && n >= blob.size) throw new Error('PLY header not found.');
+  }
   const elements = [];
   for (const line of text.slice(0, end).split('\n')) {
     const w = line.trim().split(/\s+/);

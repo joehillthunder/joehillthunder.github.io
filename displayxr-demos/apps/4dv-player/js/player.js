@@ -98,7 +98,7 @@ export class Player extends EventTarget {
     if (this.segs.has(i)) return Promise.resolve(this.segs.get(i));
     if (this.loading.has(i)) return this.loading.get(i);
     const segInfo = this.info.segments[i];
-    const p = this.call({ type: 'segment', seg: segInfo, index: i }, [], (s) => onStage(`Decoding ${s.toLowerCase()}`)).then((m) => {
+    const p = this.call({ type: 'segment', seg: segInfo, index: i }, [], (s) => onStage(s.startsWith('Downloading') ? s : `Decoding ${s.toLowerCase()}`)).then((m) => {
       this.loading.delete(i);
       if (gen !== this.generation) return null;
       const d = m.data;
