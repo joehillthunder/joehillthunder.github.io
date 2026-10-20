@@ -18,6 +18,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 4. Future Media (quad 2, right): Stereo Splat, 4DV Player, Splat Call 3D, Music Visualizer. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
 5. Creator Tools (quad 3, left): Material Forge, Vehicle Studio, Terra Studio. All three are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`.
 6. Spatial UI (quad 3, right): Future OS Lab, Dual View, Leia Spatial. Leia Spatial is `displayxr-demos/apps/leia-spatial/` at the user's request.
+
 ## Adding a demo
 1. Add an entry to the right category in `home/demos.js`, with a short `tagline`. If a quadrant passes ~7 rooms, move a small wing to a lighter quadrant.
 2. Add a `BUILD['<id>']` set piece in `home/office.js`. Without one, the room only gets desks.
