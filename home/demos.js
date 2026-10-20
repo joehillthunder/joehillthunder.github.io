@@ -68,6 +68,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-street-brawl',
         chatter: ['Rising Flame, KO!', 'Down plus special for the uppercut', 'Stage 9: Oni Kaze is brutal', 'That POW came right out of the glass'],
       },
+      {
+        id: '3d-games',
+        name: '3D Game Guide',
+        tagline: 'The best commercial games in glasses-free 3D.',
+        desc: 'A guide to the best games in glasses-free 3D: top 20 picks, the full Acer TrueGame and Samsung Odyssey 3D libraries, and playable 3D tribute pages for Tekken 8, Elden Ring and Diablo III.',
+        url: 'displayxr-demos/apps/3d-games/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/3d-games',
+        chatter: ['Tekken 8 just got 3D Ultra', 'Elden Ring leaves, right past the glass', 'Isometric means diorama', 'No Diablo II profile yet'],
+      },
     ],
   },
   {

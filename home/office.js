@@ -945,6 +945,42 @@ const BUILD = {
       screen.material.emissiveIntensity = 0.7 + Math.abs(Math.sin(t * 6)) * 0.6;
     });
   },
+  '3d-games'(g) {
+    // A 3D game shop: a shelf of game boxes, and three plinths whose holograms (a fist, a golden
+    // tree, a flame) stand for the Tekken 8, Elden Ring and Diablo III pages.
+    box(g, 3.8, 1.5, 0.35, '#2a1e33', 0, 0, -0.75);
+    const spines = ['#d02a1a', '#f5c451', '#3ab0ff', '#6fe0a4', '#c08bff', '#ff7ab8', '#ff8a33', '#e8e8f0'];
+    for (let row = 0; row < 3; row++) {
+      box(g, 3.7, 0.04, 0.32, '#3d2c4a', 0, 0.12 + row * 0.47, -0.6);
+      for (let i = 0; i < 16; i++) box(g, 0.16, 0.34, 0.24, spines[(i * 3 + row * 5) % spines.length], -1.7 + i * 0.226, 0.16 + row * 0.47, -0.62);
+    }
+    const holo = [];
+    [['#ef4444', -1.2], ['#f5c451', 0], ['#ff8a33', 1.2]].forEach(([c, x], i) => {
+      box(g, 0.5, 0.7, 0.5, '#1d1626', x, 0, 0.35);
+      box(g, 0.54, 0.04, 0.54, glow(c, 0.9), x, 0.7, 0.35, { shadow: false });
+      const h = new THREE.Group();
+      h.position.set(x, 1.15, 0.35);
+      g.add(h);
+      if (i === 0) {
+        box(h, 0.3, 0.24, 0.22, glow(c, 1.2), 0, -0.12, 0, { shadow: false });
+        box(h, 0.1, 0.16, 0.1, glow(c, 1.2), -0.18, -0.1, 0.06, { shadow: false });
+      } else if (i === 1) {
+        box(h, 0.06, 0.35, 0.06, glow('#c99a3a', 1), 0, -0.3, 0, { shadow: false });
+        sphere(h, 0.2, glow(c, 1.4), 0, 0.12, 0, 6);
+      } else {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.42, 6), glow(c, 1.6));
+        h.add(cone);
+      }
+      holo.push(h);
+    });
+    animators.push((t) => {
+      holo.forEach((h, i) => {
+        h.rotation.y = t * 1.2 + i;
+        h.position.y = 1.15 + Math.sin(t * 2 + i * 2) * 0.06;
+      });
+      holo[2].children[0].scale.y = 1 + Math.sin(t * 9) * 0.12;
+    });
+  },
   music(g) {
     [-1.7, 1.7].forEach((x) => {
       box(g, 0.75, 1.6, 0.6, '#1d1d24', x, 0, 0);
