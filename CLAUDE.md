@@ -4,7 +4,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 
 ## Repo layout and policy
 - **Hub only.** New demos get their own `displayxr-<name>` repo, served at `joehillthunder.github.io/displayxr-<name>/`, and the hub just links to them. Some older demos still live in folders here (`sugar-rush/`, `stereo-splat/`, `displayxr-demos/apps/energy-grid`, …). They're being split out with `git subtree split` plus redirect stubs; don't add new demos as folders.
-- `index.html`: the hero canvas, then a category overview strip and a card directory (cards show `tagline`; the full `desc` is the hover title).
+- `index.html`: the hero canvas, then the directory: one column per category (name, `blurb`, plain list of demo links; `tagline` is the link tooltip). The Creator Gallery section stays hidden until something is pushed.
 - `home/demos.js`: `WINGS`, the single source for both the office and the cards. Each wing is one category: `{ id, name, blurb, quad, floor[2], accent, demos[] }`, and each demo has `{ id, name, tagline, desc, url, source, chatter[4] }`. Keep `blurb` and `tagline` to one short plain sentence.
 - `home/office.js`: the three.js 0.161 scene, loaded through the jsDelivr import map. The building is 40 × 28 m with four quadrants (`quad` 0 back-left, 1 back-right, 2 front-left, 3 front-right). Wings sharing a quadrant sit side by side, and all its rooms split its 18 m evenly. Only a wing's first room plaque names the wing.
   - `BUILD[demo.id](g, r)` is the room's set piece. Use `box`, `sphere` and `glow` and push per-frame animation to `animators`.
