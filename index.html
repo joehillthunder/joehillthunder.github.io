@@ -153,14 +153,30 @@
     main { max-width: 1100px; margin: 0 auto; padding: 48px 16px 24px; }
     .intro { max-width: 680px; color: var(--muted); margin: 0 0 36px; }
     .intro strong { color: var(--text); }
-    .wing { margin: 0 0 40px; }
+    .cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin: 0 0 44px; padding: 0; list-style: none; }
+    .cats a {
+      display: block; height: 100%;
+      padding: 12px 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .cats a:hover, .cats a:focus-visible { background: var(--panel-2); }
+    .cats b { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
+    .cats b span { font: 600 12px var(--mono); color: var(--accent); }
+    .cats p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+    .wing { margin: 0 0 40px; scroll-margin-top: 16px; }
     .wing h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; font-size: 20px; }
+    .wing h2 small { font: 600 12px var(--mono); color: var(--muted); }
     .wing h2::before { content: ""; width: 12px; height: 12px; border-radius: 2px; background: var(--accent); flex: none; align-self: center; }
     .wing > p { margin: 0 0 16px; color: var(--muted); }
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
     .card {
       display: flex; flex-direction: column;
-      padding: 16px 18px;
+      padding: 14px 16px;
       background: var(--panel);
       border: 1px solid var(--line);
       border-top: 3px solid var(--accent);
@@ -168,8 +184,8 @@
       transition: background .15s, transform .15s;
     }
     .card:hover { background: var(--panel-2); transform: translateY(-2px); }
-    .card h3 { margin: 0 0 6px; font-size: 17px; }
-    .card p { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; flex: 1; }
+    .card h3 { margin: 0 0 4px; font-size: 16px; }
+    .card p { margin: 0 0 12px; color: var(--muted); font-size: 14px; flex: 1; }
     .card .links { display: flex; gap: 16px; font-size: 14px; }
     .card .open { font-weight: 600; color: var(--accent); text-decoration: none; }
     .card .open:hover { text-decoration: underline; }
@@ -207,6 +223,7 @@
 
   <main>
     <p class="intro">Each room is a web app built on the <strong>DisplayXR inline-3D SDK</strong>. On a glasses-free 3D display it renders in depth; everywhere else it falls back to 2D.</p>
+    <ul class="cats" id="cats" aria-label="Categories"></ul>
     <div id="directory"></div>
     <section class="wing" id="creator-gallery" style="--accent:#ffc94a">
       <h2>Creator Gallery</h2>
@@ -222,14 +239,19 @@
     import { WINGS } from './home/demos.js';
     const dir = document.getElementById('directory');
     const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    document.getElementById('cats').innerHTML = WINGS.map((w) => `
+      <li style="--accent:${w.accent}"><a href="#${w.id}">
+        <b>${esc(w.name)}<span>${w.demos.length}</span></b>
+        <p>${esc(w.blurb)}</p>
+      </a></li>`).join('');
     dir.innerHTML = WINGS.map((w) => `
       <section class="wing" id="${w.id}" style="--accent:${w.accent}">
-        <h2>${esc(w.name)}</h2>
+        <h2>${esc(w.name)} <small>${w.demos.length} demo${w.demos.length > 1 ? 's' : ''}</small></h2>
         <p>${esc(w.blurb)}</p>
         <div class="cards">${w.demos.map((d) => `
-          <article class="card">
+          <article class="card" title="${esc(d.desc)}">
             <h3>${esc(d.name)}</h3>
-            <p>${esc(d.desc)}</p>
+            <p>${esc(d.tagline)}</p>
             <div class="links"><a class="open" href="${d.url}">Open demo →</a><a class="src" href="${d.source}">Source</a></div>
           </article>`).join('')}
         </div>
