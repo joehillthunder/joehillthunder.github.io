@@ -327,6 +327,7 @@ export class Player extends EventTarget {
     if (m.count < 0) return;
     this.sortMs = this.sortMs * 0.8 + m.ms * 0.2;
     this.activeCount = m.count;
+    if (m.count > 1000 && m.far > m.near) this.stage.setDepthRange(m.near, m.far);
     for (const s of this.segs.values()) {
       if (s.key === m.key) {
         s.setOrder(new Float32Array(m.buf), m.count);
