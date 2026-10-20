@@ -4,21 +4,23 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 
 ## Repo layout and policy
 - **Hub only.** New demos get their own `displayxr-<name>` repo, served at `joehillthunder.github.io/displayxr-<name>/`, and the hub just links to them. Some older demos still live in folders here (`sugar-rush/`, `stereo-splat/`, `displayxr-demos/apps/energy-grid`, …). They're being split out with `git subtree split` plus redirect stubs; don't add new demos as folders.
-- `index.html`: the hero canvas, plus a card directory below it.
-- `home/demos.js`: `WINGS`, the single source for both the office and the cards. Each wing has `{ id, name, blurb, floor[2], accent, demos[] }`, and each demo has `{ id, name, desc, url, source, chatter[4] }`.
-- `home/office.js`: the three.js 0.161 scene, loaded through the jsDelivr import map. The building is 40 × 28 m with four quadrant wings in `WINGS` order: back-left, back-right, front-left, front-right. A wing's rooms split its 18 m evenly.
+- `index.html`: the hero canvas, then a category overview strip and a card directory (cards show `tagline`; the full `desc` is the hover title).
+- `home/demos.js`: `WINGS`, the single source for both the office and the cards. Each wing is one category: `{ id, name, blurb, quad, floor[2], accent, demos[] }`, and each demo has `{ id, name, tagline, desc, url, source, chatter[4] }`. Keep `blurb` and `tagline` to one short plain sentence.
+- `home/office.js`: the three.js 0.161 scene, loaded through the jsDelivr import map. The building is 40 × 28 m with four quadrants (`quad` 0 back-left, 1 back-right, 2 front-left, 3 front-right). Wings sharing a quadrant sit side by side, and all its rooms split its 18 m evenly. Only a wing's first room plaque names the wing.
   - `BUILD[demo.id](g, r)` is the room's set piece. Use `box`, `sphere` and `glow` and push per-frame animation to `animators`.
-  - Set pieces are sized for rooms about 4.5 m wide and shrink automatically in narrower rooms. About 5 rooms per wing is the practical maximum.
+  - Set pieces are sized for rooms about 4.5 m wide and shrink automatically in narrower rooms. About 6–7 rooms per quadrant is the practical maximum.
 - `home/vendor/inline3d/`: DisplayXR inline-3D SDK 1.45.1, vendored. In the DisplayXR Browser the office becomes a woven 3D scene (display rig, VDH 0.3). `?mono` forces 2D and `?depth=0.1-0.8` sets the depth.
 
-## Current wings
-1. Training Center: Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds.
-2. AI Studio: Muse Voice, Dot Voice, Stereo Splat, Music Visualizer, Flight Lines, Splat Call 3D (6 rooms; Splat Call lives in `displayxr-demos/apps/splat-call/` at the user's request).
-3. Arcade: Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D (6 rooms, so set pieces render at about 2/3 scale).
-4. Creator Studio & Spatial UI: Dual View, Future OS Lab, 4DV Player, Material Forge, Vehicle Studio, Terra Studio, Leia Spatial (7 rooms, so set pieces render at about 4/7 scale; Material Forge, Vehicle Studio and Terra Studio are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`; Leia Spatial is `displayxr-demos/apps/leia-spatial/`, at the user's request).
+## Current categories (wings)
+1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D.
+2. Learning & Simulation (quad 1): Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds, Flight Lines (7 rooms, so set pieces render at about 4/7 scale).
+3. AI (quad 2, left): Muse Voice, Dot Voice.
+4. Future Media (quad 2, right): Stereo Splat, 4DV Player, Splat Call 3D, Music Visualizer. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
+5. Creator Tools (quad 3, left): Material Forge, Vehicle Studio, Terra Studio. All three are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`.
+6. Spatial UI (quad 3, right): Future OS Lab, Dual View, Leia Spatial. Leia Spatial is `displayxr-demos/apps/leia-spatial/` at the user's request.
 
 ## Adding a demo
-1. Add an entry to the right wing in `home/demos.js`.
+1. Add an entry to the right category in `home/demos.js`, with a short `tagline`. If a quadrant passes ~7 rooms, move a small wing to a lighter quadrant.
 2. Add a `BUILD['<id>']` set piece in `home/office.js`. Without one, the room only gets desks.
 3. Check it locally, then ship it through a PR to `main`.
 

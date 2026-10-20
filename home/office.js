@@ -118,7 +118,8 @@ const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 const shade = (hex, f) => '#' + new THREE.Color(hex).multiplyScalar(f).getHexString();
 
 // ---------- layout ----------
-// Building spans x -20..20, z -14..14. A cross-shaped hall (|z| < 2 and |x| < 2) splits it into four wings.
+// Building spans x -20..20, z -14..14. A cross-shaped hall (|z| < 2 and |x| < 2) splits it into four
+// quadrants. Each wing names its quadrant; wings sharing one sit side by side, rooms split evenly.
 
 const X0 = -20, X1 = 20, Z0 = -14, Z1 = 14, HALL = 2;
 const QUADS = [
@@ -129,28 +130,34 @@ const QUADS = [
 ];
 
 const rooms = [];
-WINGS.forEach((wing, wi) => {
-  const q = QUADS[wi];
-  const n = wing.demos.length, rw = (q.x1 - q.x0) / n;
-  wing.demos.forEach((demo, i) => {
-    const x0 = q.x0 + i * rw, x1 = x0 + rw;
-    const cx = (x0 + x1) / 2;
-    rooms.push({
-      demo, wing, back: q.back, x0, x1, z0: q.z0, z1: q.z1, cx, cz: (q.z0 + q.z1) / 2,
-      // props sit in the strip furthest from the hall door, people walk in the rest
-      propZ: q.back ? q.z0 + 2.4 : q.z1 - 2.4,
-      walk: q.back ? [q.z0 + 5, q.z1 - 0.9] : [q.z0 + 0.9, q.z1 - 5],
-      doorIn: new THREE.Vector3(cx, 0, q.back ? q.z1 - 0.9 : q.z0 + 0.9),
-      doorOut: new THREE.Vector3(cx, 0, q.back ? -1 : 1),
-      plaque: new THREE.Vector3(cx, q.back ? 1.65 : 1.05, q.back ? q.z0 + 0.15 : q.z0),
+const wingSpans = []; // { wing, q, x0, x1 }: the stretch of a quadrant one wing occupies
+QUADS.forEach((q, qi) => {
+  const wings = WINGS.filter((w) => w.quad === qi);
+  const n = wings.reduce((s, w) => s + w.demos.length, 0), rw = (q.x1 - q.x0) / n;
+  let i = 0;
+  for (const wing of wings) {
+    wingSpans.push({ wing, q, x0: q.x0 + i * rw, x1: q.x0 + (i + wing.demos.length) * rw });
+    wing.demos.forEach((demo, k) => {
+      const x0 = q.x0 + i++ * rw, x1 = x0 + rw;
+      const cx = (x0 + x1) / 2;
+      rooms.push({
+        demo, wing, back: q.back, x0, x1, z0: q.z0, z1: q.z1, cx, cz: (q.z0 + q.z1) / 2,
+        first: k === 0, // only a wing's first plaque names the wing
+        // props sit in the strip furthest from the hall door, people walk in the rest
+        propZ: q.back ? q.z0 + 2.4 : q.z1 - 2.4,
+        walk: q.back ? [q.z0 + 5, q.z1 - 0.9] : [q.z0 + 0.9, q.z1 - 5],
+        doorIn: new THREE.Vector3(cx, 0, q.back ? q.z1 - 0.9 : q.z0 + 0.9),
+        doorOut: new THREE.Vector3(cx, 0, q.back ? -1 : 1),
+        plaque: new THREE.Vector3(cx, q.back ? 1.65 : 1.05, q.back ? q.z0 + 0.15 : q.z0),
+      });
     });
-  });
+  }
 });
 
 // ---------- the building ----------
 
 box(scene, X1 - X0 + 0.8, 0.5, Z1 - Z0 + 0.8, '#3d3a44', 0, -0.5, 0, { shadow: false });
-WINGS.forEach((w, i) => floor(QUADS[i].x0, QUADS[i].x1, QUADS[i].z0, QUADS[i].z1, w.floor[0], w.floor[1]));
+wingSpans.forEach(({ wing, q, x0, x1 }) => floor(x0, x1, q.z0, q.z1, wing.floor[0], wing.floor[1]));
 floor(X0, X1, -HALL, HALL, '#5b5966', '#524f5c', 0.012);
 floor(-HALL, HALL, Z0, -HALL, '#5b5966', '#524f5c', 0.012);
 floor(-HALL, HALL, HALL, Z1, '#5b5966', '#524f5c', 0.012);
@@ -169,9 +176,8 @@ for (const q of QUADS) {
 }
 
 // Wall trim: a coloured stripe per wing along the tall back walls.
-WINGS.forEach((w, i) => {
-  const q = QUADS[i];
-  if (q.back) box(scene, q.x1 - q.x0, 0.12, 0.05, glow(w.accent, 0.35), (q.x0 + q.x1) / 2, 2.2, Z0 + 0.2, { shadow: false });
+wingSpans.forEach(({ wing, q, x0, x1 }) => {
+  if (q.back) box(scene, x1 - x0, 0.12, 0.05, glow(wing.accent, 0.35), (x0 + x1) / 2, 2.2, Z0 + 0.2, { shadow: false });
 });
 
 // ---------- furniture shared by all rooms ----------
@@ -1263,17 +1269,17 @@ function textWidth(text, font) {
 function plaqueSprite(r) {
   const name = r.demo.name.toUpperCase(), wing = r.wing.name.toUpperCase();
   const fName = `600 22px ${MONO}`, fWing = `500 12px ${MONO}`;
-  const w = Math.ceil(Math.max(textWidth(name + ' →', fName), textWidth(wing, fWing)) + 34), h = 56;
+  const w = Math.ceil(Math.max(textWidth(name + ' →', fName), r.first ? textWidth(wing, fWing) : 0) + 34), h = r.first ? 56 : 36;
   const draw = (hot) => (c) => {
     c.beginPath(); c.roundRect(1.5, 1.5, w - 3, h - 3, 5);
     c.fillStyle = hot ? 'rgba(12,14,20,.97)' : 'rgba(20,22,28,.82)'; c.fill();
     c.lineWidth = hot ? 3 : 1.5; c.strokeStyle = hot ? r.wing.accent : 'rgba(255,255,255,.18)'; c.stroke();
     c.fillStyle = r.wing.accent; c.fillRect(1.5, 1.5, 5, h - 3);
     c.textAlign = 'center';
-    c.font = fWing; c.fillText(wing, w / 2 + 2, 20);
-    c.font = fName; c.fillStyle = '#f1ede4'; c.fillText(hot ? name + ' →' : name, w / 2 + 2, 45);
+    if (r.first) { c.font = fWing; c.fillText(wing, w / 2 + 2, 20); }
+    c.font = fName; c.fillStyle = '#f1ede4'; c.fillText(hot ? name + ' →' : name, w / 2 + 2, h - 11);
   };
-  const s = sprite(canvasTexture(w, h, draw(false)), w, h, 1.5);
+  const s = sprite(canvasTexture(w, h, draw(false)), w, h, (1.5 * h) / 56);
   // Always drawn over the wall it hangs on (a camera-facing sprite would otherwise cut into it).
   s.material.depthTest = false;
   s.renderOrder = 10;
@@ -1312,7 +1318,7 @@ const plaques = rooms.map((r) => {
   a.className = 'plaque';
   a.href = r.demo.url;
   a.style.setProperty('--accent', r.wing.accent);
-  a.innerHTML = `<small>${r.wing.name}</small><span>${r.demo.name}</span>`;
+  a.innerHTML = `${r.first ? `<small>${r.wing.name}</small>` : ''}<span>${r.demo.name}</span>`;
   a.title = r.demo.desc;
   a.addEventListener('pointerenter', () => setHot(r));
   a.addEventListener('pointerleave', () => setHot(null));
