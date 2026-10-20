@@ -382,12 +382,13 @@ function stopVideos() {
   for (const v of [$('v-front'), $('v-wrist')]) { v.pause(); }
 }
 
+const SYN_BATCH = 40;
 async function generateSynthetic() {
   const btn = $('gen-syn');
   btn.disabled = true;
   const start = app.demos.synthetic.length;
-  for (let i = 0; i < 20; i++) {
-    btn.textContent = `Generating ${i + 1}/20…`;
+  for (let i = 0; i < SYN_BATCH; i++) {
+    btn.textContent = `Generating ${i + 1}/${SYN_BATCH}…`;
     const [e] = D.generateSynthetic(1, { seed: 1000 + start + i, spread: app.spread });
     if (e) {
       e.index = app.demos.synthetic.length;
@@ -396,13 +397,13 @@ async function generateSynthetic() {
     }
     await nextFrame();
   }
-  btn.textContent = 'Generate 20 more';
+  btn.textContent = `Generate ${SYN_BATCH} more`;
   btn.disabled = false;
   app.src = 'synthetic';
   for (const x of document.querySelectorAll('.tabs button')) x.classList.toggle('on', x.dataset.src === 'synthetic');
   renderEpList();
   selectEpisode(app.demos.synthetic[start]);
-  toast(`20 synthetic demos from Lightwheel's state machine (${app.demos.synthetic.length} total)`);
+  toast(`${SYN_BATCH} synthetic demos from Lightwheel's state machine (${app.demos.synthetic.length} total)`);
 }
 
 // teleop
@@ -486,6 +487,7 @@ function onKey(e) {
 
 // ---- 3 · train -----------------------------------------------------------------------------------
 let trainer = null, stopTraining = false, training = false;
+const ROUNDS = 4;
 
 function refreshTrainCounts() {
   for (const k of ['lightwheel', 'synthetic', 'yours']) {
@@ -566,9 +568,9 @@ async function trainDagger() {
   const cfg = { hidden: +$('hidden').value, layers: 2, epochs: +$('epochs').value, lr: 2e-3, batch: 128, seed: 1 };
   const pts = [[0, (base.quick || quickEval(model, 10, 7)).success / 10]];
   daggerChart.set([{ points: pts, color: '--s3', dots: true }]);
-  for (let r = 0; r < 3 && !stopTraining; r++) {
+  for (let r = 0; r < ROUNDS && !stopTraining; r++) {
     const beta = 0.5 * 0.5 ** r;
-    $('train-status').innerHTML = `DAgger round <b>${r + 1}/3</b>: running the policy (expert takes over ${Math.round(beta * 100)}% of steps) and asking the expert for labels…`;
+    $('train-status').innerHTML = `DAgger round <b>${r + 1}/${ROUNDS}</b>: running the policy (expert takes over ${Math.round(beta * 100)}% of steps) and asking the expert for labels…`;
     // run the rollouts in visible slices so the page stays live
     const add = { X: [], Y: [], rows: 0 };
     for (let k = 0; k < 4; k++) {
@@ -578,14 +580,14 @@ async function trainDagger() {
     }
     const merged = { X: concatF32(add.X), Y: concatF32(add.Y), rows: add.rows };
     ds = D.concatRows(ds, merged);
-    $('train-status').innerHTML = `DAgger round <b>${r + 1}/3</b>: retraining on ${ds.rows.toLocaleString()} frames (+${merged.rows.toLocaleString()} expert-labelled)…`;
+    $('train-status').innerHTML = `DAgger round <b>${r + 1}/${ROUNDS}</b>: retraining on ${ds.rows.toLocaleString()} frames (+${merged.rows.toLocaleString()} expert-labelled)…`;
     const run = lossSeries.length;
     model = await trainOnce(ds, valEps, cfg, (m) => plotLoss(run, m.epoch, m.epoch ? m.train : null, m.val));
     const q = quickEval(model, 10, 7);
     pts.push([r + 1, q.success / 10]);
     daggerChart.set([{ points: pts, color: '--s3', dots: true }]);
   }
-  const entry = addModel(model, `${base.name} + DAgger ×3`, { ds, eps });
+  const entry = addModel(model, `${base.name} + DAgger ×${ROUNDS}`, { ds, eps });
   const q = quickEval(model, 10, 7);
   entry.quick = q;
   training = false;
@@ -630,6 +632,7 @@ function addModel(model, name, extra = {}) {
   store.set('models', app.models.slice(-3).map((m) => ({ id: m.id, name: m.name, model: serialiseModel(m.model) })));
   $('watch').disabled = false;
   refreshPolicySelect();
+  $('ev-policy').value = entry.id;
   return entry;
 }
 function serialiseModel(m) { return { sizes: m.sizes, mean: Array.from(m.mean), std: Array.from(m.std), W: m.W.map((w) => Array.from(w, (v) => +v.toPrecision(6))), b: m.b.map((b) => Array.from(b)) }; }
@@ -691,6 +694,7 @@ function startBatch() {
 
 function evalTick(dt) {
   const r = evalRun;
+  if (r.finished) return;
   r.acc += dt * 30 * 4; // 4x real time
   let n = Math.min(24, Math.floor(r.acc));
   r.acc -= n;
