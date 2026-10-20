@@ -12,7 +12,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 - `home/vendor/inline3d/`: DisplayXR inline-3D SDK 1.45.1, vendored. In the DisplayXR Browser the office becomes a woven 3D scene (display rig, VDH 0.3). `?mono` forces 2D and `?depth=0.1-0.8` sets the depth.
 
 ## Current categories (wings)
-1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D.
+1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D, 3D Game Guide. The guide is `displayxr-demos/apps/3d-games/` at the user's request.
 2. Learning & Simulation (quad 1): Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds, Flight Lines (7 rooms, so set pieces render at about 4/7 scale).
 3. AI (quad 2, left): Muse Voice, Dot Voice.
 4. Future Media (quad 2, right): Stereo Splat, 4DV Player, Splat Call 3D, Music Visualizer. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
