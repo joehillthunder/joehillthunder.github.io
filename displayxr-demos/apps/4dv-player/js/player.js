@@ -102,7 +102,7 @@ export class Player extends EventTarget {
       const seg = new SplatSegment(d);
       seg.sample = d.sample;
       seg.key = `${gen}:${i}`;
-      this.sorter.postMessage({ type: 'segment', key: seg.key, duration: segInfo.duration, N: d.N, posT: d.posT.slice(), velT: d.velT.slice(), color: d.color.slice() });
+      this.sorter.postMessage({ type: 'segment', key: seg.key, duration: segInfo.duration, N: d.N, posT: d.posT.slice(), velT: d.velT.slice(), color: d.color.slice(), acc: d.motion?.acc.slice(), jerk: d.motion?.jerk.slice() });
       this.root.add(seg.mesh);
       this.segs.set(i, seg);
       this.evict(i);
@@ -180,6 +180,25 @@ export class Player extends EventTarget {
     const X = new THREE.Vector3().crossVectors(Y, Z).normalize();
 
     const n = sample.length / 3;
+    // Forward-facing rigs (a camera wall, nearly parallel axes): the axes' common focus is ill-posed,
+    // so look from the rig's centre at the median splat depth along its mean axis.
+    let rigDepth = 0;
+    if (this.info.forwardFacing && camCentres.length) {
+      const Cm = camCentres.reduce((a, c) => a.add(c), new THREE.Vector3()).divideScalar(camCentres.length);
+      const ax = cams.reduce((a, c) => a.add(new THREE.Vector3(c.R[2][0], c.R[2][1], c.R[2][2])), new THREE.Vector3()).normalize();
+      const depths = [];
+      for (let i = 0; i < n; i++) {
+        const d = this.tmpV.fromArray(sample, i * 3).sub(Cm).dot(ax);
+        if (d > 0) depths.push(d);
+      }
+      if (depths.length) {
+        rigDepth = Float32Array.from(depths).sort()[depths.length >> 1];
+        pivot = Cm.clone().addScaledVector(ax, rigDepth);
+        fwd.copy(ax).addScaledVector(up, -ax.dot(up)).normalize();
+        Z.copy(fwd).negate();
+        X.crossVectors(Y, Z).normalize();
+      }
+    }
     if (!pivot) {
       pivot = new THREE.Vector3();
       for (let i = 0; i < n; i++) pivot.add(this.tmpV.fromArray(sample, i * 3));
@@ -212,7 +231,13 @@ export class Player extends EventTarget {
     const aspect = this.stage.cam.aspect || 16 / 9;
     let target, dist;
     const med = (arr) => Float32Array.from(arr).sort()[arr.length >> 1];
-    if (pivot && camCentres.length && halfTans.length) {
+    if (rigDepth) {
+      // From the rig, widened toward the capture's own field of view (ours is narrower), but not so far
+      // back that the view leaves the volume the cameras saw.
+      target = new THREE.Vector3();
+      const ratio = halfTans.length ? med(halfTans) / Math.tan(fov / 2) : 1;
+      dist = rigDepth * Math.min(1.6, Math.max(0.8, ratio));
+    } else if (pivot && camCentres.length && halfTans.length) {
       // Frame what the capture cameras framed: their common focus, at their median field of view.
       const camDist = med(camCentres.map((c) => c.distanceTo(pivot)));
       const halfH = camDist * med(halfTans);
@@ -224,7 +249,7 @@ export class Player extends EventTarget {
       const h = Math.max(size.y, size.x / aspect, 0.2);
       dist = (h * 0.62) / Math.tan(fov / 2) + size.z * 0.5;
     }
-    this.stage.setView({ target, dist, yaw: 0, pitch: 0.08 });
+    this.stage.setView({ target, dist, yaw: 0, pitch: rigDepth ? 0 : 0.08, orbitLimit: rigDepth ? 0.45 : null });
     this.bounds = { lo, hi };
   }
 
@@ -294,8 +319,15 @@ export class Player extends EventTarget {
       if (next >= 0 && !this.segs.has(next) && this.time > segs[want].start + segs[want].duration * 0.2) this.loadSegment(next);
     }
     // Splat times are local to their segment.
-    for (const [i, s] of this.segs) s.material.uniforms.uTime.value = this.time - segs[i].start;
+    for (const [i, s] of this.segs) s.material.uniforms.uTime.value = this.localTime(i, this.time);
     this.requestSort(want);
+  }
+
+  /** Segment-local clip time; a ping-pong clip (.splatv) runs 0 → D → 0 over its 2·D duration. */
+  localTime(index, t) {
+    const D = this.info.pingpong;
+    if (D) return D - Math.abs(D - Math.min(2 * D, Math.max(0, t)));
+    return t - this.info.segments[index].start;
   }
 
   setViewport(vp) {
@@ -315,7 +347,7 @@ export class Player extends EventTarget {
     const cam = this.tmpV.setFromMatrixPosition(this.stage.cam.matrixWorld).applyMatrix4(this.tmpM).toArray();
     const fwd = new THREE.Vector3(0, 0, -1).transformDirection(this.stage.cam.matrixWorld).transformDirection(this.tmpM).toArray();
     // Sort slightly ahead: the order lands a sort-time later.
-    const t = this.time - this.info.segments[index].start + (this.playing ? this.speed * (this.sortMs / 1000) : 0);
+    const t = this.localTime(index, this.time + (this.playing ? this.speed * (this.sortMs / 1000) : 0));
     this.sortInFlight = true;
     this.sortIndex = index;
     this.sorter.postMessage({ type: 'sort', key: seg.key, t, cam, dir: fwd, buf: this.sortBuf }, [this.sortBuf]);

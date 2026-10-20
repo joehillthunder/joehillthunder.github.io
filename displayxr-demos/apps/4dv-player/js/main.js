@@ -67,8 +67,28 @@ function showError(msg) {
   ui.error.hidden = !msg;
 }
 
-/** Download a chunked clip (manifest + 8 MiB parts) as one Blob, with progress. */
+/** Stream one file from its source (CORS required), with progress. */
+async function fetchWithProgress(clip, url, token) {
+  const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`);
+  const size = Number(res.headers.get('content-length')) || clip.size || 0;
+  const reader = res.body.getReader();
+  const chunks = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (token !== loadToken) { reader.cancel(); return null; }
+    chunks.push(value);
+    got += value.length;
+    showLoading(clip.name, `Downloading ${(got / 1048576).toFixed(0)}${size ? ` / ${(size / 1048576).toFixed(0)}` : ''} MB`, size ? got / size : null);
+  }
+  return new Blob(chunks);
+}
+
+/** Download a clip as one Blob, with progress: a hosted chunked clip (manifest + 8 MiB parts) or a `src` URL. */
 async function download(clip, token) {
+  if (clip.src) return fetchWithProgress(clip, clip.src, token);
   const manUrl = new URL(clip.manifest, location.href);
   const man = await (await fetch(manUrl)).json();
   const parts = [];
@@ -131,7 +151,7 @@ async function loadFile(file) {
   for (const b of ui.clips.children) b.setAttribute('aria-current', 'false');
   try {
     showLoading(file.name, 'Reading archive');
-    await openBlob(file, file.name.replace(/\.4dv$/i, ''), token);
+    await openBlob(file, file.name.replace(/\.(4dv|splatv)$/i, ''), token);
   } catch (e) {
     console.error(e);
     if (token === loadToken) { hideLoading(); showError(e.message); }
@@ -206,7 +226,7 @@ ui.file.addEventListener('change', () => {
   ui.file.value = '';
   if (f) loadFile(f);
 });
-// Drop a .4dv anywhere.
+// Drop a .4dv or .splatv anywhere.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => {
   e.preventDefault();
@@ -246,9 +266,10 @@ async function boot() {
     const b = document.createElement('button');
     b.className = 'clip';
     b.type = 'button';
-    b.innerHTML = `<strong></strong><span></span>`;
+    b.innerHTML = `<strong></strong><span></span><em></em>`;
     b.querySelector('strong').textContent = c.name;
     b.querySelector('span').textContent = c.desc;
+    b.querySelector('em').textContent = c.by ? `by ${c.by}` : '';
     b.addEventListener('click', () => loadClip(i));
     ui.clips.appendChild(b);
   }

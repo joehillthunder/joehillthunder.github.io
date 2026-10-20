@@ -1,5 +1,8 @@
 [
-  { "id": "cat", "name": "Cat", "desc": "A cat at its food bowl · 5 s · 23 MB", "manifest": "clips/cat_high_v2.manifest.json" },
-  { "id": "a2o", "name": "A2O · Paparazzi", "desc": "Music video, with sound · 35 s · 291 MB", "manifest": "clips/paparazzi_mv_red.manifest.json" },
-  { "id": "puppet", "name": "Puppet", "desc": "Puppeteer, with sound · 5 s · 9.5M splats · 173 MB (PC)", "manifest": "clips/puppet.manifest.json" }
+  { "id": "cat", "name": "Cat", "desc": "A cat at its food bowl · 5 s · 23 MB", "by": "4DV.ai", "manifest": "clips/cat_high_v2.manifest.json" },
+  { "id": "a2o", "name": "A2O · Paparazzi", "desc": "Music video, with sound · 35 s · 291 MB", "by": "4DV.ai", "manifest": "clips/paparazzi_mv_red.manifest.json" },
+  { "id": "puppet", "name": "Puppet", "desc": "Puppeteer, with sound · 5 s · 9.5M splats · 173 MB (PC)", "by": "4DV.ai", "manifest": "clips/puppet.manifest.json" },
+  { "id": "sear-steak", "name": "Sear Steak", "desc": "Cooking, Neural 3D Video dataset · .splatv · 7 MB", "by": "Meta Reality Labs (N3DV) · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/sear.splatv", "size": 7343047 },
+  { "id": "flames", "name": "Flames", "desc": "Fire, Immersive Light Field Video · .splatv · 22 MB", "by": "Google (DeepView Video) · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/flame.splatv", "size": 22216610 },
+  { "id": "birthday", "name": "Birthday", "desc": "Party scene, Technicolor light-field video · .splatv · 42 MB", "by": "Technicolor · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/birthday.splatv", "size": 42491460 }
 ]
