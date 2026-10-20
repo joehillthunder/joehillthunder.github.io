@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physical AI Lab · DisplayXR</title>
+<meta name="description" content="Train a robot policy end to end in the browser: Lightwheel's SimReady kitchen and SO-101 arm, their real teleop demos, synthetic data, behaviour cloning, DAgger and parallel evaluation. Glasses-free 3D on DisplayXR, 2D anywhere else.">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<!-- The one woven canvas, for the life of the page: never remounted, never animated. -->
+<canvas id="stage"></canvas>
+<!-- Opaque cover until handle.firstWoven (cut, not faded). -->
+<div id="cover" aria-hidden="true"></div>
+
+<header id="top" data-inline3d-overlay>
+  <div class="brand">
+    <strong>Physical AI Lab</strong>
+    <span>Lightwheel SimReady kitchen · SO-101 · pick &amp; place</span>
+  </div>
+  <nav id="steps" aria-label="Pipeline">
+    <button type="button" data-step="world"><b>1</b> World</button>
+    <button type="button" data-step="demos"><b>2</b> Demonstrations</button>
+    <button type="button" data-step="train"><b>3</b> Train</button>
+    <button type="button" data-step="eval"><b>4</b> Evaluate</button>
+  </nav>
+  <div class="view">
+    <span id="mode" class="badge">2D</span>
+    <label id="depth-wrap" hidden>3D <input id="depth" type="range" min="0" max="1.6" step="0.05" value="1"></label>
+    <button id="help" type="button" title="About this demo (?)">?</button>
+  </div>
+</header>
+
+<aside id="panel" data-inline3d-overlay>
+
+  <!-- 1 · WORLD ---------------------------------------------------------------------------- -->
+  <section data-chapter="world">
+    <h2>The world: SimReady assets</h2>
+    <p class="lede">Everything here comes from <a href="https://lightwheel.ai/asset-library" target="_blank" rel="noopener">Lightwheel</a>'s
+      <code>kitchen_with_orange</code> scene and SO-101 arm, the assets their open-source
+      <a href="https://github.com/LightwheelAI/leisaac" target="_blank" rel="noopener">LeIsaac</a> uses in Isaac Lab, converted from
+      USD and running in your browser. Tap an asset in the scene or below.</p>
+    <div id="catalog" class="chips"></div>
+    <div id="asset-card" class="card" hidden></div>
+    <h3>Domain randomisation</h3>
+    <p class="small">The task trains on randomised copies of this kitchen so a policy can't memorise one layout.
+      These ranges are LeIsaac's own (<code>pick_orange_env_cfg.py</code>).</p>
+    <div class="row">
+      <button id="dr-shuffle" type="button" class="primary">Randomise layout</button>
+      <label class="inline">Spread <select id="dr-spread"><option value="1">±3 cm (Lightwheel)</option><option value="2">±6 cm</option><option value="3">±9 cm</option></select></label>
+    </div>
+    <div class="row" id="lighting"></div>
+    <p class="small" id="dr-note"></p>
+  </section>
+
+  <!-- 2 · DEMONSTRATIONS ------------------------------------------------------------------------ -->
+  <section data-chapter="demos" hidden>
+    <h2>Demonstrations</h2>
+    <p class="lede"><a id="ds-link" href="#" target="_blank" rel="noopener">LightwheelAI/leisaac-pick-orange</a>: 60 teleoperated
+      episodes, 30 fps, recorded with a leader arm in Isaac Lab. The arm here replays each one's recorded joints;
+      the cameras are Lightwheel's own renders, streamed from Hugging Face.</p>
+    <div class="tabs" role="tablist">
+      <button type="button" data-src="lightwheel" class="on">Lightwheel teleop <em id="n-lightwheel">60</em></button>
+      <button type="button" data-src="synthetic">Synthetic <em id="n-synthetic">0</em></button>
+      <button type="button" data-src="yours">Yours <em id="n-yours">0</em></button>
+    </div>
+    <div id="ep-list" class="eplist"></div>
+    <div id="replay" class="card">
+      <div class="row tight">
+        <button id="rp-play" type="button" class="icon" title="Play / pause (space)">▶</button>
+        <input id="rp-seek" type="range" min="0" max="1" step="1" value="0" aria-label="Frame">
+        <select id="rp-speed" aria-label="Speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select>
+      </div>
+      <div class="meta" id="rp-meta"></div>
+      <div class="videos" id="videos">
+        <figure><video id="v-front" muted playsinline crossorigin="anonymous" preload="auto"></video><figcaption>front camera</figcaption></figure>
+        <figure><video id="v-wrist" muted playsinline crossorigin="anonymous" preload="auto"></video><figcaption>wrist camera</figcaption></figure>
+      </div>
+      <canvas id="joint-chart" class="chart"></canvas>
+      <div class="legend" id="joint-legend"></div>
+    </div>
+    <h3>Make more data</h3>
+    <div class="row">
+      <button id="gen-syn" type="button">Generate 20 synthetic demos</button>
+      <button id="teleop" type="button">Teleoperate</button>
+    </div>
+    <p class="small">Synthetic demos come from a port of Lightwheel's datagen state machine
+      (<code>datagen/state_machine/pick_orange.py</code>) running in randomised layouts. Teleop: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move,
+      <kbd>R</kbd>/<kbd>F</kbd> up/down, <kbd>Space</kbd> gripper, <kbd>Q</kbd>/<kbd>E</kbd> roll, <kbd>Enter</kbd> save.</p>
+    <div id="teleop-pad" class="pad" hidden>
+      <button data-k="KeyW" type="button">↑</button><button data-k="KeyA" type="button">←</button><button data-k="KeyS" type="button">↓</button><button data-k="KeyD" type="button">→</button>
+      <button data-k="KeyR" type="button">up</button><button data-k="KeyF" type="button">down</button><button data-k="Space" type="button">grip</button>
+      <button data-k="Enter" type="button" class="primary">save</button><button data-k="Escape" type="button">quit</button>
+    </div>
+  </section>
+
+  <!-- 3 · TRAIN ------------------------------------------------------------------------------------ -->
+  <section data-chapter="train" hidden>
+    <h2>Train a policy</h2>
+    <p class="lede">Behaviour cloning: a small neural network learns to copy the demonstrations, mapping what the robot
+      senses (joints, gripper, where the target is) to how it moves next. It trains here, in a web worker.</p>
+    <h3>Dataset</h3>
+    <label class="check"><input type="checkbox" id="use-lightwheel" checked> Lightwheel teleop <span id="d-lightwheel"></span></label>
+    <label class="check"><input type="checkbox" id="use-synthetic" checked> Synthetic <span id="d-synthetic"></span></label>
+    <label class="check"><input type="checkbox" id="use-yours" checked> Yours <span id="d-yours"></span></label>
+    <label class="check"><input type="checkbox" id="curate" checked> Curate: drop idle frames</label>
+    <div class="row">
+      <label class="inline">Epochs <select id="epochs"><option>4</option><option selected>8</option><option>16</option></select></label>
+      <label class="inline">Width <select id="hidden"><option>64</option><option selected>128</option><option>256</option></select></label>
+    </div>
+    <div class="row">
+      <button id="train-bc" type="button" class="primary">Train BC</button>
+      <button id="train-dagger" type="button" title="Needs the synthetic expert">+ DAgger ×3</button>
+      <button id="train-stop" type="button" hidden>Stop</button>
+    </div>
+    <div class="status" id="train-status">Not trained yet.</div>
+    <canvas id="loss-chart" class="chart"></canvas>
+    <div class="legend"><span class="sw s1"></span>train loss <span class="sw s2"></span>validation (held-out episodes)</div>
+    <canvas id="dagger-chart" class="chart short"></canvas>
+    <div class="legend"><span class="sw s3"></span>success after each DAgger round</div>
+    <div class="row">
+      <button id="watch" type="button" disabled>Watch it in the kitchen</button>
+    </div>
+    <details class="small"><summary>What the network sees and does</summary>
+      <p>Input (15 numbers): the six joint positions, the tool point in the robot's base frame, the vector from the tool
+        to its current goal (the next orange, or the plate while holding one, or home), and three flags: holding, oranges
+        placed, done. Output: the five arm joints' motion over the next 0.2 s and the gripper command, so the policy runs
+        at 30 Hz like the dataset.</p>
+      <p>Behaviour cloning on its own drifts: small errors take the robot to states no demo covers. DAgger (Ross et al.
+        2011) runs the policy, asks the expert what it should have done in every state it reached, adds those labels and
+        retrains. The expert is the synthetic-data state machine, which can answer for any state.</p>
+    </details>
+  </section>
+
+  <!-- 4 · EVALUATE --------------------------------------------------------------------------------- -->
+  <section data-chapter="eval" hidden>
+    <h2>Evaluate</h2>
+    <p class="lede">Benchmarking in the spirit of Lightwheel's <a href="https://lightwheel.ai/robofinals" target="_blank" rel="noopener">RoboFinals</a>:
+      many randomised episodes in parallel environments, scored with LeIsaac's success test (all three oranges on the plate and
+      the arm back at rest) and its subtask terms.</p>
+    <div class="row">
+      <label class="inline">Policy <select id="ev-policy"></select></label>
+    </div>
+    <div class="row">
+      <label class="inline">Episodes <select id="ev-n"><option>9</option><option selected>18</option><option>36</option></select></label>
+      <label class="inline">Layouts <select id="ev-spread"><option value="1">±3 cm</option><option value="2">±6 cm (harder)</option></select></label>
+    </div>
+    <div class="row">
+      <button id="ev-run" type="button" class="primary">Run evaluation</button>
+      <button id="ev-back" type="button" hidden>Back to the kitchen</button>
+    </div>
+    <div class="status" id="ev-status"></div>
+    <div id="ev-result" class="card" hidden></div>
+    <h3>Leaderboard</h3>
+    <table id="board"><thead><tr><th>Policy</th><th>Success</th><th>Placed</th><th>Time</th></tr></thead><tbody></tbody></table>
+    <button id="board-clear" type="button" class="link">Clear</button>
+  </section>
+</aside>
+
+<div id="hud" data-inline3d-overlay>
+  <span id="hud-who"></span><span id="hud-phase"></span><span id="hud-oranges"></span><span id="hud-t"></span>
+</div>
+<div id="toast" data-inline3d-overlay hidden></div>
+
+<div id="loading" data-inline3d-overlay>
+  <div class="box"><strong>Physical AI Lab</strong><span id="load-msg">Loading Lightwheel's kitchen…</span><div class="track"><div id="load-bar"></div></div></div>
+</div>
+
+<div id="intro" data-inline3d-overlay hidden>
+  <div class="box">
+    <h1>Train a robot, end to end</h1>
+    <p>A complete physical-AI loop in one page, on Lightwheel's simulation assets and data: a SimReady kitchen, real
+      teleoperated demonstrations, synthetic data from a scripted expert, a policy trained in your browser, and a
+      randomised benchmark that scores it.</p>
+    <ol class="pipe">
+      <li><b>World</b> SimReady assets and domain randomisation</li>
+      <li><b>Demonstrations</b> 60 Lightwheel teleop episodes, plus synthetic and your own</li>
+      <li><b>Train</b> behaviour cloning, then DAgger</li>
+      <li><b>Evaluate</b> parallel randomised episodes and a leaderboard</li>
+    </ol>
+    <p class="small">On a glasses-free 3D display in the DisplayXR Browser the kitchen and the arm are in real depth. Drag to orbit,
+      scroll to zoom, right-drag to pan.</p>
+    <button id="intro-go" type="button" class="primary">Start</button>
+    <p class="credit small">Assets and dataset: Lightwheel (leisaac_env and LightwheelAI/leisaac-pick-orange on Hugging Face, Apache-2.0).
+      Arm: TheRobotStudio SO-101. Not affiliated with or endorsed by Lightwheel.</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
