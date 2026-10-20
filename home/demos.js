@@ -199,7 +199,7 @@ export const WINGS = [
       {
         id: '4dv-player',
         name: '4DV Player',
-        desc: '4D Gaussian splat video in the browser: 4DV.ai clips (a cat, a K-pop crew, a puppeteer) plus open .splatv scenes (a chef, a flamethrower, a birthday party). Drop in your own .4dv or .splatv.',
+        desc: '4D Gaussian splat video in the browser: 20 4DV.ai clips (a rocket launch, a jazz band, a corgi, dancers, a pianist...) plus open .splatv scenes. Drop in your own .4dv, .c.ply or .splatv.',
         url: 'displayxr-demos/apps/4dv-player/',
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/4dv-player',
         chatter: ['Orbit the dancers mid-move', 'Every frame is splats', 'The cat looks real from behind', 'Turn the 3D slider up'],

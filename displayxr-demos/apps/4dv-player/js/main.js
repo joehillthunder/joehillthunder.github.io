@@ -130,15 +130,16 @@ async function loadClip(i) {
   if (!clip) return;
   const token = ++loadToken;
   current = i;
-  for (const [k, b] of [...ui.clips.children].entries()) b.setAttribute('aria-current', String(k === i));
+  for (const b of ui.clips.querySelectorAll('.clip')) b.setAttribute('aria-current', String(Number(b.dataset.i) === i));
   const u = new URL(location.href);
   u.searchParams.set('clip', clip.id);
   history.replaceState(null, '', u);
   try {
     showLoading(clip.name, 'Downloading', 0);
-    const blob = await download(clip, token);
-    if (!blob || token !== loadToken) return;
-    await openBlob(blob, clip.name, token);
+    // Multi-file clips stream segment by segment from their source; the rest download whole first.
+    const src = clip.remote ? { remote: clip.remote } : await download(clip, token);
+    if (!src || token !== loadToken) return;
+    await openBlob(src, clip.name, token);
   } catch (e) {
     console.error(e);
     if (token === loadToken) { hideLoading(); showError(e.message); }
@@ -148,15 +149,20 @@ async function loadClip(i) {
 async function loadFile(file) {
   const token = ++loadToken;
   current = -1;
-  for (const b of ui.clips.children) b.setAttribute('aria-current', 'false');
+  for (const b of ui.clips.querySelectorAll('.clip')) b.setAttribute('aria-current', 'false');
   try {
     showLoading(file.name, 'Reading archive');
-    await openBlob(file, file.name.replace(/\.(4dv|splatv)$/i, ''), token);
+    await openBlob(file, file.name.replace(/\.(4dv|splatv|c\.ply|compressed\.ply|ply)$/i, ''), token);
   } catch (e) {
     console.error(e);
     if (token === loadToken) { hideLoading(); showError(e.message); }
   }
 }
+
+player.addEventListener('buffering', (e) => {
+  if (e.detail) showLoading(clips[current]?.name ?? 'Clip', 'Buffering the next part', null);
+  else hideLoading();
+});
 
 player.addEventListener('state', () => {
   ui.play.textContent = player.playing ? 'Pause' : 'Play';
@@ -262,6 +268,7 @@ window.addEventListener('keydown', (e) => {
 async function boot() {
   const started = stage.start();
   clips = await (await fetch('./clips/clips.json')).json();
+  let lastGroup = null;
   for (const [i, c] of clips.entries()) {
     const b = document.createElement('button');
     b.className = 'clip';
@@ -270,6 +277,14 @@ async function boot() {
     b.querySelector('strong').textContent = c.name;
     b.querySelector('span').textContent = c.desc;
     b.querySelector('em').textContent = c.by ? `by ${c.by}` : '';
+    if (c.group && c.group !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'group';
+      h.textContent = c.group;
+      ui.clips.appendChild(h);
+      lastGroup = c.group;
+    }
+    b.dataset.i = String(i);
     b.addEventListener('click', () => loadClip(i));
     ui.clips.appendChild(b);
   }

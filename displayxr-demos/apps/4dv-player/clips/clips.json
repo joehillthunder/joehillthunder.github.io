@@ -1,8 +1,1936 @@
 [
-  { "id": "cat", "name": "Cat", "desc": "A cat at its food bowl · 5 s · 23 MB", "by": "4DV.ai", "manifest": "clips/cat_high_v2.manifest.json" },
-  { "id": "a2o", "name": "A2O · Paparazzi", "desc": "Music video, with sound · 35 s · 291 MB", "by": "4DV.ai", "manifest": "clips/paparazzi_mv_red.manifest.json" },
-  { "id": "puppet", "name": "Puppet", "desc": "Puppeteer, with sound · 5 s · 9.5M splats · 173 MB (PC)", "by": "4DV.ai", "manifest": "clips/puppet.manifest.json" },
-  { "id": "sear-steak", "name": "Sear Steak", "desc": "Cooking, Neural 3D Video dataset · .splatv · 7 MB", "by": "Meta Reality Labs (N3DV) · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/sear.splatv", "size": 7343047 },
-  { "id": "flames", "name": "Flames", "desc": "Fire, Immersive Light Field Video · .splatv · 22 MB", "by": "Google (DeepView Video) · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/flame.splatv", "size": 22216610 },
-  { "id": "birthday", "name": "Birthday", "desc": "Party scene, Technicolor light-field video · .splatv · 42 MB", "by": "Technicolor · Spacetime Gaussians", "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/birthday.splatv", "size": 42491460 }
+ {
+  "id": "cat",
+  "name": "Cat",
+  "desc": "A cat at its food bowl · 5 s · 23 MB",
+  "by": "4DV.ai",
+  "manifest": "clips/cat_high_v2.manifest.json",
+  "group": "4DV.ai · hosted here"
+ },
+ {
+  "id": "a2o",
+  "name": "A2O · Paparazzi",
+  "desc": "Music video, with sound · 35 s · 291 MB",
+  "by": "4DV.ai",
+  "manifest": "clips/paparazzi_mv_red.manifest.json",
+  "group": "4DV.ai · hosted here"
+ },
+ {
+  "id": "puppet",
+  "name": "Puppet",
+  "desc": "Puppeteer, with sound · 5 s · 9.5M splats · 173 MB (PC)",
+  "by": "4DV.ai",
+  "manifest": "clips/puppet.manifest.json",
+  "group": "4DV.ai · hosted here"
+ },
+ {
+  "id": "4dv-salmon-10s",
+  "name": "Salmon",
+  "desc": "10 s · 75 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 10.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new/salmon_10s_300frames_30fps_4k_200w_60epoch_deleted.4dv",
+       "size": 78154637
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0.8430113291571194,
+     4.273702235975372,
+     6.5241865019484955
+    ],
+    "target": [
+     0.258752810445543,
+     2.1895122073278186,
+     -2.411679885118893
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-shiku-dtwd",
+  "name": "Shiku",
+  "desc": "5 s · 28–76 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new/dtwd_seg_0_h.4dv",
+       "size": 80646876
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new/dtwd_seg_0_l.4dv",
+       "size": 36934683
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/shiku_dtwd/dtwd_seg_0_l.c.ply",
+       "size": 30271035
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0.9565143022304956,
+     1.0806484407338393,
+     4.279343070797428
+    ],
+    "target": [
+     0.4462453102913432,
+     1.1489959073767808,
+     0.9904547736087661
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-neemo",
+  "name": "Neemo",
+  "desc": "5 s · 214 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new/neemo.compressed.ply",
+       "size": 223906272
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     -2.4165869927853914,
+     1.1454392202235946,
+     -0.8166969711990445
+    ],
+    "target": [
+     -0.09468251184454912,
+     1.3614774027971586,
+     -0.05327841114601739
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-corgi",
+  "name": "Corgi",
+  "desc": "8 s · 2 parts · 35–160 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/200w%2Bsh2/00.c.ply",
+       "size": 103900100
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/100w%2Bsh0/00.c.ply",
+       "size": 31491035
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/60w%2Bsh0/00.c.ply",
+       "size": 21988338
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 3.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/200w%2Bsh2/01.c.ply",
+       "size": 64586580
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/100w%2Bsh0/01.c.ply",
+       "size": 21062810
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/corgi/60w%2Bsh0/01.c.ply",
+       "size": 15413042
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0,
+     0.5,
+     2
+    ],
+    "target": [
+     0,
+     0.5,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-wedding",
+  "name": "Wedding",
+  "desc": "8 s · sound · 2 parts · 51–146 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/wedding/200w%2Bsh2_v2/00.c.ply",
+       "size": 86695444
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/wedding/100w%2Bsh0_v2/00.c.ply",
+       "size": 30863971
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 3.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/wedding/200w%2Bsh2_v2/01.c.ply",
+       "size": 66413844
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/wedding/100w%2Bsh0_v2/01.c.ply",
+       "size": 23503730
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/wedding/wedding.wav",
+   "view": {
+    "position": [
+     0,
+     1.5,
+     6
+    ],
+    "target": [
+     0,
+     1,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-badminton",
+  "name": "Badminton",
+  "desc": "20 s · 2 parts · 64 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 10.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/badminton_10s_2_seg0.4dv",
+       "size": 35155867
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 10.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/badminton_10s_2_seg1.4dv",
+       "size": 31660059
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     4.195838595596724,
+     0.667190012891004,
+     12.70788470244019
+    ],
+    "target": [
+     -0.8069645275511839,
+     1.013426804244546,
+     3.501892380329835
+    ],
+    "fov": 67
+   }
+  }
+ },
+ {
+  "id": "4dv-new-jazz",
+  "name": "Jazz Trio",
+  "desc": "30 s · sound · 7 parts · 259 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/00.c.ply",
+       "size": 41145154
+      }
+     ]
+    },
+    {
+     "start": 4.286,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/01.c.ply",
+       "size": 39844594
+      }
+     ]
+    },
+    {
+     "start": 8.571,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/02.c.ply",
+       "size": 39692418
+      }
+     ]
+    },
+    {
+     "start": 12.857,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/03.c.ply",
+       "size": 47135170
+      }
+     ]
+    },
+    {
+     "start": 17.143,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/04.c.ply",
+       "size": 44682226
+      }
+     ]
+    },
+    {
+     "start": 21.429,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/05.c.ply",
+       "size": 41230402
+      }
+     ]
+    },
+    {
+     "start": 25.714,
+     "duration": 4.286,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_jazz/200w%2Bsh2_v2/06.c.ply",
+       "size": 18180306
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/new_jazz/new_jazz_audio.wav",
+   "view": {
+    "position": [
+     0,
+     1.5,
+     6
+    ],
+    "target": [
+     0,
+     1,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-rocket",
+  "name": "Rocket",
+  "desc": "34 s · sound · 7 parts · 79–166 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/02.c.ply",
+       "size": 16980538
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/02.c.ply",
+       "size": 10459466
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/03.c.ply",
+       "size": 17865706
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/03.c.ply",
+       "size": 10898346
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/04.c.ply",
+       "size": 17915034
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/04.c.ply",
+       "size": 10946906
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/05.c.ply",
+       "size": 16073082
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/05.c.ply",
+       "size": 10327346
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/06.c.ply",
+       "size": 46575763
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/06.c.ply",
+       "size": 14894754
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/07.c.ply",
+       "size": 43508331
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/07.c.ply",
+       "size": 16763306
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 4.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/80w%2Bsh3/08.c.ply",
+       "size": 15380250
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/rocket/40w%2Bsh0/08.c.ply",
+       "size": 9526770
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/rocket/rocket_35s_audio.wav",
+   "view": {
+    "position": [
+     0,
+     40,
+     120
+    ],
+    "target": [
+     0,
+     40,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-langlang",
+  "name": "Lang Lang",
+  "desc": "15 s · sound · 3 parts · 57 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang/0034_clean_new.c.ply",
+       "size": 19258182
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang/0035_clean_new.c.ply",
+       "size": 19906478
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang/0036_clean_new.c.ply",
+       "size": 20624246
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/langlang/langlang.wav",
+   "view": {
+    "position": [
+     -1.15,
+     1.53,
+     1.51
+    ],
+    "target": [
+     0.15,
+     0.59,
+     0.0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-dance-color",
+  "name": "Dance · colour",
+  "desc": "73 s · sound · 15 parts · 321–914 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg0-306_mvc.4dv",
+       "size": 40273565
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg0-306_mvc_sh0.4dv",
+       "size": 14173922
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg300-606_mvc.4dv",
+       "size": 65004121
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg300-606_mvc_sh0.4dv",
+       "size": 22877458
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg600-906_mvc.4dv",
+       "size": 66387199
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg600-906_mvc_sh0.4dv",
+       "size": 23364226
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg900-1206_mvc.4dv",
+       "size": 66489508
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg900-1206_mvc_sh0.4dv",
+       "size": 23400250
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg1200-1506_mvc.4dv",
+       "size": 65609540
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg1200-1506_mvc_sh0.4dv",
+       "size": 23090522
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg1500-1806_mvc.4dv",
+       "size": 66233218
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg1500-1806_mvc_sh0.4dv",
+       "size": 23310010
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg1800-2106_mvc.4dv",
+       "size": 65985734
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg1800-2106_mvc_sh0.4dv",
+       "size": 23222906
+      }
+     ]
+    },
+    {
+     "start": 35.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg2100-2406_mvc.4dv",
+       "size": 65814779
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg2100-2406_mvc_sh0.4dv",
+       "size": 23162786
+      }
+     ]
+    },
+    {
+     "start": 40.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg2400-2706_mvc.4dv",
+       "size": 66510872
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg2400-2706_mvc_sh0.4dv",
+       "size": 23407754
+      }
+     ]
+    },
+    {
+     "start": 45.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg2700-3006_mvc.4dv",
+       "size": 66693669
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg2700-3006_mvc_sh0.4dv",
+       "size": 23472066
+      }
+     ]
+    },
+    {
+     "start": 50.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg3000-3306_mvc.4dv",
+       "size": 66711583
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg3000-3306_mvc_sh0.4dv",
+       "size": 23478370
+      }
+     ]
+    },
+    {
+     "start": 55.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg3300-3606_mvc.4dv",
+       "size": 66015421
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg3300-3606_mvc_sh0.4dv",
+       "size": 23233378
+      }
+     ]
+    },
+    {
+     "start": 60.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg3600-3906_mvc.4dv",
+       "size": 66365283
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg3600-3906_mvc_sh0.4dv",
+       "size": 23356530
+      }
+     ]
+    },
+    {
+     "start": 65.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg3900-4206_mvc.4dv",
+       "size": 65846467
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg3900-4206_mvc_sh0.4dv",
+       "size": 23173954
+      }
+     ]
+    },
+    {
+     "start": 70.0,
+     "duration": 3.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/long/new_dance_color/4dv/new_dance_color_seg4200-4392_mvc.4dv",
+       "size": 58490308
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/new_dance_color_seg4200-4392_mvc_sh0.4dv",
+       "size": 20585050
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/dance_color/dance_color_audio_new.wav",
+   "view": {
+    "position": [
+     0,
+     1.0,
+     4
+    ],
+    "target": [
+     0,
+     0.6,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-jazz",
+  "name": "Jazz",
+  "desc": "33 s · sound · 7 parts · 141–565 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/00.c.ply",
+       "size": 90478116
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/00.c.ply",
+       "size": 31718795
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/00.c.ply",
+       "size": 20857226
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/01.c.ply",
+       "size": 89927236
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/01.c.ply",
+       "size": 33571787
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/01.c.ply",
+       "size": 21989034
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/02.c.ply",
+       "size": 84838852
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/02.c.ply",
+       "size": 33619299
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/02.c.ply",
+       "size": 22065450
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/03.c.ply",
+       "size": 85180340
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/03.c.ply",
+       "size": 33953955
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/03.c.ply",
+       "size": 22315402
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/04.c.ply",
+       "size": 88046852
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/04.c.ply",
+       "size": 34406499
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/04.c.ply",
+       "size": 22474986
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/05.c.ply",
+       "size": 88323348
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/05.c.ply",
+       "size": 34215867
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/05.c.ply",
+       "size": 22500658
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 3.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/200w%2Bsh2/06.c.ply",
+       "size": 66312772
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/100w%2Bsh0/06.c.ply",
+       "size": 23225826
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/jazz/60w%2Bsh0/06.c.ply",
+       "size": 15933010
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/jazz/jazz_audio.wav",
+   "view": {
+    "position": [
+     0.9565143022304956,
+     1.0806484407338393,
+     4.279343070797428
+    ],
+    "target": [
+     0.4462453102913432,
+     1.1489959073767808,
+     0.9904547736087661
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-piano",
+  "name": "Piano",
+  "desc": "35 s · sound · 7 parts · 98–633 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/00.c.ply",
+       "size": 73821535
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/00.c.ply",
+       "size": 69621017
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/00.c.ply",
+       "size": 14782175
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/01.c.ply",
+       "size": 86112962
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/01.c.ply",
+       "size": 81530937
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/01.c.ply",
+       "size": 16778295
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/02.c.ply",
+       "size": 91381256
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/02.c.ply",
+       "size": 86873811
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/02.c.ply",
+       "size": 17008111
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/03.c.ply",
+       "size": 84251562
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/03.c.ply",
+       "size": 80310465
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/03.c.ply",
+       "size": 11907479
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/04.c.ply",
+       "size": 119742670
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/04.c.ply",
+       "size": 115645910
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/04.c.ply",
+       "size": 16296199
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/05.c.ply",
+       "size": 112487509
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/05.c.ply",
+       "size": 108726699
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/05.c.ply",
+       "size": 14968511
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/200w/06.c.ply",
+       "size": 96327400
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/150w/06.c.ply",
+       "size": 92837232
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/langlang2/60w/06.c.ply",
+       "size": 11633463
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/langlang2/langlang_perform.wav",
+   "view": {
+    "position": [
+     -2.7,
+     1.5,
+     4.6
+    ],
+    "target": [
+     0.5,
+     1.0,
+     0.7
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-paparazzi",
+  "name": "A2O · Paparazzi · full",
+  "desc": "35 s · sound · 7 parts · 101–640 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/00.c.ply",
+       "size": 73556720
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/00.c.ply",
+       "size": 42954747
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/00.c.ply",
+       "size": 9703874
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/01.c.ply",
+       "size": 87096752
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/01.c.ply",
+       "size": 50571266
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/01.c.ply",
+       "size": 12428418
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/02.c.ply",
+       "size": 99813712
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/02.c.ply",
+       "size": 54743695
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/02.c.ply",
+       "size": 15945082
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/03.c.ply",
+       "size": 105614416
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/03.c.ply",
+       "size": 56515879
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/03.c.ply",
+       "size": 17859730
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/04.c.ply",
+       "size": 106031984
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/04.c.ply",
+       "size": 56547235
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/04.c.ply",
+       "size": 18638178
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/05.c.ply",
+       "size": 102829360
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/05.c.ply",
+       "size": 54960566
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/05.c.ply",
+       "size": 16850762
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/200w/06.c.ply",
+       "size": 96746544
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/150w/06.c.ply",
+       "size": 51823336
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/paparazzi/60w/06.c.ply",
+       "size": 14618738
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/paparazzi/paparazzi_mv.wav",
+   "view": {
+    "position": [
+     0,
+     1,
+     5.5
+    ],
+    "target": [
+     0,
+     1.0,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-dance",
+  "name": "Dance",
+  "desc": "50 s · 10 parts · 202–975 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/00.c.ply",
+       "size": 100469300
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/00.c.ply",
+       "size": 30931419
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/00.c.ply",
+       "size": 20845890
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/01.c.ply",
+       "size": 100394948
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/01.c.ply",
+       "size": 31061099
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/01.c.ply",
+       "size": 21151114
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/02.c.ply",
+       "size": 103885252
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/02.c.ply",
+       "size": 31939283
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/02.c.ply",
+       "size": 21450250
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/03.c.ply",
+       "size": 101229684
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/03.c.ply",
+       "size": 31390507
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/03.c.ply",
+       "size": 21246298
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/04.c.ply",
+       "size": 103119956
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/04.c.ply",
+       "size": 31705971
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/04.c.ply",
+       "size": 21302266
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/05.c.ply",
+       "size": 103151060
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/05.c.ply",
+       "size": 31765363
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/05.c.ply",
+       "size": 21336202
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/06.c.ply",
+       "size": 102837940
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/06.c.ply",
+       "size": 31704507
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/06.c.ply",
+       "size": 21293466
+      }
+     ]
+    },
+    {
+     "start": 35.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/07.c.ply",
+       "size": 101616004
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/07.c.ply",
+       "size": 31324283
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/07.c.ply",
+       "size": 21068850
+      }
+     ]
+    },
+    {
+     "start": 40.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/08.c.ply",
+       "size": 101815844
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/08.c.ply",
+       "size": 31514715
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/08.c.ply",
+       "size": 21190970
+      }
+     ]
+    },
+    {
+     "start": 45.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/200w%2Bsh2/09.c.ply",
+       "size": 104484452
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/100w%2Bsh0/09.c.ply",
+       "size": 32464403
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/dance/60w%2Bsh0/09.c.ply",
+       "size": 21792962
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0,
+     0.5,
+     2
+    ],
+    "target": [
+     0,
+     0.5,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-timtalk",
+  "name": "Tim Talking",
+  "desc": "45.7 s · sound · 10 parts · 196–1008 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/00.c.ply",
+       "size": 113365732
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/00.c.ply",
+       "size": 32581715
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/00.c.ply",
+       "size": 21944522
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/01.c.ply",
+       "size": 113230484
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/01.c.ply",
+       "size": 32615027
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/01.c.ply",
+       "size": 21940186
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/02.c.ply",
+       "size": 113230388
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/02.c.ply",
+       "size": 32379723
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/02.c.ply",
+       "size": 21789634
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/03.c.ply",
+       "size": 122944820
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/03.c.ply",
+       "size": 34923515
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/03.c.ply",
+       "size": 23305618
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/04.c.ply",
+       "size": 112478500
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/04.c.ply",
+       "size": 31960091
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/04.c.ply",
+       "size": 21553026
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/05.c.ply",
+       "size": 108213908
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/05.c.ply",
+       "size": 30984635
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/05.c.ply",
+       "size": 20871146
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/06.c.ply",
+       "size": 119349492
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/06.c.ply",
+       "size": 33867235
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/06.c.ply",
+       "size": 22685698
+      }
+     ]
+    },
+    {
+     "start": 35.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/07.c.ply",
+       "size": 110480180
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/07.c.ply",
+       "size": 31647795
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/07.c.ply",
+       "size": 21406650
+      }
+     ]
+    },
+    {
+     "start": 40.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/08.c.ply",
+       "size": 110506132
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/08.c.ply",
+       "size": 30985547
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/08.c.ply",
+       "size": 20967026
+      }
+     ]
+    },
+    {
+     "start": 45.0,
+     "duration": 0.7,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/200w%2Bsh2/09.c.ply",
+       "size": 33219186
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/100w%2Bsh0/09.c.ply",
+       "size": 11295826
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/tim_talking/60w%2Bsh0/09.c.ply",
+       "size": 9155458
+      }
+     ]
+    }
+   ],
+   "audio": "https://s1.4dv.ai/4dgs/demo/tim_talking/tim_talking_audio.wav",
+   "view": {
+    "position": [
+     0.9565143022304956,
+     1.0806484407338393,
+     4.279343070797428
+    ],
+    "target": [
+     0.4462453102913432,
+     1.1489959073767808,
+     0.9904547736087661
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-cat",
+  "name": "Cat · long take",
+  "desc": "50 s · 10 parts · 220–1120 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/00.c.ply",
+       "size": 105640580
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/00.c.ply",
+       "size": 31967139
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/00.c.ply",
+       "size": 20276898
+      }
+     ]
+    },
+    {
+     "start": 5.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/01.c.ply",
+       "size": 115291476
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/01.c.ply",
+       "size": 34755467
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/01.c.ply",
+       "size": 22224386
+      }
+     ]
+    },
+    {
+     "start": 10.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/02.c.ply",
+       "size": 106437780
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/02.c.ply",
+       "size": 31965603
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/02.c.ply",
+       "size": 20486658
+      }
+     ]
+    },
+    {
+     "start": 15.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/03.c.ply",
+       "size": 138197397
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/03.c.ply",
+       "size": 27476219
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/03.c.ply",
+       "size": 27476219
+      }
+     ]
+    },
+    {
+     "start": 20.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/04.c.ply",
+       "size": 111180884
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/04.c.ply",
+       "size": 35918507
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/04.c.ply",
+       "size": 23544618
+      }
+     ]
+    },
+    {
+     "start": 25.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/05.c.ply",
+       "size": 123119572
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/05.c.ply",
+       "size": 39642531
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/05.c.ply",
+       "size": 25659507
+      }
+     ]
+    },
+    {
+     "start": 30.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/06.c.ply",
+       "size": 124945509
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/06.c.ply",
+       "size": 39699171
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/06.c.ply",
+       "size": 25598843
+      }
+     ]
+    },
+    {
+     "start": 35.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/07.c.ply",
+       "size": 119941524
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/07.c.ply",
+       "size": 35527019
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/07.c.ply",
+       "size": 22796154
+      }
+     ]
+    },
+    {
+     "start": 40.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/08.c.ply",
+       "size": 110320756
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/08.c.ply",
+       "size": 32135763
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/08.c.ply",
+       "size": 20364202
+      }
+     ]
+    },
+    {
+     "start": 45.0,
+     "duration": 5.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/200w%2Bsh2_v2/09.c.ply",
+       "size": 119615860
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/100w%2Bsh0_v2/09.c.ply",
+       "size": 35346675
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/cat/60w%2Bsh0_v2/09.c.ply",
+       "size": 22744930
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0,
+     1.5,
+     2
+    ],
+    "target": [
+     0,
+     0.8,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "4dv-ysjf-sjg",
+  "name": "Nunchaku",
+  "desc": "4 s · 23–424 MB streamed",
+  "by": "4DV.ai",
+  "group": "4DV.ai showcase · streamed",
+  "remote": {
+   "segments": [
+    {
+     "start": 0.0,
+     "duration": 4.0,
+     "tiers": [
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/nunchaku/500w%2Bsh3/00.c.ply",
+       "size": 445008303
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/nunchaku/200w%2Bsh2/00.c.ply",
+       "size": 51102788
+      },
+      {
+       "url": "https://s1.4dv.ai/4dgs/demo/nunchaku/100w%2Bsh0/00.c.ply",
+       "size": 24520123
+      }
+     ]
+    }
+   ],
+   "view": {
+    "position": [
+     0,
+     1.5,
+     6
+    ],
+    "target": [
+     0,
+     1,
+     0
+    ],
+    "fov": 50
+   }
+  }
+ },
+ {
+  "id": "sear-steak",
+  "name": "Sear Steak",
+  "desc": "Cooking, Neural 3D Video dataset · .splatv · 7 MB",
+  "by": "Meta Reality Labs (N3DV) · Spacetime Gaussians",
+  "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/sear.splatv",
+  "size": 7343047,
+  "group": "Other 4D splats (.splatv)"
+ },
+ {
+  "id": "flames",
+  "name": "Flames",
+  "desc": "Fire, Immersive Light Field Video · .splatv · 22 MB",
+  "by": "Google (DeepView Video) · Spacetime Gaussians",
+  "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/flame.splatv",
+  "size": 22216610,
+  "group": "Other 4D splats (.splatv)"
+ },
+ {
+  "id": "birthday",
+  "name": "Birthday",
+  "desc": "Party scene, Technicolor light-field video · .splatv · 42 MB",
+  "by": "Technicolor · Spacetime Gaussians",
+  "src": "https://huggingface.co/cakewalk/splat-data/resolve/main/birthday.splatv",
+  "size": 42491460,
+  "group": "Other 4D splats (.splatv)"
+ }
 ]

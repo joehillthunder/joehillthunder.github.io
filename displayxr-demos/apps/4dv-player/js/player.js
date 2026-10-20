@@ -61,16 +61,20 @@ export class Player extends EventTarget {
     this.dispatchEvent(new CustomEvent(type, { detail }));
   }
 
-  /** Open a .4dv Blob. Resolves once the first segment is on screen. */
-  async open(blob, onStage = () => {}) {
+  /**
+   * Open a clip: a Blob (.4dv, .splatv or a 4D compressed PLY), or `{ remote }`, a list of segment URLs
+   * the loader streams one at a time. Resolves once the first segment is on screen.
+   */
+  async open(src, onStage = () => {}) {
     const gen = ++this.generation;
     this.unload();
-    onStage('Reading archive');
-    const { info } = await this.call({ type: 'open', blob });
+    onStage(src.remote ? 'Connecting' : 'Reading archive');
+    const { info } = await this.call(src.remote ? { type: 'open', remote: src.remote } : { type: 'open', blob: src });
     if (gen !== this.generation) return;
     this.info = info;
-    if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
-    this.audioUrl = info.audio ? URL.createObjectURL(info.audio) : null;
+    if (this.audioUrl?.startsWith('blob:')) URL.revokeObjectURL(this.audioUrl);
+    this.audioUrl = info.audio ? URL.createObjectURL(info.audio) : info.audioUrl ?? null;
+    this.audio.crossOrigin = 'anonymous';
     this.audio.src = this.audioUrl ?? '';
     this.time = 0;
     const seg = await this.loadSegment(0, onStage, gen);
@@ -98,7 +102,7 @@ export class Player extends EventTarget {
       this.loading.delete(i);
       if (gen !== this.generation) return null;
       const d = m.data;
-      console.info(`[4dv] segment ${i}: ${d.N.toLocaleString()} splats, decoded in ${d.ms} ms, time ${d.timeRange.map((v) => v.toFixed(2)).join('…')}`);
+      console.info(`[4dv] segment ${i}: ${d.N.toLocaleString()} splats${d.tier !== undefined ? `, quality tier ${d.tier}` : ''}, ready in ${d.ms} ms, time ${d.timeRange.map((v) => v.toFixed(2)).join('…')}`);
       const seg = new SplatSegment(d);
       seg.sample = d.sample;
       seg.key = `${gen}:${i}`;
@@ -135,6 +139,7 @@ export class Player extends EventTarget {
    * come from the capture rig (OpenCV cameras: y down, z forward), the size from the splats.
    */
   frame(sample) {
+    if (this.info.view) return this.frameFromView(this.info.view);
     const cams = this.info.cameras ? Object.values(this.info.cameras) : [];
     const up = new THREE.Vector3();
     const fwd = new THREE.Vector3();
@@ -253,6 +258,30 @@ export class Player extends EventTarget {
     this.bounds = { lo, hi };
   }
 
+  /**
+   * The clip's own intended shot (4DV.ai's showcase settings: a Y-up camera position and target in the
+   * splats' frame): put the target at the origin, keep Y up, and orbit from where that camera stood.
+   */
+  frameFromView(view) {
+    const pos = new THREE.Vector3(...view.position);
+    const tgt = new THREE.Vector3(...view.target);
+    const up = new THREE.Vector3(0, 1, 0);
+    const d = tgt.clone().sub(pos);
+    const fwd = d.clone().addScaledVector(up, -d.dot(up)).normalize();
+    if (fwd.lengthSq() < 0.5) fwd.set(0, 0, -1);
+    const Z = fwd.clone().negate();
+    const X = new THREE.Vector3().crossVectors(up, Z).normalize();
+    const rot = new THREE.Matrix4().makeBasis(X, up, Z).transpose();
+    this.root.matrix.copy(new THREE.Matrix4().makeTranslation(-tgt.x, -tgt.y, -tgt.z).premultiply(rot));
+    this.root.matrixWorldNeedsUpdate = true;
+    // Same framing at our narrower field of view: back off by the ratio of half-angle tangents.
+    const ours = THREE.MathUtils.degToRad(this.stage.cam.fov) / 2;
+    const theirs = THREE.MathUtils.degToRad(view.fov ?? 50) / 2;
+    const dist = d.length() * Math.min(1.6, Math.tan(theirs) / Math.tan(ours));
+    const pitch = Math.asin(Math.max(-1, Math.min(1, -d.dot(up) / d.length())));
+    this.stage.setView({ target: new THREE.Vector3(), dist, yaw: 0, pitch });
+  }
+
   play() {
     if (!this.info) return;
     if (this.time >= this.info.duration - 1e-3) this.seek(0);
@@ -303,8 +332,23 @@ export class Player extends EventTarget {
         }
       }
     }
-    const want = this.segmentAt(this.time);
-    const seg = this.segs.get(want);
+    let want = this.segmentAt(this.time);
+    let seg = this.segs.get(want);
+    let sortIndex = -1;
+    // Buffering: a streamed segment that hasn't arrived holds the clock at its start (the previous one shows
+    // its last frame) instead of running on into an empty scene.
+    if ((!seg || !seg.sorted) && want > 0 && this.segs.get(want - 1)?.sorted && this.info.segments[want].start !== undefined) {
+      this.loadSegment(want);
+      if (seg) sortIndex = want; // arrived: sort it so it can take over
+      this.time = this.info.segments[want].start - 1e-3;
+      if (!this.buffering) { this.buffering = true; this.audio.pause(); this.emit('buffering', true); }
+      want -= 1;
+      seg = this.segs.get(want);
+    } else if (this.buffering && seg?.sorted) {
+      this.buffering = false;
+      if (this.playing && this.audioUrl) { this.audio.currentTime = this.time; this.audio.play().catch(() => {}); }
+      this.emit('buffering', false);
+    }
     if (!seg) {
       this.loadSegment(want);
     } else if (want !== this.active && seg.sorted) {
@@ -316,11 +360,13 @@ export class Player extends EventTarget {
     const segs = this.info.segments;
     if (segs.length > 1) {
       const next = want + 1 < segs.length ? want + 1 : this.loop ? 0 : -1;
-      if (next >= 0 && !this.segs.has(next) && this.time > segs[want].start + segs[want].duration * 0.2) this.loadSegment(next);
+      // Streamed clips fetch the next file as soon as this one plays; local ones wait a moment.
+      const early = segs[want].url ? 0 : 0.2;
+      if (next >= 0 && !this.segs.has(next) && this.time >= segs[want].start + segs[want].duration * early) this.loadSegment(next);
     }
     // Splat times are local to their segment.
     for (const [i, s] of this.segs) s.material.uniforms.uTime.value = this.localTime(i, this.time);
-    this.requestSort(want);
+    this.requestSort(sortIndex >= 0 ? sortIndex : want);
   }
 
   /** Segment-local clip time; a ping-pong clip (.splatv) runs 0 → D → 0 over its 2·D duration. */
