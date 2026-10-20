@@ -23,6 +23,7 @@ uniform sampler2D tColor;
 uniform sampler2D tLabel;
 uniform sampler2D tSh;
 uniform int uShK; // SH coefficients per channel beyond DC: 0, 3, 8 or 15
+uniform int uShRow; // codebook entries per texture row
 uniform int uKind; // 0 = .4dv, 1 = .splatv
 uniform sampler2D tAcc;
 uniform sampler2D tJerk;
@@ -42,14 +43,14 @@ const float MIN_ALPHA = 1.0 / 255.0;
 
 vec3 coeff(int base, int c) {
   int i = base + c;
-  return texelFetch(tSh, ivec2(i % (64 * uShK), i / (64 * uShK)), 0).rgb;
+  return texelFetch(tSh, ivec2(i % (uShRow * uShK), i / (uShRow * uShK)), 0).rgb;
 }
 
 // 4DV.ai's sh_coeffs_to_color_fast, bands 1..3, dir from the eye to the splat in the splats' frame.
 vec3 shColor(int label, vec3 dir) {
   vec3 n = normalize(dir);
   float x = n.x, y = n.y, z = n.z;
-  int b = label * uShK; // entry e, coefficient c = pixel e·k + c of a 64·k-wide image
+  int b = label * uShK; // entry e, coefficient c = pixel e·k + c of a (uShRow·k)-wide image
   vec3 r = 0.48860252 * (-y * coeff(b, 0) + z * coeff(b, 1) - x * coeff(b, 2));
   if (uShK < 8) return r;
   float z2 = z * z;
@@ -197,7 +198,7 @@ export class SplatSegment {
       fragmentShader,
       uniforms: {
         tPosT: { value: tPosT }, tVel: { value: tVel }, tCovA: { value: tCovA }, tCovB: { value: tCovB }, tColor: { value: tColor },
-        tLabel: { value: tLabel }, tSh: { value: tSh }, uShK: { value: data.sh ? data.sh.k : 0 },
+        tLabel: { value: tLabel }, tSh: { value: tSh }, uShK: { value: data.sh ? data.sh.k : 0 }, uShRow: { value: data.sh?.perRow ?? 64 },
         uKind: { value: data.kind ?? 0 }, tAcc: { value: tAcc }, tJerk: { value: tJerk }, tQuat: { value: tQuat }, tOmega: { value: tOmega },
         uTexW: { value: texW },
         uTime: { value: 0 },

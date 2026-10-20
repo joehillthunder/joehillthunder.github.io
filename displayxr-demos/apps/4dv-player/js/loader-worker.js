@@ -2,6 +2,8 @@
 // arrays, off the main thread. Two formats:
 //   .4dv     4DV.ai's 4dv-sog (below)
 //   .splatv  splaTV / Spacetime Gaussians (antimatter15's web format; see decodeSplatv)
+//   4D compressed PLY  4DV.ai's showcase format ("Super4D": .4dv / .c.ply / .compressed.ply files that
+//            start with "ply"; see decodePly4d), local or streamed segment by segment from a URL list
 //
 // The 4dv-sog codec (meta.json "codec": "4dv-sog", version 2), as 4DV.ai's own web viewer decodes it:
 //   means      16-bit (means_u << 8 | means_l) per axis, linear in [min, max], then signed exp:
@@ -25,6 +27,7 @@ const COV_SCALE = 1e4; // Σ is stored ×1e4 so that small splats survive half-f
 
 let zip = null;
 let splatv = null; // { blob, offset, meta, D } when the open file is a .splatv
+let plyBlob = null; // a single local 4D compressed PLY
 let gl = null;
 
 function glContext() {
@@ -120,12 +123,15 @@ function expmSym(l0, l1, l2, l3, l4, l5, out, o) {
 }
 
 const SPLATV_MAGIC = 0x674b;
+const PLY_MAGIC = 0x0a796c70; // "ply\n"
 
 async function open(blob) {
   zip = null;
   splatv = null;
+  plyBlob = null;
   const magic = new DataView(await blob.slice(0, 4).arrayBuffer()).getUint32(0, true);
   if (magic === SPLATV_MAGIC) return openSplatv(blob);
+  if (magic === PLY_MAGIC) return openPly4d(blob);
   zip = await new Zip(blob).open();
   let segments, audioPath = null, root;
   if (zip.has('manifest.json')) {
@@ -269,7 +275,264 @@ async function decodeSplatv(onStage) {
   };
 }
 
+// ---------------------------------------------------------------- 4D compressed PLY (4DV.ai showcase)
+
+/**
+ * A remote clip: segments are separate files (each with segment-local times), fetched only when needed.
+ * `clip` = { segments: [{ start, duration, url | tiers: [{ url, size }] best first }], audio?, view? }.
+ */
+function openRemote(clip) {
+  zip = null;
+  splatv = null;
+  plyBlob = null;
+  const last = clip.segments[clip.segments.length - 1];
+  return {
+    format: 'ply4d',
+    segments: clip.segments.map((g) => ({ ...g })),
+    duration: last.start + last.duration,
+    fps: 30,
+    cameras: null,
+    audio: null,
+    audioUrl: clip.audio ?? null,
+    view: clip.view ?? null,
+  };
+}
+
+async function readPlyHeader(blob) {
+  const head = new Uint8Array(await blob.slice(0, 16384).arrayBuffer());
+  const text = new TextDecoder('latin1').decode(head);
+  const end = text.indexOf('end_header\n');
+  if (end < 0) throw new Error('PLY header not found.');
+  const elements = [];
+  for (const line of text.slice(0, end).split('\n')) {
+    const w = line.trim().split(/\s+/);
+    if (w[0] === 'element') elements.push({ name: w[1], count: Number(w[2]), props: [] });
+    else if (w[0] === 'property') elements[elements.length - 1].props.push({ type: w[1], name: w[2] });
+  }
+  return { elements, dataStart: end + 'end_header\n'.length };
+}
+
+async function openPly4d(blob) {
+  plyBlob = blob;
+  // Duration from the chunk table: the 90th percentile of the chunks' max_time, which ignores stray splats.
+  const { elements, dataStart } = await readPlyHeader(blob);
+  const chunk = elements.find((e) => e.name === 'chunk');
+  let D = 5;
+  if (chunk && chunk.props.length >= 28) {
+    const f = new Float32Array(await blob.slice(dataStart, dataStart + chunk.count * chunk.props.length * 4).arrayBuffer());
+    const hi = [];
+    for (let c = 0; c < chunk.count; c++) hi.push(f[c * chunk.props.length + 27]);
+    hi.sort((a, b) => a - b);
+    D = Math.max(1, Math.round(hi[Math.floor(hi.length * 0.9)] * 10) / 10);
+  }
+  return { format: 'ply4d', segments: [{ start: 0, duration: D, path: '' }], duration: D, fps: 30, cameras: null, audio: null };
+}
+
+const HALF_BYTE = new Uint16Array(256); // half(b / 255)
+
+/**
+ * PlayCanvas-style compressed PLY with 4DV.ai's temporal extension, decoded the way 4DV.ai's showcase
+ * viewer does. Splats come in chunks of 256; each chunk stores float ranges and every splat packs 11/10/11-bit
+ * fractions into them: position, log scale, motion (velocity), and `packed_time` = (x, 11 bits: log σt in
+ * [min_time_scale, max_time_scale]; y, 10 bits: time centre in [min_time, max_time]), so the header names hold
+ * (4DV.ai's GPU chunk texture reorders them). Rotation: smallest-three (2 + 3×10 bits), (w, x, y, z).
+ * Colour: RGBA8 fractions of the chunk's colour range (final colour, not SH DC); A = opacity.
+ * Optional `sh` element: k·3 uchar per splat, channel-major (all R coefficients, then G, then B), v·8/255 − 4.
+ */
+async function decodePly4d(blob, onStage) {
+  onStage('Splats');
+  if (!HALF_BYTE[255]) for (let q = 0; q < 256; q++) HALF_BYTE[q] = toHalf(q / 255);
+  const { elements, dataStart } = await readPlyHeader(blob);
+  const buf = await blob.slice(dataStart).arrayBuffer();
+  const chunkEl = elements.find((e) => e.name === 'chunk');
+  const vertEl = elements.find((e) => e.name === 'vertex');
+  const shEl = elements.find((e) => e.name === 'sh');
+  if (!chunkEl || !vertEl) throw new Error('Not a compressed PLY (no chunk/vertex elements).');
+  const CP = chunkEl.props.length;
+  const chunks = new Float32Array(buf, 0, chunkEl.count * CP);
+  const vp = vertEl.props.map((p) => p.name);
+  const VP = vp.length;
+  const verts = new Uint32Array(buf, chunkEl.count * CP * 4, vertEl.count * VP);
+  const [kPos, kRot, kScale, kColor, kMotion, kTime] = ['packed_position', 'packed_rotation', 'packed_scale', 'packed_color', 'packed_motion', 'packed_time'].map((n) => vp.indexOf(n));
+  const is4d = kMotion >= 0 && kTime >= 0 && CP >= 28;
+  const colorRange = chunkEl.props.some((p) => p.name === 'min_r');
+  const N = vertEl.count;
+  const rows = Math.ceil(N / TEX_W);
+  const T = TEX_W * rows;
+  const posT = new Float32Array(T * 4);
+  const velT = new Float32Array(T * 4);
+  const covA = new Uint16Array(T * 4);
+  const covB = new Uint16Array(T * 2);
+  const color = new Uint8Array(T * 4);
+  const colorH = new Uint16Array(T * 4);
+  const norm = Math.SQRT2; // 1 / (√2 · 0.5)
+  let tMin = Infinity, tMax = -Infinity;
+  const Rc = new Float64Array(28);
+  let lastChunk = -1;
+  for (let i = 0; i < N; i++) {
+    const ch = i >>> 8;
+    if (ch !== lastChunk) {
+      // this chunk's ranges, as (min, max − min) pairs where the packed fractions apply
+      lastChunk = ch;
+      for (let k = 0; k < Math.min(CP, 28); k++) Rc[k] = chunks[ch * CP + k];
+    }
+    const v = i * VP, j = i * 4;
+    let pv = verts[v + kPos];
+    posT[j] = Rc[0] + (Rc[3] - Rc[0]) * ((pv >>> 21) / 2047);
+    posT[j + 1] = Rc[1] + (Rc[4] - Rc[1]) * (((pv >>> 11) & 0x3ff) / 1023);
+    posT[j + 2] = Rc[2] + (Rc[5] - Rc[2]) * ((pv & 0x7ff) / 2047);
+    pv = verts[v + kScale];
+    const s0 = Math.exp(2 * (Rc[6] + (Rc[9] - Rc[6]) * ((pv >>> 21) / 2047)));
+    const s1 = Math.exp(2 * (Rc[7] + (Rc[10] - Rc[7]) * (((pv >>> 11) & 0x3ff) / 1023)));
+    const s2 = Math.exp(2 * (Rc[8] + (Rc[11] - Rc[8]) * ((pv & 0x7ff) / 2047)));
+    const rb = verts[v + kRot];
+    const a = (((rb >>> 20) & 0x3ff) / 1023 - 0.5) * norm;
+    const b = (((rb >>> 10) & 0x3ff) / 1023 - 0.5) * norm;
+    const d = ((rb & 0x3ff) / 1023 - 0.5) * norm;
+    const m = Math.sqrt(Math.max(0, 1 - (a * a + b * b + d * d)));
+    const mode = rb >>> 30;
+    let w, x, y, z;
+    if (mode === 0) { w = m; x = a; y = b; z = d; }
+    else if (mode === 1) { w = a; x = m; y = b; z = d; }
+    else if (mode === 2) { w = a; x = b; y = m; z = d; }
+    else { w = a; x = b; y = d; z = m; }
+    const r00 = 1 - 2 * (y * y + z * z), r01 = 2 * (x * y - w * z), r02 = 2 * (x * z + w * y);
+    const r10 = 2 * (x * y + w * z), r11 = 1 - 2 * (x * x + z * z), r12 = 2 * (y * z - w * x);
+    const r20 = 2 * (x * z - w * y), r21 = 2 * (y * z + w * x), r22 = 1 - 2 * (x * x + y * y);
+    // Σ = R S² Rᵀ
+    covA[j] = toHalf((r00 * r00 * s0 + r01 * r01 * s1 + r02 * r02 * s2) * COV_SCALE);
+    covA[j + 1] = toHalf((r00 * r10 * s0 + r01 * r11 * s1 + r02 * r12 * s2) * COV_SCALE);
+    covA[j + 2] = toHalf((r00 * r20 * s0 + r01 * r21 * s1 + r02 * r22 * s2) * COV_SCALE);
+    covA[j + 3] = toHalf((r10 * r10 * s0 + r11 * r11 * s1 + r12 * r12 * s2) * COV_SCALE);
+    covB[i * 2] = toHalf((r10 * r20 * s0 + r11 * r21 * s1 + r12 * r22 * s2) * COV_SCALE);
+    covB[i * 2 + 1] = toHalf((r20 * r20 * s0 + r21 * r21 * s1 + r22 * r22 * s2) * COV_SCALE);
+    const pc = verts[v + kColor];
+    for (let k = 0; k < 3; k++) {
+      const f = ((pc >>> (24 - 8 * k)) & 255) / 255;
+      const val = colorRange ? Rc[12 + k] + (Rc[15 + k] - Rc[12 + k]) * f : f;
+      color[j + k] = val <= 0 ? 0 : val >= 1 ? 255 : Math.round(val * 255);
+      colorH[j + k] = toHalf(val);
+    }
+    color[j + 3] = pc & 255;
+    colorH[j + 3] = HALF_BYTE[pc & 255];
+    if (is4d) {
+      pv = verts[v + kMotion];
+      velT[j] = Rc[18] + (Rc[21] - Rc[18]) * ((pv >>> 21) / 2047);
+      velT[j + 1] = Rc[19] + (Rc[22] - Rc[19]) * (((pv >>> 11) & 0x3ff) / 1023);
+      velT[j + 2] = Rc[20] + (Rc[23] - Rc[20]) * ((pv & 0x7ff) / 2047);
+      pv = verts[v + kTime];
+      const logS = Math.max(-20, Rc[24] + (Rc[25] - Rc[24]) * ((pv >>> 21) / 2047));
+      const tc = Rc[26] + (Rc[27] - Rc[26]) * (((pv >>> 11) & 0x3ff) / 1023);
+      posT[j + 3] = tc;
+      velT[j + 3] = Math.exp(-2 * logS);
+      if (tc < tMin) tMin = tc;
+      if (tc > tMax) tMax = tc;
+    }
+  }
+  // view-dependent colour: one "codebook entry" per splat, 1024 entries per texture row
+  let sh = null;
+  if (shEl && shEl.props.length >= 9) {
+    onStage('Lighting');
+    const k = shEl.props.length / 3;
+    const off = chunkEl.count * CP * 4 + N * VP * 4;
+    const bytes = new Uint8Array(buf, off, N * shEl.props.length);
+    const perRow = 1024;
+    const w = perRow * k;
+    const h = Math.ceil(N / perRow);
+    const book = new Uint16Array(w * h * 4);
+    const labels = new Float32Array(T);
+    const LUT = new Uint16Array(256);
+    for (let q = 0; q < 256; q++) LUT[q] = toHalf((q * 8) / 255 - 4);
+    for (let i = 0; i < N; i++) {
+      labels[i] = i;
+      const src = i * 3 * k, dst = i * k * 4;
+      for (let c = 0; c < k; c++) {
+        book[dst + c * 4] = LUT[bytes[src + c]];
+        book[dst + c * 4 + 1] = LUT[bytes[src + k + c]];
+        book[dst + c * 4 + 2] = LUT[bytes[src + 2 * k + c]];
+      }
+    }
+    sh = { k, w, h, perRow, book, labels };
+  }
+  // framing sample: solid splats near the segment's middle
+  const mid = is4d ? 0.5 * (Math.max(tMin, 0) + Math.min(tMax, 10)) : 0;
+  const sample = [];
+  const step = Math.max(1, Math.floor(N / 200000));
+  for (let i = 0; i < N; i += step) {
+    const j = i * 4;
+    const dt = mid - posT[j + 3];
+    if (color[j + 3] < 128 || (is4d && Math.exp(-0.5 * dt * dt * velT[j + 3]) < 0.5)) continue;
+    sample.push(posT[j] + velT[j] * dt, posT[j + 1] + velT[j + 1] * dt, posT[j + 2] + velT[j + 2] * dt);
+  }
+  return { kind: 0, N, texW: TEX_W, rows, posT, velT, covA, covB, color, colorH, sh, sample: new Float32Array(sample), timeRange: [tMin, tMax] };
+}
+
+// Adaptive quality: the measured download rate (bytes/s) picks each segment's tier, the best one that
+// downloads in under 80% of the segment's playing time. Unknown rate (the first file): the best under 100 MB.
+let bytesPerSec = 0;
+function pickTier(seg) {
+  if (!seg.tiers) return seg.url;
+  const cached = seg.tiers.find((t) => fileCache.has(t.url));
+  if (cached) return cached.url;
+  const budget = bytesPerSec ? bytesPerSec * seg.duration * 0.8 : 100 * 1048576;
+  const fit = seg.tiers.find((t) => t.size <= budget);
+  return (fit ?? seg.tiers[seg.tiers.length - 1]).url;
+}
+
+// Downloaded files, kept (up to CACHE_BYTES, oldest out first) so a looping clip doesn't fetch them again.
+const CACHE_BYTES = 600 * 1048576;
+const fileCache = new Map();
+let cachedBytes = 0;
+
+async function fetchSegment(url, onStage) {
+  const hit = fileCache.get(url);
+  if (hit) {
+    fileCache.delete(url);
+    fileCache.set(url, hit);
+    return hit;
+  }
+  const blob = await download(url, onStage);
+  fileCache.set(url, blob);
+  cachedBytes += blob.size;
+  for (const [k, b] of fileCache) {
+    if (cachedBytes <= CACHE_BYTES || k === url) break;
+    fileCache.delete(k);
+    cachedBytes -= b.size;
+  }
+  return blob;
+}
+
+async function download(url, onStage) {
+  const t0 = performance.now();
+  const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}): ${url.split('/').pop()}`);
+  const size = Number(res.headers.get('content-length')) || 0;
+  const reader = res.body.getReader();
+  const parts = [];
+  let got = 0, last = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value);
+    got += value.length;
+    if (got - last > 2 << 20) {
+      last = got;
+      onStage(`Downloading ${(got / 1048576).toFixed(0)}${size ? ` / ${(size / 1048576).toFixed(0)}` : ''} MB`);
+    }
+  }
+  const rate = got / Math.max(0.05, (performance.now() - t0) / 1000);
+  bytesPerSec = bytesPerSec ? bytesPerSec * 0.5 + rate * 0.5 : rate;
+  return new Blob(parts);
+}
+
 async function decodeSegment(seg, onStage) {
+  if (seg.url || seg.tiers) {
+    const url = pickTier(seg);
+    const d = await decodePly4d(await fetchSegment(url, onStage), onStage);
+    d.tier = seg.tiers ? seg.tiers.findIndex((t) => t.url === url) : 0;
+    return d;
+  }
+  if (plyBlob) return decodePly4d(plyBlob, onStage);
   if (splatv) return decodeSplatv(onStage);
   const meta = await zip.json(seg.path + 'meta.json');
   const N = meta.count;
@@ -406,7 +669,7 @@ self.onmessage = async (e) => {
   const m = e.data;
   try {
     if (m.type === 'open') {
-      const info = await open(m.blob);
+      const info = m.remote ? openRemote(m.remote) : await open(m.blob);
       self.postMessage({ type: 'info', id: m.id, info });
     } else if (m.type === 'segment') {
       const t0 = performance.now();

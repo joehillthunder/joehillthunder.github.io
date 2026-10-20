@@ -1,7 +1,7 @@
 # 4DV Player: rules for agents
 
-Plays 4D Gaussian splat volumetric video in the browser (4DV.ai `.4dv` and splaTV / Spacetime Gaussians
-`.splatv`): woven glasses-free 3D in the
+Plays 4D Gaussian splat volumetric video in the browser (4DV.ai `.4dv` in both of its forms, and splaTV /
+Spacetime Gaussians `.splatv`): woven glasses-free 3D in the
 DisplayXR Browser, 2D anywhere else. Plain ES modules, no build step. Served at
 https://joehillthunder.github.io/displayxr-demos/apps/4dv-player/ . Read `../../CLAUDE.md` (the
 displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` → `docs/woven-canvas-rules.md` first.
@@ -14,7 +14,7 @@ displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` �
 | `js/main.js` | UI, chunked clip downloads with progress, file open / drag-and-drop, keyboard, `window.fourdv` (debug handle). |
 | `js/stage.js` | One persistent canvas; DisplayXR camera rig (attach pattern, convergence on the orbit target, ipd scaled with distance and capped by a disparity budget, `depthGain` = the 3D slider); 2D mono loop fallback; orbit / pan / zoom / turntable. |
 | `js/player.js` | Opens a `.4dv`, streams segments (keeps 3 resident, prefetches the next), drives the sort worker, the audio-locked clock, and auto-framing from the capture cameras. |
-| `js/loader-worker.js` | Sniffs the format (zip = `.4dv`, magic `0x674b` = `.splatv`). `.4dv`: zip read + lossless WebP decode (WebGL2 `readPixels`, never a 2D canvas) + the 4dv-sog math. `.splatv`: header + 64-byte splats. Both → the same GPU arrays, in seconds. |
+| `js/loader-worker.js` | Sniffs the format (zip = `.4dv` sog, `ply\n` = 4D compressed PLY, magic `0x674b` = `.splatv`); streams multi-file clips segment by segment with adaptive quality tiers and a 600 MB file cache. `.4dv`: zip read + lossless WebP decode (WebGL2 `readPixels`, never a 2D canvas) + the 4dv-sog math. `.splatv`: header + 64-byte splats. Both → the same GPU arrays, in seconds. |
 | `js/sort-worker.js` | Per-frame temporal cull + 16-bit counting sort (back to front), from the centre camera, shared by both eyes. Time-binned index so it only scans splats alive near t. |
 | `js/splats.js` | `SplatSegment`: data textures + instanced quads; EWA projection and the temporal model in the vertex shader. `uKind` 0 = `.4dv` (linear motion, fixed Σ, SH), 1 = `.splatv` (cubic motion, rotating quaternion, Σ rebuilt per frame). |
 | `js/zip.js` | Minimal Blob zip reader (stored + deflate via `DecompressionStream`). |
@@ -43,6 +43,32 @@ displayxr-demos rules) and the woven-canvas rules in `DisplayXR/displayxr-web` �
 - **Times are local to their segment** (segment k plays global `start + t`).
 - Cameras are OpenCV (x right, y down, z forward), `x_cam = R·X + T`. Up = −R row 1; the orbit target is the
   least-squares focus of all optical axes; distance = 1.8 × the capture's own framing.
+
+## 4D compressed PLY (4DV.ai's showcase files: `.4dv` that starts with `ply`, `.c.ply`, `.compressed.ply`)
+
+"Super4D" output: PlayCanvas's compressed PLY plus 4DV.ai's temporal fields. Decoder in `decodePly4d`,
+reverse-engineered from the shader in 4DV.ai's showcase viewer (frontend.4dv.ai, PlayCanvas based).
+- `element chunk` (one per 256 splats), 28 floats: min/max xyz, min/max log-scale xyz, min/max rgb,
+  min/max motion xyz, `min/max_time_scale`, `min/max_time`. `element vertex`: uint `packed_position`,
+  `packed_rotation`, `packed_scale`, `packed_color`, `packed_motion`, `packed_time`. Optional `element sh`:
+  k·3 uchar `f_rest_*`, channel-major, `v·8/255 − 4`.
+- 11/10/11-bit fractions (x = top 11 bits) into the chunk ranges. Rotation: smallest-three, 2-bit index of the
+  largest + 3×10 bits scaled by √2, quaternion order **(w, x, y, z)**. Colour: RGBA8, RGB = fraction of the
+  chunk's colour range (final colour, not SH DC), A = opacity.
+- `packed_time`: x (11 bits) = log σt in [min_time_scale, max_time_scale], y (10 bits) = time centre in
+  [min_time, max_time]. Same temporal model as 4dv-sog (linear motion, Gaussian in time). Times are local to
+  each file. (4DV.ai's GPU chunk texture reorders these four floats, so their shader looks swapped; the header
+  names are right: the first attempt that followed the shader literally exploded every moving splat.)
+- Showcase clips (`group: "4DV.ai showcase · streamed"` in `clips.json`) come from the public viewer API
+  `https://www.4dv.ai/api/v1/viewer?showdemo=4dv` and `/api/v1/viewer/<name>` (CORS open): `highPlyPath` /
+  `plyPath` / `lowPlyPath` = comma-separated files per quality, `timeOption` = start,duration pairs per file,
+  `audioPath`, `settingPath` (JSON with the intended `camera` {position, target, fov}, Y-up). Files and audio
+  live on `https://s1.4dv.ai` + path (CORS `*`, encode `+` as `%2B`). `clips.json` stores each segment's tiers
+  (best first, with sizes) and the view; regenerate rather than hand-edit.
+- Streaming: the loader measures the download rate and takes the best tier that arrives in < 80% of the
+  segment's playing time (first file: best under 100 MB); the player holds the clock ("Buffering") rather
+  than running past a missing segment. This PC gets ~4 MB/s from s1.4dv.ai, so long clips settle on the low
+  tier; short ones (Shiku, Corgi, Wedding, Salmon, Neemo) play at their best tier.
 
 ## The .splatv format (splaTV, MIT; github.com/antimatter15/splaTV `hybrid.js`)
 
@@ -89,7 +115,8 @@ no error) the moment the user's own DisplayXR Browser window takes it.
 
 ## Adding a clip
 
-Credit every clip with `by` in `clips.json` (4DV.ai's own clips say "4DV.ai"). Content that can stream from a
+Credit every clip with `by` in `clips.json` (4DV.ai's own clips say "4DV.ai") and give it a `group` (the
+panel shows a heading per group). Content that can stream from a
 CORS-enabled source gets `src` (+ `size` for progress) and a row in the "streamed" table of
 `../../assets/LICENSES.md`; nothing is copied into the repo. To host a `.4dv` here instead: split the `.4dv` into 8 MiB parts (`split -b 8388608 -d -a 3 x.4dv x.part-`), write `x.manifest.json`
 (`{ file, size, parts: [{ url, size }] }`), add it to `clips/clips.json`, and add a row to

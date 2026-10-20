@@ -7,12 +7,17 @@ in any other browser it plays in 2D.
 
 **Open it:** https://joehillthunder.github.io/displayxr-demos/apps/4dv-player/
 
-- **By 4DV.ai:** **Cat** (23 MB), **A2O · Paparazzi** (35 s music video with sound, streamed in 5 s segments),
-  **Puppet** (9.5M splats with sound, PC only).
+- **By 4DV.ai, hosted here:** **Cat** (23 MB), **A2O · Paparazzi** (35 s music video with sound, streamed in
+  5 s segments), **Puppet** (9.5M splats with sound, PC only).
+- **4DV.ai showcase, streamed from 4DV.ai:** 17 clips from their public viewer: Salmon, Shiku, Neemo, Corgi,
+  Wedding, Badminton, Jazz Trio, Rocket, Lang Lang, Dance · colour, Jazz, Piano, A2O · Paparazzi · full,
+  Dance, Tim Talking, Cat · long take, Nunchaku. Each part is fetched as it's needed, at the best quality
+  the connection can keep up with.
 - **Other 4D splats** (`.splatv`, streamed from Hugging Face): **Sear Steak** (Meta's Neural 3D Video dataset),
   **Flames** (Google's Immersive Light Field Video), **Birthday** (Technicolor light-field video), all trained with
   Spacetime Gaussians and converted by splaTV. Each clip shows who made it.
-- **Open a .4dv or .splatv file…** or drag one onto the page to play your own (nothing is uploaded).
+- **Open a file…** or drag one onto the page to play your own (nothing is uploaded): `.4dv` (both the zipped
+  sog kind and the 4D compressed-PLY kind), `.c.ply` / `.compressed.ply`, `.splatv`.
 - Drag to orbit, right-drag to pan, wheel to zoom; play/pause, seek, speed, loop, turntable, reset view, and a
   **3D** strength slider (0 = flat, 2 = exaggerated). Keys: Space, R, ←/→, ↑/↓, [ ], T, Home, L, V, H, F.
 - **Fullscreen** (F, or the button): the page fills the screen with every control hidden and the pointer hides

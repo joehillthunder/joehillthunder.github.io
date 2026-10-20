@@ -16,6 +16,7 @@ Linked content the page fetches at run time from its public host (CORS). None of
 
 | Content | Source (URL) | Author | License | Used by |
 |---|---|---|---|---|
+| 4DV.ai showcase (17 clips, `group: "4DV.ai showcase · streamed"` in `apps/4dv-player/clips/clips.json`) | https://www.4dv.ai/viewer/ (files on https://s1.4dv.ai) | 4DV.ai | © 4DV.ai; their public showcase, streamed from their CDN and credited, added at the user's request | 4dv-player |
 | Sear Steak (`sear.splatv`) | https://huggingface.co/cakewalk/splat-data | Meta Reality Labs, Neural 3D Video dataset; trained with Spacetime Gaussians; converted by Kevin Kwok (splaTV) | CC BY-NC 4.0 (dataset) | 4dv-player |
 | Flames (`flame.splatv`) | https://huggingface.co/cakewalk/splat-data | Google, Immersive Light Field Video (DeepView Video) "02_Flames"; Spacetime Gaussians; splaTV | no licence stated by the dataset; added at the user's request, check before commercial use | 4dv-player |
 | Birthday (`birthday.splatv`) | https://huggingface.co/cakewalk/splat-data | Technicolor light-field video dataset (Sabater et al. 2017); Spacetime Gaussians; splaTV | research dataset, terms not confirmed; added at the user's request, check before commercial use | 4dv-player |
