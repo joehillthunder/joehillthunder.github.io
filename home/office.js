@@ -621,6 +621,79 @@ const BUILD = {
       });
     });
   },
+  'physical-ai'(g) {
+    // a kitchen counter with an SO-101 arm putting three oranges on a plate, a parallel-eval board
+    // whose cells turn green, and a screen with a falling loss curve
+    box(g, 2.6, 0.9, 1.1, '#e9e3d3', 0, 0, 0);
+    box(g, 2.7, 0.06, 1.2, '#d6b88c', 0, 0.9, 0);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.05, 24), new THREE.MeshLambertMaterial({ color: '#f5f5f5' }));
+    plate.position.set(0.8, 0.985, -0.05);
+    plate.castShadow = true;
+    g.add(plate);
+    const B = new THREE.Vector3(-0.05, 0.96, 0.3);
+    const base = new THREE.Group();
+    base.position.copy(B);
+    g.add(base);
+    box(base, 0.3, 0.12, 0.3, '#f0ebe1', 0, 0, 0);
+    const pan = new THREE.Group();
+    pan.position.y = 0.12;
+    base.add(pan);
+    box(pan, 0.16, 0.2, 0.16, '#1c1e23', 0, 0, 0);
+    const L1 = 0.6, L2 = 0.62, SH = 0.32;
+    const sh = new THREE.Group();
+    sh.position.y = 0.2;
+    pan.add(sh);
+    box(sh, 0.11, L1, 0.11, '#f0ebe1', 0, 0, 0);
+    const el = new THREE.Group();
+    el.position.y = L1;
+    sh.add(el);
+    box(el, 0.13, 0.13, 0.13, '#1c1e23', 0, -0.06, 0);
+    box(el, 0.09, L2 - 0.12, 0.09, '#f0ebe1', 0, 0, 0);
+    const jawA = box(el, 0.04, 0.14, 0.08, '#f0ebe1', -0.05, L2 - 0.14, 0);
+    const jawB = box(el, 0.04, 0.14, 0.08, '#f0ebe1', 0.05, L2 - 0.14, 0);
+    const spots = [[-0.75, -0.2], [-0.55, 0.1], [-0.95, 0.05]];
+    const oranges = spots.map(([x, z]) => sphere(g, 0.09, '#f28a1a', x, 1.02, z, 12));
+    const rest = new THREE.Vector3(-0.05, 1.6, 0.0);
+    const tmp = new THREE.Vector3();
+    function reach(T) {
+      const dx = T.x - B.x, dz = T.z - B.z, d = Math.max(0.05, Math.hypot(dx, dz)), h = T.y - (B.y + SH);
+      pan.rotation.y = Math.atan2(-dz, dx);
+      const c2 = Math.max(-1, Math.min(1, (d * d + h * h - L1 * L1 - L2 * L2) / (2 * L1 * L2)));
+      const q2 = Math.acos(c2), q1 = Math.atan2(d, h) - Math.atan2(L2 * Math.sin(q2), L1 + L2 * Math.cos(q2));
+      sh.rotation.z = -q1;
+      el.rotation.z = -q2;
+    }
+    const lerp3 = (a, b, k) => tmp.copy(a).lerp(b, k * k * (3 - 2 * k));
+    // the eval board on the back wall and the training screen
+    box(g, 1.5, 1.5, 0.08, '#141a24', -1.05, 1.5, -1.35);
+    const cells = [];
+    for (let i = 0; i < 9; i++) cells.push(box(g, 0.36, 0.36, 0.03, glow('#334155', 0.6), -1.47 + (i % 3) * 0.42, 1.6 + Math.floor(i / 3) * 0.42, -1.3, { shadow: false }));
+    box(g, 1.3, 0.9, 0.08, '#141a24', 1.05, 1.7, -1.35);
+    const curve = [];
+    for (let i = 0; i < 12; i++) curve.push(box(g, 0.08, 0.05, 0.02, glow('#5eead4', 0.9), 0.55 + i * 0.09, 1.9, -1.3, { shadow: false }));
+    const green = new THREE.Color('#22c55e'), idle = new THREE.Color('#334155');
+    animators.push((t) => {
+      const cyc = t % 15, k = Math.floor(cyc / 5), u = (cyc % 5) / 5;
+      const o = oranges[k], p0 = new THREE.Vector3(spots[k][0], 1.02, spots[k][1]);
+      const drop = new THREE.Vector3(0.8 + [-0.1, 0.1, 0][k], 1.1, -0.05 + [0.08, 0.08, -0.12][k]);
+      if (cyc < 0.05) oranges.forEach((x, i) => x.position.set(spots[i][0], 1.02, spots[i][1]));
+      const up = (v) => v.clone().setY(v.y + 0.45);
+      let T, held = false;
+      if (u < 0.2) T = lerp3(k ? up(new THREE.Vector3(0.8, 1.1, -0.05)) : rest, up(p0), u / 0.2).clone();
+      else if (u < 0.32) T = lerp3(up(p0), p0, (u - 0.2) / 0.12).clone();
+      else if (u < 0.45) { T = lerp3(p0, up(p0), (u - 0.32) / 0.13).clone(); held = true; }
+      else if (u < 0.7) { T = lerp3(up(p0), up(drop), (u - 0.45) / 0.25).clone(); held = true; }
+      else if (u < 0.82) { T = lerp3(up(drop), drop, (u - 0.7) / 0.12).clone(); held = true; }
+      else T = lerp3(drop, up(new THREE.Vector3(0.8, 1.1, -0.05)), (u - 0.82) / 0.18).clone();
+      reach(T.clone().setY(T.y + 0.1));
+      const open = held ? 0.04 : 0.07;
+      jawA.position.x = -open; jawB.position.x = open;
+      if (held) o.position.copy(T);
+      else if (u >= 0.82) o.position.set(drop.x, 1.06, drop.z);
+      cells.forEach((c, i) => c.material.color.copy((t * 1.3 + i * 0.37) % 6 < 3 + (i % 3) ? green : idle));
+      curve.forEach((c, i) => { c.position.y = 1.35 + 0.55 * Math.exp(-i * 0.35) + Math.sin(t * 4 + i) * 0.01; });
+    });
+  },
   dot(g) {
     box(g, 1.1, 0.7, 1.1, '#20303a', 0, 0, 0);
     const orb = sphere(g, 0.5, glow('#4fd8ff', 0.8), 0, 1.6, 0, 20);

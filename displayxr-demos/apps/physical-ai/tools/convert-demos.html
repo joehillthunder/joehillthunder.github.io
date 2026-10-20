@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><pre id="log"></pre>
+<script type="module">
+import { parquetReadObjects } from 'https://cdn.jsdelivr.net/npm/hyparquet@1.17.1/+esm';
+const log = [];
+try {
+  const dir = new URLSearchParams(location.search).get('dir'); const n = +new URLSearchParams(location.search).get('n');
+  const eps = [];
+  for (let i = 0; i < n; i++) {
+    const url = `${dir}/data/episode_${String(i).padStart(6, '0')}.parquet`;
+    const buf = await (await fetch(url)).arrayBuffer();
+    const rows = await parquetReadObjects({ file: buf });
+    if (i === 0) log.push('cols ' + Object.keys(rows[0]).join(',') + ' sample ' + JSON.stringify(rows[0], (k, v) => typeof v === 'bigint' ? Number(v) : v));
+    // pack state/action as rounded arrays (0.01 precision)
+    const st = [], ac = [];
+    for (const r of rows) { for (const v of r['observation.state']) st.push(Math.round(v * 100)); for (const v of r['action']) ac.push(Math.round(v * 100)); }
+    eps.push({ i, n: rows.length, s: st, a: ac });
+  }
+  await fetch('/save?name=' + encodeURIComponent(new URLSearchParams(location.search).get('out')), { method: 'POST', body: JSON.stringify(eps) });
+  log.push('ok ' + eps.length);
+} catch (e) { log.push('FAIL ' + (e.stack || e)); }
+await fetch('/save?name=parq.log.txt', { method: 'POST', body: log.join('\n') });
+await fetch('/__done');
+</script><img src="/__wait" style="display:none">

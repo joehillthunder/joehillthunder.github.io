@@ -1,0 +1,48 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { USDLoader } from './usdlib/USDLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const P = new URLSearchParams(location.search);
+const lines = []; const log = (...a) => lines.push(a.join(' '));
+const post = (name, body) => fetch('/save?name=' + encodeURIComponent(name), { method: 'POST', body });
+globalThis.USD_SKIP = (path, type) => /^\/(Flattened_Prototype_\d+|Render|OmniverseKit_\w+)$/.test(path) || /^(Sphere|Cube|Cylinder|Capsule|Cone|Camera|PhysicsScene)$/.test(type || '') || /collision|light_switch|outlet/i.test(path) || /^Physics/.test(type || '');
+async function load(src) { const g = await new USDLoader().loadAsync(src); g.updateMatrixWorld(true); return g; }
+function stats(root, label) {
+  const by = {};
+  root.traverse(o => { if (!o.isMesh) return; const k = (o.userData.usdPath || o.name).split('/').slice(0, +(P.get('lvl') || 4)).join('/'); const t = (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; by[k] = (by[k] || 0) + t; });
+  const tot = Object.values(by).reduce((a, b) => a + b, 0); log(label, 'tris', tot | 0);
+  Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 40).forEach(([k, v]) => log('   ', (v | 0), k));
+}
+try {
+  const root = new THREE.Group(); root.name = 'lightwheel_kitchen_with_orange';
+  const kitchen = await load('assets/scenes/kitchen_with_orange/scene.usd'); root.add(kitchen); stats(kitchen, 'kitchen');
+  // payload objects at their authored poses (Z-up world; the loader wraps in a Y-up group)
+  const objs = { Orange001: [2.1255872534204743, -0.303665590487424, 0.9244327503433306], Orange002: [2.249221251030364, -0.33217272183906854, 0.9241049740181722], Orange003: [2.153771638893834, -0.4053714928730934, 0.9230279297756251], Plate: [2.4153075113292406, -0.33843361609065753, 0.9374869833877418] };
+  for (const [name, t] of Object.entries(objs)) {
+    const g = await load(`assets/scenes/kitchen_with_orange/objects/${name}/${name}.usd`);
+    const holder = new THREE.Group(); holder.name = 'lightwheel_' + name.toLowerCase();
+    // put the object (in its own Z-up frame) into the kitchen's Z-up frame
+    const inner = g.children.slice(); inner.forEach(c => holder.add(c)); holder.position.set(...t);
+    kitchen.add(holder); stats(holder, name);
+  }
+  await new Promise(r => setTimeout(r, 6000));
+  // preview render
+  const W = 960, H = 720; const ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); ren.setSize(W, H); document.body.appendChild(ren.domElement);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x202024); scene.add(root);
+  scene.environment = new THREE.PMREMGenerator(ren).fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2)); const d = new THREE.DirectionalLight(0xffffff, 2); d.position.set(2, 6, 3); scene.add(d);
+  const cam = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
+  const views = { wide: [[5.5, 2.2, 3.2], [2.2, 0.9, 0.3]], table: [[2.2, 1.55, 0.05], [2.25, 0.9, 0.38]] }; // Y-up: (x, z, -y)
+  for (const [k, [p, t]] of Object.entries(views)) { cam.position.set(...p); cam.lookAt(...t); ren.render(scene, cam); const b = await new Promise(r => ren.domElement.toBlob(r, 'image/png')); await post(`prev-${k}.png`, b); }
+  root.updateMatrixWorld(true); root.traverse(o => { if (!o.isMesh) return; const b = new THREE.Box3().setFromObject(o); if (!(Math.abs(b.max.x) < 50 && Math.abs(b.min.z) < 50 && Math.abs(b.max.y) < 50)) { let p = o, chain = []; while (p) { chain.push(p.name + "[" + p.position.toArray().map(v => v.toExponential(2)) + " s" + p.scale.toArray().map(v => v.toExponential(2)) + "]"); p = p.parent; } log("BAD", o.userData.usdPath, chain.join(" < ")); } });
+  root.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(root); log('bbox', JSON.stringify(box));
+  let texN = 0; const seen = new Set(); root.traverse(o => { if (!o.isMesh) return; const g = o.geometry; for (const k of Object.keys(g.attributes)) if (!/^(position|normal|uv)$/.test(k)) g.deleteAttribute(k); if (!g.index) { const m = mergeVertices(g, 1e-5); o.geometry = m; } for (const mat of [].concat(o.material)) for (const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap']) { let t = mat[k]; const key = t && t.userData.usdFile; if (key) { globalThis.__tx = globalThis.__tx || {}; if (globalThis.__tx[key + k]) { t = mat[k] = globalThis.__tx[key + k]; } else globalThis.__tx[key + k] = t; } if (t && !seen.has(t)) { seen.add(t); texN++; t.userData.mimeType = k === 'map' && mat.transparent ? 'image/png' : 'image/jpeg'; } } });
+  log('textures', texN);
+  if (P.get('out')) { const glb = await new GLTFExporter().parseAsync(root, { binary: true, maxTextureSize: +(P.get('tex') || 512) }); await post(P.get('out'), glb); log('saved', glb.byteLength); }
+} catch (e) { log('FAIL', e.stack || e); }
+await post('scene.log.txt', lines.join('\n')); await fetch('/__done');
+</script><img src="/__wait" style="display:none">
