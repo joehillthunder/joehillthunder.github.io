@@ -10,7 +10,10 @@ in any other browser it plays in 2D.
   segments), **Puppet** (9.5M splats with sound, PC only).
 - **Open a .4dv file…** or drag one onto the page to play your own (nothing is uploaded).
 - Drag to orbit, right-drag to pan, wheel to zoom; play/pause, seek, speed, loop, turntable, reset view, and a
-  **3D** strength slider (0 = flat, 2 = exaggerated). Keys: Space, R, ←/→, ↑/↓, [ ], T, Home, L, V, H.
+  **3D** strength slider (0 = flat, 2 = exaggerated). Keys: Space, R, ←/→, ↑/↓, [ ], T, Home, L, V, H, F.
+- **Fullscreen** (F, or the button): the page fills the screen with every control hidden and the pointer hides
+  when still; Esc brings the controls back. `?fullscreen` starts that way for a hands-off display; on the Leia PC
+  the desktop shortcut **4DV Player (3D web)** opens it in the DisplayXR Browser with `--start-fullscreen`.
 - `?clip=cat|a2o|puppet` opens a clip directly.
 
 It is its own renderer (three.js + WebGL2), not 4DV.ai's WebGPU player: it decodes the same `.4dv` files and

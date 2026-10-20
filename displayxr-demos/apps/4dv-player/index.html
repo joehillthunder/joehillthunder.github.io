@@ -64,7 +64,11 @@
   #error { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); max-width: calc(100% - 32px);
            background: #2a1014; border: 1px solid #6b2a33; color: var(--danger); border-radius: 8px; padding: 8px 12px; }
 
+  #where { margin-top: 6px; color: var(--accent); font-size: 12px; }
+
+  /* Fullscreen / bare: no controls at all, and the pointer hides after a moment of stillness. */
   body.bare #panel, body.bare #bar { display: none; }
+  body.bare.idle, body.bare.idle * { cursor: none; }
   @media (max-width: 720px) {
     #panel { right: 16px; width: auto; max-height: 40%; }
     #time { min-width: 0; }
@@ -81,6 +85,7 @@
   <div id="clips"></div>
   <label class="open">Open a .4dv file…<input id="file" type="file" accept=".4dv" hidden></label>
   <div id="info"></div>
+  <div id="where" hidden></div>
   <details class="keys">
     <summary>Controls</summary>
     <table>
@@ -96,6 +101,7 @@
       <tr><td><kbd>Home</kbd></td><td>Reset view</td></tr>
       <tr><td><kbd>L</kbd></td><td>Loop</td></tr>
       <tr><td><kbd>V</kbd></td><td>2D / 3D</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fullscreen, no controls (<kbd>Esc</kbd> leaves)</td></tr>
       <tr><td><kbd>H</kbd></td><td>Hide controls</td></tr>
     </table>
   </details>
@@ -115,6 +121,7 @@
   <label class="depth">3D <input id="depth" type="range" min="0" max="2" step="0.1" value="1" aria-label="3D strength"><span id="depthVal">1.0</span></label>
   <button id="mode" type="button" aria-pressed="true" hidden>3D</button>
   <button id="hide" type="button" title="Hide controls (H)">Hide</button>
+  <button id="full" type="button" title="Fullscreen with no controls (F, Esc to leave)">Fullscreen</button>
 </div>
 
 <div id="loading" data-inline3d-overlay hidden>

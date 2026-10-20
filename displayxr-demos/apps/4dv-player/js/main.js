@@ -23,7 +23,9 @@ const ui = {
   turn: $('#turn'),
   reset: $('#reset'),
   hide: $('#hide'),
+  full: $('#full'),
   info: $('#info'),
+  where: $('#where'),
   loading: $('#loading'),
   loadName: $('#loadName'),
   loadStage: $('#loadStage'),
@@ -166,6 +168,39 @@ ui.turn.addEventListener('click', () => {
 });
 ui.reset.addEventListener('click', () => stage.resetView());
 ui.hide.addEventListener('click', () => document.body.classList.toggle('bare'));
+
+// Fullscreen: the page goes fullscreen with every control hidden; Esc leaves and brings them back.
+// `?fullscreen` (or `?kiosk`) starts bare for a hands-off display: launch the browser with
+// --start-fullscreen, and the first click or key also asks for page fullscreen (it needs a gesture).
+// requestFullscreen is on the document, never the canvas, so the woven canvas is not remounted.
+const params = new URLSearchParams(location.search);
+const kiosk = params.has('fullscreen') || params.has('kiosk');
+async function toggleFullscreen() {
+  if (document.fullscreenElement) return document.exitFullscreen();
+  document.body.classList.add('bare');
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+  } catch {
+    // refused (no gesture, or an iframe without allowfullscreen): stay bare in the window
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && !kiosk) document.body.classList.remove('bare');
+});
+ui.full.addEventListener('click', toggleFullscreen);
+if (kiosk) {
+  document.body.classList.add('bare');
+  const once = () => { if (!document.fullscreenElement) toggleFullscreen(); };
+  window.addEventListener('pointerdown', once, { once: true });
+  window.addEventListener('keydown', (e) => { if (e.key !== 'f' && e.key !== 'F' && e.key !== 'Escape') once(); }, { once: true });
+}
+// Hide the pointer after 2 s without movement while the controls are hidden.
+let idleTimer = 0;
+window.addEventListener('pointermove', () => {
+  document.body.classList.remove('idle');
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => document.body.classList.add('idle'), 2000);
+});
 ui.file.addEventListener('change', () => {
   const f = ui.file.files?.[0];
   ui.file.value = '';
@@ -200,6 +235,7 @@ window.addEventListener('keydown', (e) => {
   }
   else if (k === 'l' || k === 'L') ui.loop.click();
   else if (k === 'h' || k === 'H') ui.hide.click();
+  else if (k === 'f' || k === 'F') toggleFullscreen();
   else if (k === 'v' || k === 'V') ui.mode.click();
 });
 
@@ -219,6 +255,10 @@ async function boot() {
   const { woven, firstWoven } = await started;
   ui.mode.hidden = !stage.displayModesSupported;
   document.body.classList.toggle('woven', woven);
+  ui.where.hidden = false;
+  ui.where.textContent = woven
+    ? 'Glasses-free 3D through DisplayXR'
+    : '2D here. For glasses-free 3D, open this page in the DisplayXR Browser on a Leia display.';
   // Keep the canvas covered until the weave has joined (woven-canvas rule 5): a hard cut.
   firstWoven.then(() => cover.remove());
   const want = new URLSearchParams(location.search).get('clip');

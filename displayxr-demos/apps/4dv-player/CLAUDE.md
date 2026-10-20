@@ -56,3 +56,12 @@ ask the user to look.
 Split the `.4dv` into 8 MiB parts (`split -b 8388608 -d -a 3 x.4dv x.part-`), write `x.manifest.json`
 (`{ file, size, parts: [{ url, size }] }`), add it to `clips/clips.json`, and add a row to
 `../../assets/LICENSES.md`. Anyone can also drop or open their own `.4dv` in the page.
+
+## Fullscreen
+
+`F` / the Fullscreen button calls `requestFullscreen` on the **document** (never the canvas, which must not be
+remounted) and adds `body.bare`, which hides `#panel` and `#bar`; Esc removes it. `?fullscreen` (or `?kiosk`)
+starts bare and asks for page fullscreen on the first click or key. On the Leia PC the desktop shortcut
+**4DV Player (3D web)** runs `C:\Program Files\DisplayXR\Browser\chrome.exe --start-fullscreen
+<live url>?fullscreen`; `displayxr-cli status` should then show a ChromiumInline3D client at 3840x2400 with
+`weave: render`.
