@@ -1,8 +1,13 @@
-// The landing page's lists: the editor's top picks and the searchable library. TrueGame data comes
-// from games.js (a snapshot of Acer's feed); Odyssey 3D titles are the ones Samsung has named
-// publicly, since its Odyssey 3D Hub list isn't published on the web.
+// The landing page's lists: the editor's top picks and the searchable library. Every game here runs
+// in true stereo on the Leia SR runtime, the eye-tracked weaving runtime on Samsung Odyssey 3D, Acer
+// SpatialLabs and other SR displays. Per-game SR profiles ship through each display maker's launcher:
+// Acer's are in games.js (its TrueGame feed; only the 3D Ultra profiles are SR stereo, the older 3D+
+// depth mode is left out), and Samsung's are the Odyssey 3D Hub titles it has named publicly.
 
 import { TRUEGAME, SNAPSHOT } from './games.js';
+
+// SR stereo only: 3D Ultra is TrueGame's stereo-rendering mode on the SR runtime.
+const SR = TRUEGAME.filter((g) => g.m.includes('ultra'));
 
 // Games Samsung has named for Odyssey 3D (GDC 2026 announcements and launch coverage).
 const ODYSSEY = [
@@ -27,27 +32,27 @@ const PICKS = [
   ['The First Berserker: Khazan', 'Soulslike', 'Samsung highlights its pop-out effects. Heavy hits and sparks come out past the glass.'],
   ['Street Fighter 6', 'Fighting', 'Same reason as Tekken: a locked camera, big readable characters and a deep stage behind them.'],
   ['Baldur\'s Gate 3', 'Isometric RPG', 'The tabletop view becomes a literal tabletop. Party members, spell areas and terrain heights become easy to read.'],
-  ['Black Myth: Wukong', 'Action', 'Dense forests and temples give plenty of depth cues. A new 3D Ultra profile.'],
-  ['Lies of P', 'Soulslike', 'On both platforms (Odyssey 3D lists Lies of P: Overture). Tight streets and lamplight give strong near and far contrast.'],
+  ['Black Myth: Wukong', 'Action', 'Dense forests and temples give plenty of depth cues. A new SR profile.'],
+  ['Lies of P', 'Soulslike', 'SR profiles from both Acer and Samsung (Samsung lists Lies of P: Overture). Tight streets and lamplight give strong near and far contrast.'],
   ['Resident Evil 4', 'Survival horror', 'The over-the-shoulder camera puts Leon in the foreground with the threat behind him.'],
   ['OCTOPATH TRAVELER II', 'JRPG', 'HD-2D sprites on 3D sets look like a pop-up book. Probably the most charming effect on the list.'],
-  ['Psychonauts 2', 'Platformer', 'Bright, stylised worlds built around depth, on both TrueGame and Odyssey 3D.'],
+  ['Psychonauts 2', 'Platformer', 'Bright, stylised worlds built around depth, with SR profiles from both Acer and Samsung.'],
   ['Ori and the Will of the Wisps', '2.5D platformer', 'Painted parallax layers separate cleanly in 3D. The forest backgrounds sit well behind the glass.'],
   ['Little Nightmares III', 'Side-on horror', 'A dollhouse cutaway seen from the side. Small characters in big rooms show off scale.'],
   ['Hell Is Us', 'Action adventure', 'One of Samsung\'s newer Odyssey 3D additions: misty, layered environments.'],
   ['Stray', 'Adventure', 'A cat\'s-eye view of a neon city, with signs, cables and rooftops at every depth.'],
   ['Sekiro: Shadows Die Twice', 'Action', 'Vertical castles and grappling make height and distance easy to judge.'],
-  ['God of War', 'Action', 'Big vistas from a close camera that never cuts away. A TrueGame launch title.'],
+  ['God of War', 'Action', 'Big vistas from a close camera that never cuts away. One of the first SR game profiles.'],
   ['Hollow Knight', '2D metroidvania', 'Hand-drawn foreground and background layers pull apart nicely, even in a 2D game.'],
-  ['Forza Horizon 5', 'Racing', 'The 3D+ profile adds depth to the road ahead. Better from the chase camera than from the cockpit.'],
+  ['Hi-Fi RUSH', 'Rhythm action', 'Cel-shaded levels with bold outlines separate cleanly into layers, and the camera rides at a steady distance behind Chai.'],
 ];
 
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-// Merge TrueGame and Odyssey 3D into one list keyed by name.
+// Merge both launchers' SR profiles into one list keyed by name.
 function buildLibrary() {
   const byKey = new Map();
-  for (const g of TRUEGAME) byKey.set(norm(g.n), { ...g, ody: false, soon: false });
+  for (const g of SR) byKey.set(norm(g.n), { ...g, ody: false, soon: false });
   for (const o of ODYSSEY) {
     const k = norm(o.n);
     const hit = byKey.get(k);
@@ -72,9 +77,9 @@ function el(tag, attrs = {}, ...kids) {
 
 function tags(g, extra = []) {
   const t = [...extra];
-  if (g.m?.includes('ultra')) t.push(el('span', { class: 'tag ultra', title: 'Acer SpatialLabs TrueGame, 3D Ultra mode (stereo rendering with eye tracking)' }, 'TrueGame 3D Ultra'));
-  if (g.m?.includes('plus')) t.push(el('span', { class: 'tag plus', title: 'Acer SpatialLabs TrueGame, 3D+ mode' }, 'TrueGame 3D+'));
-  if (g.ody) t.push(el('span', { class: g.soon ? 'tag soon' : 'tag odyssey', title: g.odyAlias ? `Listed as ${g.odyAlias}` : 'Samsung Odyssey 3D Hub' }, g.soon ? 'Odyssey 3D · coming' : 'Odyssey 3D'));
+  t.push(el('span', { class: g.soon ? 'tag soon' : 'tag ultra', title: 'True stereo with eye tracking on the Leia SR runtime' }, g.soon ? 'Leia SR · coming' : 'Leia SR'));
+  if (g.m?.length) t.push(el('span', { class: 'tag plus', title: 'SR profile ships in Acer SpatialLabs TrueGame (3D Ultra)' }, 'via TrueGame'));
+  if (g.ody) t.push(el('span', { class: 'tag odyssey', title: g.odyAlias ? `Listed as ${g.odyAlias}` : 'SR profile ships in the Samsung Odyssey 3D Hub' }, 'via Odyssey 3D Hub'));
   if (g.new) t.push(el('span', { class: 'tag new' }, 'New'));
   return el('div', { class: 'tags' }, t);
 }
@@ -116,8 +121,7 @@ if (body) {
 
   const tests = {
     all: () => true,
-    ultra: (g) => g.m.includes('ultra'),
-    plus: (g) => g.m.includes('plus'),
+    truegame: (g) => g.m.length > 0,
     odyssey: (g) => g.ody,
     new: (g) => g.new,
     both: (g) => g.ody && g.m.length,
@@ -163,9 +167,9 @@ if (body) {
 
 // ---- counts in the copy --------------------------------------------------------------------
 const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-set('n-truegame', String(TRUEGAME.length));
-set('n-truegame-2', String(TRUEGAME.length));
-set('n-ultra', String(TRUEGAME.filter((g) => g.m.includes('ultra')).length));
-set('n-new', String(TRUEGAME.filter((g) => g.new).length));
+set('n-sr', String(LIB.length));
+set('n-sr-2', String(LIB.length));
+set('n-tg', String(SR.length));
+set('n-new', String(LIB.filter((g) => g.new).length));
 set('n-total', String(LIB.length));
 for (const e of document.querySelectorAll('[data-snapshot]')) e.textContent = SNAPSHOT;
