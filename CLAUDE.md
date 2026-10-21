@@ -15,7 +15,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D.
 2. Learning & Simulation (quad 1): Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds, Flight Lines (7 rooms, so set pieces render at about 4/7 scale).
 3. AI (quad 2, left): Muse Voice, Dot Voice, Physical AI Lab. Physical AI Lab is `displayxr-demos/apps/physical-ai/` (Lightwheel assets and data) at the user's request.
-4. Future Media (quad 2, right): Stereo Splat, 4DV Player, Splat Call 3D, Music Visualizer. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
+4. Future Media (quad 2, right): Stereo Splat, Splat Call 3D, Music Visualizer. The 4DV Player (`displayxr-demos/apps/4dv-player/`) is **unlisted** at the user's request: reachable by its URL only, `noindex`, no room or list entry; don't re-add it. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
 5. Creator Tools (quad 3, left): Material Forge, Vehicle Studio, Terra Studio. All three are `displayxr-demos/apps/creator-hub`, whose Push to HQ feeds the Creator Gallery section of `index.html`.
 6. Spatial UI (quad 3, right): Future OS Lab, Dual View, Leia Spatial. Leia Spatial is `displayxr-demos/apps/leia-spatial/` at the user's request.
 

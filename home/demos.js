@@ -198,15 +198,6 @@ export const WINGS = [
         chatter: ['Converting the stereo photo', '2.1M splats and it looks sharp', 'Depth from the 3D camera', 'Orbit it slowly'],
       },
       {
-        id: '4dv-player',
-        name: '4DV Player',
-        tagline: 'Volumetric video you can orbit.',
-        desc: '4D Gaussian splat video in the browser: 20 4DV.ai clips (a rocket launch, a jazz band, a corgi, dancers, a pianist...) plus open .splatv scenes. Drop in your own .4dv, .c.ply or .splatv.',
-        url: 'displayxr-demos/apps/4dv-player/',
-        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/4dv-player',
-        chatter: ['Orbit the dancers mid-move', 'Every frame is splats', 'The cat looks real from behind', 'Turn the 3D slider up'],
-      },
-      {
         id: 'splat-call',
         name: 'Splat Call 3D',
         tagline: 'A live 3D video call from one webcam.',
