@@ -68,15 +68,6 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-street-brawl',
         chatter: ['Rising Flame, KO!', 'Down plus special for the uppercut', 'Stage 9: Oni Kaze is brutal', 'That POW came right out of the glass'],
       },
-      {
-        id: '3d-games',
-        name: '3D Game Guide',
-        tagline: 'The best games on the Leia SR runtime.',
-        desc: 'A guide to the best games on the Leia SR runtime: top 20 picks, every true-stereo SR game profile (Odyssey 3D and SpatialLabs), and playable 3D tribute pages for Tekken 8, Elden Ring and Diablo III.',
-        url: 'displayxr-demos/apps/3d-games/',
-        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/3d-games',
-        chatter: ['Tekken 8 just got an SR profile', 'Elden Ring leaves, right past the glass', 'Isometric means diorama', 'No Diablo II profile yet'],
-      },
     ],
   },
   {

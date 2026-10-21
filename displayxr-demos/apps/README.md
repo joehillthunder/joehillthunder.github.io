@@ -9,7 +9,6 @@ Each folder here is one app. On a glasses-free 3D display, opened in the
 - [Physical AI Lab](https://joehillthunder.github.io/displayxr-demos/apps/physical-ai/): train a robot arm end to end on Lightwheel's SimReady kitchen and teleop data: replay real demos, generate synthetic ones, train behaviour cloning and DAgger in the browser, and benchmark it in parallel envs.
 - [Leia Spatial](https://joehillthunder.github.io/displayxr-demos/apps/leia-spatial/): the Leia Inc. story, "Making any display feel spatial", as a scrolling site with a live woven 3D scene in every section.
 - [Splat Call 3D](https://joehillthunder.github.io/displayxr-demos/apps/splat-call/): a live 3D video call from one ordinary webcam. Every frame becomes up to 131k Gaussian splats in the browser (after Microsoft's VoluMe).
-- [3D Game Guide](https://joehillthunder.github.io/displayxr-demos/apps/3d-games/): the best commercial games in glasses-free 3D (Acer TrueGame and Samsung Odyssey 3D), with playable 3D tribute pages for Tekken 8, Elden Ring and Diablo III.
 - [Battleship 3D](https://joehillthunder.github.io/displayxr-battleship/): two-player Battleship at sea, pass and play, online or against the computer. Lives in its own repo, [displayxr-battleship](https://github.com/joehillthunder/displayxr-battleship); this folder only redirects.
 
 Not started yet: `agent-voice`, `aviation-coach`, `playground-port`, `world-gen`.
