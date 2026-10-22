@@ -212,6 +212,43 @@ function plant(x, z, s = 1) {
 
 const animators = [];
 const BUILD = {
+  'snooker-sim'(g) {
+    // A snooker table: the triangle of reds and the colours on their spots, a cue that strokes
+    // the cue ball up the table and back, and a lamp over the baize.
+    const L = 3.6, W = 1.9, top = 0.78;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1]].forEach(([sx, sz]) => box(g, 0.16, 0.62, 0.16, '#5a3418', sx * (L / 2 - 0.2), 0, sz * (W / 2 - 0.2)));
+    box(g, L, 0.12, W, '#6b3d1e', 0, 0.62, 0);
+    box(g, L - 0.24, 0.04, W - 0.24, '#1f7a3a', 0, 0.74, 0);
+    box(g, L, 0.08, 0.12, '#6b3d1e', 0, 0.74, -W / 2 + 0.06);
+    box(g, L, 0.08, 0.12, '#6b3d1e', 0, 0.74, W / 2 - 0.06);
+    box(g, 0.12, 0.08, W, '#6b3d1e', -L / 2 + 0.06, 0.74, 0);
+    box(g, 0.12, 0.08, W, '#6b3d1e', L / 2 - 0.06, 0.74, 0);
+    [[-1, -1], [0, -1], [1, -1], [-1, 1], [0, 1], [1, 1]].forEach(([sx, sz]) => box(g, 0.14, 0.02, 0.14, '#111', sx * (L / 2 - 0.14), 0.79, sz * (W / 2 - 0.14), { shadow: false }));
+    box(g, 0.02, 0.005, W - 0.26, '#e8efe8', -0.95, top, 0, { shadow: false });
+    const R = 0.045, y = top + R;
+    for (let row = 0; row < 5; row++) {
+      for (let i = 0; i <= row; i++) sphere(g, R, '#c0141c', 0.75 + row * R * 1.75, y, (i - row / 2) * R * 2.05, 10);
+    }
+    [['#111111', 1.5, 0], ['#ff7fb0', 0.65, 0], ['#1f5fd0', 0, 0], ['#6b3a1a', -0.95, 0], ['#e8c51c', -0.95, -0.3], ['#2e8b3a', -0.95, 0.3]].forEach(([c, x, z]) => sphere(g, R, c, x, y, z, 10));
+    const cueBall = sphere(g, R, '#f6f3ea', -1.2, y, 0.12, 10);
+    const cue = new THREE.Group();
+    g.add(cue);
+    box(cue, 1.6, 0.03, 0.03, '#d9b77a', -0.8, -0.015, 0);
+    box(cue, 0.5, 0.045, 0.045, '#3b2414', -1.35, -0.022, 0);
+    box(cue, 0.03, 0.035, 0.035, '#5fa6ff', -0.015, -0.017, 0);
+    cue.rotation.z = 0.06;
+    box(g, 0.05, 0.9, 0.05, '#2a2a2a', 0, 1.8, 0);
+    box(g, 1.8, 0.14, 0.5, '#20402a', 0, 1.7, 0);
+    box(g, 1.7, 0.02, 0.42, glow('#fff3c4', 1), 0, 1.68, 0, { shadow: false });
+    animators.push((t) => {
+      // 4 s cycle: draw back, strike, the cue ball runs to the pink and back.
+      const p = t % 4;
+      const draw = p < 1 ? Math.sin(p * Math.PI) * 0.18 : 0;
+      const roll = p < 1 ? 0 : Math.sin(((p - 1) / 3) * Math.PI) * 1.6;
+      cueBall.position.x = -1.2 + roll;
+      cue.position.set(-1.2 - R - 0.02 - draw, y + 0.02, 0.12);
+    });
+  },
   'energy-grid'(g, r) {
     box(g, 5, 0.7, 2.4, '#3b3f46', -0.6, 0, 0);
     box(g, 4.8, 0.04, 2.2, '#1f4030', -0.6, 0.7, 0);
