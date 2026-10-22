@@ -68,6 +68,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-street-brawl',
         chatter: ['Rising Flame, KO!', 'Down plus special for the uppercut', 'Stage 9: Oni Kaze is brutal', 'That POW came right out of the glass'],
       },
+      {
+        id: 'snooker-sim',
+        name: 'Snooker Sim',
+        tagline: 'A real-physics snooker table.',
+        desc: 'SnookerSim, a third-party three.js snooker game with real ball physics. The DisplayXR Browser turns it to 3D automatically through auto-3D, with no change to the site.',
+        url: 'https://snookersim.com/',
+        source: 'https://snookersim.com/',
+        chatter: ['Red, then the black', 'Screw back for position', 'That pot was a 147 pace', 'Snookered behind the blue'],
+      },
     ],
   },
   {

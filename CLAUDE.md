@@ -12,7 +12,7 @@ The hub site for Joe Hill's DisplayXR demos (glasses-free 3D on Leia displays). 
 - `home/vendor/inline3d/`: DisplayXR inline-3D SDK 1.45.1, vendored. In the DisplayXR Browser the office becomes a woven 3D scene (display rig, VDH 0.3). `?mono` forces 2D and `?depth=0.1-0.8` sets the depth.
 
 ## Current categories (wings)
-1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D.
+1. Gaming (quad 0): Sugar Rush, Playground, Battle School, Battleship 3D, Aetherfall, Street Brawl 3D, Snooker Sim (7 rooms). Snooker Sim links out to the third-party snookersim.com, which the DisplayXR Browser's auto-3D shim converts with no change to the site.
 2. Learning & Simulation (quad 1): Energy Grid, Aviation Coach, Mission Planner, Solar System 3D, STEM Lab 3D, Underwater Worlds, Flight Lines (7 rooms, so set pieces render at about 4/7 scale).
 3. AI (quad 2, left): Muse Voice, Dot Voice, Physical AI Lab. Physical AI Lab is `displayxr-demos/apps/physical-ai/` (Lightwheel assets and data) at the user's request.
 4. Future Media (quad 2, right): Stereo Splat, Splat Call 3D, Music Visualizer. The 4DV Player (`displayxr-demos/apps/4dv-player/`) is **unlisted** at the user's request: reachable by its URL only, `noindex`, no room or list entry; don't re-add it. Splat Call is `displayxr-demos/apps/splat-call/` at the user's request.
