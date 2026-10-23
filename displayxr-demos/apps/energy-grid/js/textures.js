@@ -82,50 +82,154 @@ function cached(key, make) {
 }
 
 // ---- ground ------------------------------------------------------------------------------------
-export const grass = () => cached('grass', () => {
-  const S = 512, n = noise(S, 11, 6, 4), d = noise(S, 12, 3, 16), r = rng(13);
-  const dry = hex(0x7d7550), green = hex(0x4c6a36), deep = hex(0x37502a);
-  return tex(pixels(S, (x, y, i) => {
-    let c = mix(deep, green, Math.min(1, n[i] * 1.6));
-    c = mix(c, dry, Math.max(0, d[i] - 0.55) * 1.8);
-    const k = 0.9 + r() * 0.2;
-    return [c[0] * k, c[1] * k, c[2] * k];
-  }));
-});
+// Draw a shape at x, y and at its wrapped copies, so marks that cross an edge still tile.
+function wrapped(S, x, y, pad, draw) {
+  for (const dx of [0, -S, S]) for (const dy of [0, -S, S]) {
+    const px = x + dx, py = y + dy;
+    if (px > -pad && px < S + pad && py > -pad && py < S + pad) draw(px, py);
+  }
+}
 
-export const soil = () => cached('soil', () => {
-  const S = 256, n = noise(S, 21, 5, 4);
-  const bands = [hex(0x5a4532), hex(0x6e553b), hex(0x4a3a2b), hex(0x7a6045)];
-  return tex(pixels(S, (x, y, i) => {
-    const b = bands[Math.floor(((y / S) * 4 + n[i] * 0.6) % 4)];
-    const k = 0.8 + n[i] * 0.4;
-    return [b[0] * k, b[1] * k, b[2] * k];
-  }));
-});
-
-export const gravel = () => cached('gravel', () => {
-  const S = 512, n = noise(S, 31, 4, 8), r = rng(32);
-  const [c, g] = canvas(S);
-  g.drawImage(pixels(S, (x, y, i) => { const v = 92 + n[i] * 40; return [v, v * 1.01, v * 1.03]; }), 0, 0);
-  for (let k = 0; k < 9000; k++) {
-    const v = 60 + r() * 120;
-    g.fillStyle = `rgb(${v},${v * 0.98},${v * 0.95})`;
+// A thin crack: a jittered random walk, drawn wrapped so it tiles.
+function crack(g, S, r, x, y, len, width = 1, color = 'rgba(40,40,38,0.6)') {
+  let a = r() * Math.PI * 2;
+  const pts = [[x, y]];
+  for (let k = 0; k < len; k++) {
+    a += (r() - 0.5) * 0.9;
+    const [px, py] = pts[pts.length - 1];
+    pts.push([px + Math.cos(a) * 5, py + Math.sin(a) * 5]);
+  }
+  g.strokeStyle = color;
+  g.lineWidth = width;
+  for (const dx of [0, -S, S]) for (const dy of [0, -S, S]) {
     g.beginPath();
-    g.ellipse(r() * S, r() * S, 1 + r() * 2.2, 1 + r() * 1.6, r() * 3, 0, Math.PI * 2);
-    g.fill();
+    pts.forEach(([px, py], i) => (i ? g.lineTo(px + dx, py + dy) : g.moveTo(px + dx, py + dy)));
+    g.stroke();
+  }
+}
+
+// Grass: clumps of green with dry, sun-bleached patches and individual blades on top.
+export const grass = () => cached('grass', () => {
+  const S = 512, n = noise(S, 11, 6, 4), d = noise(S, 12, 3, 16), m = noise(S, 14, 4, 32), r = rng(13);
+  const dry = hex(0x86794f), green = hex(0x4f6e36), deep = hex(0x34502a), clover = hex(0x3f6b33);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
+    let col = mix(deep, green, Math.min(1, n[i] * 1.6));
+    col = mix(col, dry, Math.max(0, d[i] - 0.52) * 2);
+    col = mix(col, clover, Math.max(0, m[i] - 0.68) * 2.5);
+    const k = 0.86 + r() * 0.26;
+    return [col[0] * k, col[1] * k, col[2] * k];
+  }), 0, 0);
+  // Blades: short strokes, lighter tips, mostly upright.
+  for (let k = 0; k < 14000; k++) {
+    const x = r() * S, y = r() * S, len = 2 + r() * 5, a = -Math.PI / 2 + (r() - 0.5) * 1.2;
+    const dryBlade = d[(Math.floor(y) % S) * S + (Math.floor(x) % S)] > 0.55 && r() < 0.6;
+    const v = 0.75 + r() * 0.5;
+    g.strokeStyle = dryBlade ? `rgba(${170 * v},${150 * v},${95 * v},0.55)` : `rgba(${95 * v},${140 * v},${70 * v},0.5)`;
+    g.lineWidth = 0.8;
+    wrapped(S, x, y, 8, (px, py) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); g.stroke(); });
   }
   return tex(c);
 });
 
-export const concrete = () => cached('concrete', () => {
-  const S = 256, n = noise(S, 41, 5, 8), r = rng(42);
+// Soil in the cut face of the base: layered horizons with pebbles and roots.
+export const soil = () => cached('soil', () => {
+  const S = 256, n = noise(S, 21, 5, 4), r = rng(22);
+  const bands = [hex(0x5a4532), hex(0x6e553b), hex(0x4a3a2b), hex(0x7a6045)];
   const [c, g] = canvas(S);
-  g.drawImage(pixels(S, (x, y, i) => { const v = 150 + n[i] * 45 + r() * 10; return [v, v, v * 0.97]; }), 0, 0);
+  g.drawImage(pixels(S, (x, y, i) => {
+    const b = bands[Math.floor(((y / S) * 4 + n[i] * 0.6) % 4)];
+    const k = 0.78 + n[i] * 0.4 + (r() - 0.5) * 0.1;
+    return [b[0] * k, b[1] * k, b[2] * k];
+  }), 0, 0);
+  for (let k = 0; k < 420; k++) {
+    const v = 90 + r() * 90, x = r() * S, y = r() * S, rx = 0.8 + r() * 2.4;
+    wrapped(S, x, y, 4, (px, py) => {
+      g.fillStyle = 'rgba(25,18,12,0.5)';
+      g.beginPath(); g.ellipse(px + 0.7, py + 0.7, rx, rx * 0.7, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = `rgb(${v},${v * 0.92},${v * 0.82})`;
+      g.beginPath(); g.ellipse(px, py, rx, rx * 0.7, r() * 3, 0, Math.PI * 2); g.fill();
+    });
+  }
+  for (let k = 0; k < 12; k++) crack(g, S, r, r() * S, r() * 40, 8 + r() * 10, 0.7, 'rgba(150,120,80,0.45)');   // roots
+  return tex(c);
+});
+
+// Substation yard stone: crushed rock with lit tops and shadowed undersides, damp patches,
+// a few weeds pushing through.
+export const gravel = () => cached('gravel', () => {
+  const S = 512, n = noise(S, 31, 4, 8), damp = noise(S, 33, 3, 4), r = rng(32);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
+    const v = (86 + n[i] * 40) * (1 - Math.max(0, damp[i] - 0.55) * 0.9);
+    return [v, v * 1.01, v * 1.03];
+  }), 0, 0);
+  const tints = [[1, 0.98, 0.95], [1, 1, 1.04], [1.04, 0.97, 0.9], [0.96, 0.98, 1]];
+  for (let k = 0; k < 11000; k++) {
+    const x = r() * S, y = r() * S, rx = 1 + r() * 2.6, ry = 0.9 + r() * 1.8, rot = r() * 3;
+    const wet = damp[(Math.floor(y) % S) * S + (Math.floor(x) % S)] > 0.55 ? 0.72 : 1;
+    const v = (70 + r() * 120) * wet, t = tints[Math.floor(r() * 4)];
+    wrapped(S, x, y, 5, (px, py) => {
+      g.fillStyle = 'rgba(20,20,22,0.55)';                         // contact shadow
+      g.beginPath(); g.ellipse(px + 0.9, py + 1.1, rx, ry, rot, 0, Math.PI * 2); g.fill();
+      g.fillStyle = `rgb(${v * t[0]},${v * t[1]},${v * t[2]})`;
+      g.beginPath(); g.ellipse(px, py, rx, ry, rot, 0, Math.PI * 2); g.fill();
+      g.fillStyle = `rgba(255,255,255,${0.12 + r() * 0.12})`;        // lit facet
+      g.beginPath(); g.ellipse(px - rx * 0.3, py - ry * 0.35, rx * 0.45, ry * 0.4, rot, 0, Math.PI * 2); g.fill();
+    });
+  }
+  // Weeds: small clusters of green strokes.
+  for (let w = 0; w < 26; w++) {
+    const cx = r() * S, cy = r() * S;
+    for (let k = 0; k < 14; k++) {
+      const a = r() * Math.PI * 2, len = 2 + r() * 4, v = 0.7 + r() * 0.4;
+      g.strokeStyle = `rgba(${80 * v},${120 * v},${55 * v},0.85)`;
+      g.lineWidth = 1;
+      wrapped(S, cx, cy, 8, (px, py) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); g.stroke(); });
+    }
+  }
+  return tex(c);
+});
+
+// Cast concrete: aggregate specks, pores, hairline cracks, rain stains and a formed edge.
+// `oil` adds the dark, soaked-in stain a transformer leaves on its pad.
+function concreteCanvas(seed, oil) {
+  const S = 256, n = noise(S, seed, 5, 8), st = noise(S, seed + 1, 3, 4), r = rng(seed + 2);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
+    let v = 148 + n[i] * 42 + (r() - 0.5) * 16;
+    v *= 1 - Math.max(0, st[i] - 0.58) * 0.6;                       // weathering stains
+    if (oil) {
+      // Oil soaked in around the tank's footprint (the pad's middle is under the tank), patchy.
+      const dx = Math.abs(x / S - 0.5), dy = Math.abs(y / S - 0.5);
+      const ring = Math.max(0, 0.16 - Math.abs(Math.max(dx * 0.9, dy * 1.3) - 0.27)) / 0.16;
+      v *= 1 - ring * (0.25 + st[i] * 0.5) - Math.max(0, st[i] - 0.5) * 0.35;
+    }
+    return [v, v * 0.995, v * 0.97];
+  }), 0, 0);
+  for (let k = 0; k < 900; k++) {                                   // aggregate and pores
+    const x = r() * S, y = r() * S, dark = r() < 0.45;
+    g.fillStyle = dark ? 'rgba(60,58,55,0.45)' : 'rgba(205,200,190,0.35)';
+    g.fillRect(x, y, dark ? 1 : 1 + r() * 1.5, dark ? 1 : 1 + r());
+  }
+  for (let k = 0; k < 4; k++) crack(g, S, r, r() * S, r() * S, 10 + r() * 18, 0.8);
+  if (oil) {
+    for (let k = 0; k < 9; k++) {                                   // drip marks below the radiators
+      const x = S * (0.25 + r() * 0.5), y = S * (r() < 0.5 ? 0.16 + r() * 0.08 : 0.76 + r() * 0.08), rr = 5 + r() * 12;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr);
+      gr.addColorStop(0, 'rgba(25,22,18,0.55)');
+      gr.addColorStop(1, 'rgba(25,22,18,0)');
+      g.fillStyle = gr;
+      g.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+    }
+  }
   g.strokeStyle = 'rgba(70,70,70,0.55)';
   g.lineWidth = 2;
   g.strokeRect(1, 1, S - 2, S - 2);
-  return tex(c);
-});
+  return c;
+}
+export const concrete = () => cached('concrete', () => tex(concreteCanvas(41, false)));
+export const oilPad = () => cached('oilpad', () => tex(concreteCanvas(45, true)));
 
 // A road ribbon: u runs along the road, v across it.
 export const road = () => cached('road', () => {
@@ -162,23 +266,68 @@ export const crops = () => cached('crops', () => {
   }));
 });
 
+// Treated pole wood: grain along the pole, drying checks (long splits) and the odd knot.
 export const wood = () => cached('wood', () => {
-  const S = 128, n = noise(S, 81, 4, 4);
-  return tex(pixels(S, (x, y, i) => {
-    const grain = 0.5 + 0.5 * Math.sin(x * 0.9 + n[i] * 9);
-    return mix(hex(0x5a4430), hex(0x7d6247), grain * 0.6 + n[i] * 0.4);
-  }));
+  const S = 256, n = noise(S, 81, 4, 4), r = rng(82);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
+    const grain = 0.5 + 0.5 * Math.sin(x * 0.45 + n[i] * 9);
+    const fine = 0.5 + 0.5 * Math.sin(x * 2.3 + n[i] * 4);
+    const col = mix(hex(0x4e3a29), hex(0x7a5f45), grain * 0.55 + n[i] * 0.3 + fine * 0.15);
+    const k = 0.92 + (r() - 0.5) * 0.08;
+    return [col[0] * k, col[1] * k, col[2] * k];
+  }), 0, 0);
+  for (let k = 0; k < 7; k++) {                                     // checks run along the pole
+    const x = r() * S, y = r() * S, len = 40 + r() * 90;
+    g.strokeStyle = 'rgba(25,17,10,0.75)';
+    g.lineWidth = 0.8 + r() * 1.2;
+    for (const dy of [0, -S, S]) {
+      g.beginPath(); g.moveTo(x, y + dy);
+      g.bezierCurveTo(x + (r() - 0.5) * 6, y + dy + len * 0.33, x + (r() - 0.5) * 6, y + dy + len * 0.66, x + (r() - 0.5) * 4, y + dy + len);
+      g.stroke();
+    }
+  }
+  for (let k = 0; k < 3; k++) {                                     // knots
+    const x = r() * S, y = r() * S;
+    wrapped(S, x, y, 10, (px, py) => {
+      const gr = g.createRadialGradient(px, py, 0, px, py, 7);
+      gr.addColorStop(0, 'rgba(40,26,15,0.9)');
+      gr.addColorStop(1, 'rgba(60,40,25,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.ellipse(px, py, 4, 7, 0, 0, Math.PI * 2); g.fill();
+    });
+  }
+  return tex(c);
 });
 
 // ---- metal ------------------------------------------------------------------------------------
-// Painted steel with weathering streaks (transformer tanks, cabinets, switchgear).
+// Painted steel with weathering (transformer tanks, cabinets, switchgear): rain streaks, grime
+// that thickens toward the bottom, chipped paint and rust weeping from the chips.
 export const paint = (base = 0x8d969d) => cached('paint' + base, () => {
-  const S = 256, n = noise(S, 91, 5, 4), s = noise(S, 92, 3, 32), b = hex(base);
-  return tex(pixels(S, (x, y, i) => {
+  const S = 256, n = noise(S, 91, 5, 4), s = noise(S, 92, 3, 32), r = rng(93), b = hex(base);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
     const streak = Math.max(0, s[(Math.floor(y / 6) * S + x) % (S * S)] - 0.6) * 0.5;
-    const k = 0.9 + n[i] * 0.16 - streak - (y / S) * 0.06;
+    const edge = Math.max(0, 1 - Math.min(x, S - 1 - x, y, S - 1 - y) / 16);   // grime in seams and corners
+    const k = 0.9 + n[i] * 0.16 - streak - Math.pow(y / S, 2.5) * 0.3 - edge * edge * 0.22;
     return [b[0] * k, b[1] * k, b[2] * k];
-  }));
+  }), 0, 0);
+  for (let k = 0; k < 30; k++) {
+    const x = r() * S, y = r() * S * 0.85, len = 16 + r() * 70;
+    const gr = g.createLinearGradient(x, y, x, y + len);
+    gr.addColorStop(0, 'rgba(125,68,30,0.55)');
+    gr.addColorStop(0.4, 'rgba(110,65,35,0.3)');
+    gr.addColorStop(1, 'rgba(110,65,35,0)');
+    g.fillStyle = gr;
+    g.fillRect(x - 1.2, y, 2.4 + r() * 1.5, len);                   // rust run
+    g.fillStyle = 'rgba(70,50,40,0.6)';
+    g.fillRect(x - 1.2, y - 1, 2.4, 2);                             // the chip it runs from
+  }
+  for (let k = 0; k < 140; k++) {                                   // small scratches and chips
+    g.fillStyle = r() < 0.5 ? 'rgba(40,40,40,0.35)' : 'rgba(230,232,235,0.25)';
+    g.fillRect(r() * S, r() * S, 1 + r() * 3, 1);
+  }
+  return tex(c);
 });
 
 // Vertical corrugation (shipping-container walls, radiator fins). Returns {map, bump}.
@@ -193,9 +342,37 @@ export const corrugated = (base = 0xd6dadc) => cached('corr' + base, () => {
   return { map, bump };
 });
 
+// Hot-dip galvanized steel: the crystalline "spangle" of the zinc coat, dull white-rust bloom,
+// and the odd rust stain where the coat is worn through.
 export const galvanized = () => cached('galv', () => {
-  const S = 128, n = noise(S, 111, 5, 8), r = rng(112);
-  return tex(pixels(S, (x, y, i) => { const v = 150 + n[i] * 60 + r() * 14; return [v, v * 1.01, v * 1.03]; }));
+  const S = 256, n = noise(S, 111, 5, 8), w = noise(S, 113, 3, 4), r = rng(112);
+  const [c, g] = canvas(S);
+  g.drawImage(pixels(S, (x, y, i) => {
+    const v = 148 + n[i] * 56 + r() * 12 + Math.max(0, w[i] - 0.6) * 60;
+    return [v, v * 1.01, v * 1.03];
+  }), 0, 0);
+  for (let k = 0; k < 520; k++) {                                   // spangle flakes
+    const x = r() * S, y = r() * S, rad = 2 + r() * 6, sides = 5 + Math.floor(r() * 3), rot = r() * 6;
+    const v = r() < 0.5 ? 255 : 30;
+    g.fillStyle = `rgba(${v},${v},${v},${0.04 + r() * 0.07})`;
+    wrapped(S, x, y, 8, (px, py) => {
+      g.beginPath();
+      for (let s = 0; s < sides; s++) {
+        const a = rot + (s / sides) * Math.PI * 2, rr = rad * (0.7 + r() * 0.5);
+        s ? g.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr) : g.moveTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr);
+      }
+      g.fill();
+    });
+  }
+  for (let k = 0; k < 6; k++) {                                     // rust weeping from a worn spot
+    const x = r() * S, y = r() * S, len = 10 + r() * 30;
+    const gr = g.createLinearGradient(x, y, x, y + len);
+    gr.addColorStop(0, 'rgba(135,80,40,0.35)');
+    gr.addColorStop(1, 'rgba(135,80,40,0)');
+    g.fillStyle = gr;
+    g.fillRect(x - 1, y, 2, len);
+  }
+  return tex(c);
 });
 
 // ---- buildings --------------------------------------------------------------------------------

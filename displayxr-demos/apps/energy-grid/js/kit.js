@@ -28,15 +28,18 @@ export class Kit {
     return this.mat(key, () => {
       const T = this.THREE;
       const rep = (t) => { const c = t.clone(); c.repeat.set(repeat[0], repeat[1]); c.needsUpdate = true; return c; };
+      // The colour map doubles as the bump map: light stones, aggregate and grain read as raised.
+      const bumped = (t, bumpScale, o) => { const m = rep(t); return new T.MeshStandardMaterial({ map: m, bumpMap: m, bumpScale, ...o, ...extra }); };
       switch (name) {
-        case 'grass': return new T.MeshStandardMaterial({ map: rep(TX.grass()), roughness: 0.95, ...extra });
-        case 'soil': return new T.MeshStandardMaterial({ map: rep(TX.soil()), roughness: 1, ...extra });
-        case 'gravel': return new T.MeshStandardMaterial({ map: rep(TX.gravel()), roughness: 1, ...extra });
-        case 'concrete': return new T.MeshStandardMaterial({ map: rep(TX.concrete()), roughness: 0.9, ...extra });
+        case 'grass': return bumped(TX.grass(), 1.5, { roughness: 0.95 });
+        case 'soil': return bumped(TX.soil(), 2, { roughness: 1 });
+        case 'gravel': return bumped(TX.gravel(), 3, { roughness: 1 });
+        case 'concrete': return bumped(TX.concrete(), 1, { roughness: 0.9 });
+        case 'oilpad': return bumped(TX.oilPad(), 1, { roughness: 0.75 });
         case 'water': return new T.MeshStandardMaterial({ map: rep(TX.water()), roughness: 0.15, metalness: 0.1, ...extra });
         case 'crops': return new T.MeshStandardMaterial({ map: rep(TX.crops()), roughness: 1, ...extra });
-        case 'wood': return new T.MeshStandardMaterial({ map: rep(TX.wood()), roughness: 0.9, ...extra });
-        case 'galv': return new T.MeshStandardMaterial({ map: rep(TX.galvanized()), roughness: 0.45, metalness: 0.75, ...extra });
+        case 'wood': return bumped(TX.wood(), 1.5, { roughness: 0.9 });
+        case 'galv': return bumped(TX.galvanized(), 0.4, { roughness: 0.45, metalness: 0.75 });
         case 'shingles': return new T.MeshStandardMaterial({ map: rep(TX.shingles()), roughness: 0.95, ...extra });
         case 'flatroof': return new T.MeshStandardMaterial({ map: rep(TX.flatRoof()), roughness: 0.95, ...extra });
         case 'road': return new T.MeshStandardMaterial({ map: rep(TX.road()), roughness: 0.9, polygonOffset: true,
@@ -53,7 +56,7 @@ export class Kit {
       const t = TX.paint(base).clone();
       t.repeat.set(repeat[0], repeat[1]);
       t.needsUpdate = true;
-      return new this.THREE.MeshStandardMaterial({ map: t, roughness: 0.55, metalness: 0.35, ...o });
+      return new this.THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 0.3, roughness: 0.55, metalness: 0.35, ...o });
     });
   }
   corrugated(base, repeat = [1, 1]) {
@@ -149,7 +152,9 @@ export class Kit {
       pts.push(new T.Vector2(r * 0.55, h), new T.Vector2(0, h));
       this.geos.set(key, new T.LatheGeometry(pts, 20));
     }
-    const m = this.std(color, { roughness: 0.25, metalness: 0.05 });
+    // Glazed porcelain: a glossy clear coat over a slightly rougher body.
+    const m = this.mat('porcelain' + color, () => new T.MeshPhysicalMaterial({ color, roughness: 0.35, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.08 }));
     const o = new T.Mesh(this.geos.get(key), m);
     o.position.set(x, y, z);
     parent.add(o);

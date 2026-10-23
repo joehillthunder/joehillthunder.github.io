@@ -317,7 +317,7 @@ export class SubstationTwin {
 
     // ---- power transformer ------------------------------------------------------------------
     const X = -0.04;
-    k.box(0.36, 0.012, 0.34, k.surface('concrete', [2, 2]), X, G + 0.006, 0, 'twin_xfmr');
+    k.box(0.36, 0.012, 0.34, k.surface('oilpad'), X, G + 0.006, 0, 'twin_xfmr');
     for (const [w, d, x, z] of [[0.36, 0.008, X, 0.166], [0.36, 0.008, X, -0.166], [0.008, 0.34, X + 0.176, 0], [0.008, 0.34, X - 0.176, 0]]) {
       k.box(w, 0.02, d, k.surface('concrete'), x, G + 0.02, z, 'twin_xfmr');   // oil containment curb
     }

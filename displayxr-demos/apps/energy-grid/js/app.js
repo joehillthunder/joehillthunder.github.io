@@ -162,6 +162,7 @@ function sizeCanvas() {
   frameSubject();
 }
 addEventListener('resize', sizeCanvas);
+new ResizeObserver(() => sizeCanvas()).observe(canvas);   // the header can wrap without a window resize
 
 let grid, twin, mgTwin, gridLayers, mods = {};
 
@@ -250,7 +251,8 @@ function frameSubject() {
   const f = footprint();
   // Frame for the settled tilt, so a preset does not jump in scale while it eases.
   const tilt = pose.tiltTarget;
-  const s = Math.min(vw * 0.94 / f.w, vh * 0.94 / (f.d * Math.sin(tilt) + f.h * Math.cos(tilt)));
+  // Vertical fit leaves extra room: perspective enlarges the near edge and labels sit above the model.
+  const s = Math.min(vw * 0.94 / f.w, vh * 0.8 / (f.d * Math.sin(tilt) + f.h * Math.cos(tilt)));
   subject.scale.setScalar(s * pose.zoom);
   frameShadow();
 }
@@ -631,9 +633,11 @@ function goStep(i) {
   if (s && s.type === 'stop') {
     select(s.item);
     const a = twin.anchor(s.item);
-    focus.set(a.x, 0, a.z);
     pose.tiltTarget = s.tilt ?? 0.5;
     pose.zoom = s.zoom ?? 1.9;
+    // Close-ups centre their equipment; wide stops (zoom near 1) keep the whole yard in frame.
+    const w = Math.min(1, Math.max(0, (pose.zoom - 1) / 0.8));
+    focus.set(a.x * w, 0, a.z * w);
   } else {
     // Quizzes and the hazard hunt look at the whole yard; the score card too.
     if (!s || s.type === 'find') select(null);
