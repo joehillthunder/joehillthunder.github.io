@@ -258,3 +258,45 @@ h3 { margin: 0 0 0.6rem; font-size: 0.95rem; font-weight: 600; letter-spacing: 0
 .found { list-style: none; margin: 0 0 0.8rem; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; }
 .found li { padding: 0.35rem 0.5rem; border: 1px dashed var(--line); border-radius: 0.35rem; color: var(--text-dim); text-align: center; }
 .found li.done { border-style: solid; border-color: var(--renew); color: var(--text); }
+
+/* ---- smaller windows: the layout reflows instead of squeezing text ----------------------------
+   The header wraps onto a second row, the rails keep a readable minimum width, the KPI strip wraps,
+   and below ~1100 px the page stacks (3D view, then panels) and scrolls. The woven canvas is only
+   resized, never remounted. */
+.brand-title { white-space: nowrap; }
+h3 { flex-wrap: wrap; row-gap: 0.2rem; }
+.fine { white-space: nowrap; }
+#app:not(.immersive) { grid-template-columns: minmax(19rem, 23vw) minmax(0, 1fr) minmax(20rem, 27vw);
+  grid-template-rows: auto minmax(0, 1fr) auto; }
+#app:not(.immersive) #top { flex-wrap: wrap; row-gap: 0.5rem; min-height: 5.2rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+#kpis { grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); }
+.kpi { border-bottom: 1px solid var(--line); min-width: 0; }
+.kpi .k, .kpi .s { overflow-wrap: anywhere; }
+.pop { max-width: calc(100vw - 2rem); }
+.toast { max-width: min(80%, 40rem); }
+
+@media (max-width: 1100px) {
+  html, body { height: auto; overflow-x: hidden; overflow-y: auto; }
+  #app:not(.immersive) { height: auto; min-height: 100vh; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 62vh auto auto;
+    grid-template-areas: "top top" "stage stage" "left right" "kpi kpi"; }
+  #app:not(.immersive) #left, #app:not(.immersive) #right { overflow: visible; border: 0; }
+  #app:not(.immersive) #card { overflow: visible; }
+  #app:not(.immersive) .alarms { min-height: 10rem; }
+  .views { margin-left: 0; }
+}
+@media (max-width: 720px) {
+  :root { font-size: 14px; }
+  #app:not(.immersive) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 56vh auto auto auto;
+    grid-template-areas: "top" "stage" "left" "right" "kpi"; }
+  #app:not(.immersive) #top { gap: 0.5rem; padding: 0.6rem 0.8rem; }
+  #top kbd { display: none; }                      /* key hints mean nothing on a touch screen */
+  .views, .angles, .tools { flex-wrap: wrap; }
+  .depth input { width: 6rem; }
+  .clock { font-size: 1.5rem; }
+  #kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi .v { font-size: 1.9rem; }
+  .scorecard { width: 94vw; padding: 1.2rem; }
+  .score-grid { grid-template-columns: repeat(2, 1fr); }
+  #app.immersive #left, #app.immersive #right { width: 88vw; min-width: 0; }
+}

@@ -33,6 +33,10 @@ current the feeder relay actually measures; the microgrid adds AC vs DC current 
 card, one-line, alarms and KPIs float over it and stay fully interactive; the **Mission** and
 **Diagram** tabs hide or show the side panels. `?full` opens in this layout.
 
+Smaller windows reflow instead of squeezing: the header wraps, the side panels keep a readable
+minimum width and the KPI strip wraps; below ~1100 px the page stacks (3D view, then panels, then
+KPIs) and scrolls, and on a phone it is a single column with the key hints hidden.
+
 Every 3D module has camera presets (**Overview**, **Eye level** for a walk-in view, **Top**) and a
 **3D depth** slider (0–200%, remembered per browser). Below 100% the slider lowers eye separation
 through the display rig's `ipdFactor`; above 100% it stretches the scene along the viewing axis for
@@ -61,7 +65,10 @@ In a course, <kbd>←</kbd> <kbd>→</kbd> step back and forward.
   distances; `twin.js` draws their overlays (`setTraining`), `app.js` runs them in the Mission panel.
 - `js/scene.js` (grid map), `js/twin.js` (substation), `js/microgrid.js` (microgrid yard),
   `js/oneline.js` (live SVG one-line).
-- `js/textures.js` draws every texture on a canvas at startup (grass, gravel, roads, facades with
+- `js/textures.js` draws every texture on a canvas at startup, weathered for realism (yard stone with
+  lit tops, shadows, damp patches and weeds; grass blades; concrete with aggregate, cracks and an
+  oil-stained transformer pad; galvanized spangle; painted steel with rust runs and seam grime;
+  checked pole wood). Colour maps double as bump maps; porcelain is glazed (clear coat). Also: roads, facades with
   window masks, PV cells, corrugated steel, chain-link, safety signs, nameplates); `js/kit.js` holds the
   shared parts (lattice steel, porcelain with sheds, fences, signs). Shadows come from one sun that
   rides on the model; reflections from a generated sky environment.
