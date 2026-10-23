@@ -17,6 +17,7 @@ Static files only: no build, no keys, no server. Rules: [`../../CLAUDE.md`](../.
 | **Storm restoration** (≈3 min) | Lightning faults Feeder 1. The breaker trips, fault indicators flag, the microgrid islands on its battery. Find the fault, isolate it, restore through the tie, then reconnect the microgrid and discharge the battery to relieve the overloaded feeder. Mistakes behave like the real thing (closing into a fault trips the breaker). Score card at the end. |
 | **Explore** | Tap any equipment (3D view or one-line diagram) for what it is, what it does and live values. Operate breakers and switches, dispatch the battery. |
 | **Substation twin** | A site walk-through of a 115/12.47 kV substation: dead-end structure, surge arresters, disconnect, SF6 dead-tank breaker, CTs/VTs, power transformer (radiators, fans that follow load, conservator, load tap changer), bus, metal-clad switchgear with field-convention lamps (red = closed, green = open), feeder risers, capacitor bank, control house and cable trench, shield masts, grounded fence and signage. |
+| **Site training** | Three self-guided courses in the substation twin, after the use cases on [EPRI's VR Substation](https://transmission.epri.com/mts/) (details: [`EPRI-VR-SUBSTATION.md`](EPRI-VR-SUBSTATION.md)): a **virtual site tour** (12 stops along the power path, camera flies to each), **contractor orientation** (3D limits-of-approach shells per OSHA 1910.333, a 1.8 m worker for scale, a 5-question hazard quiz) and a **pre-job briefing** for Feeder 2 breaker work (the sim really transfers Feeder 2 to the tie and opens BKR-F2; work zone vs energized boxes; tap-to-find hazard hunt; LOTO quiz; Feeder 2 switched back in at the end). |
 | **Microgrid yard** | The campus microgrid at the end of Feeder 1, driven live: PCC recloser on the utility pole, microgrid switchgear, pad-mount step-up transformers, inverters (PCS), battery containers (one open, with rack LEDs showing state of charge), carport solar, controller with an island beacon, the hospital and its standby generator. Cyan particles show where power flows. |
 | **What-if: one year** | Fails every element under 8,760 hourly conditions, then restores what it can: ~158,000 AC power flows across all CPU cores (Web Workers). Risk shows as purple bars on the map. |
 
@@ -45,7 +46,8 @@ Keys: <kbd>1</kbd> map, <kbd>2</kbd> substation, <kbd>3</kbd> microgrid yard, <k
 <kbd>S</kbd> start the storm, <kbd>R</kbd> reset. After 60 s idle it runs an attract loop.
 
 URL flags: `?mono` forces the flat renderer; `?attract=N` sets the idle timeout (s); `?view=twin|mg`;
-`?select=<id>`; `?start=storm|whatif`.
+`?select=<id>`; `?start=storm|whatif`; `?course=tour|contractor|briefing` opens a site-training course.
+In a course, <kbd>←</kbd> <kbd>→</kbd> step back and forward.
 
 ## How it works
 
@@ -55,6 +57,8 @@ URL flags: `?mono` forces the flat renderer; `?attract=N` sets the idle timeout 
 - `js/sim/simcore.js` — clock, protection (overcurrent trips, fault indicators, PCC loss-of-voltage
   islanding), alarms, battery state of charge, the storm scenario and its scoring.
 - `js/sim/whatif-worker.js` + `local-backend.js` — the contingency sweep, split across workers.
+- `js/training.js` — the site-training courses (stops, quizzes, the hazard hunt) and the approach
+  distances; `twin.js` draws their overlays (`setTraining`), `app.js` runs them in the Mission panel.
 - `js/scene.js` (grid map), `js/twin.js` (substation), `js/microgrid.js` (microgrid yard),
   `js/oneline.js` (live SVG one-line).
 - `js/textures.js` draws every texture on a canvas at startup (grass, gravel, roads, facades with

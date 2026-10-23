@@ -18,6 +18,7 @@ import { MicrogridTwin, MG_ITEMS } from './microgrid.js';
 import { initTextures } from './textures.js';
 import { OneLine } from './oneline.js';
 import { T } from './theme.js';
+import { COURSES, courseById } from './training.js';
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -27,6 +28,8 @@ const VDH = 0.3;                         // virtual display height (m) the scene
 let net, cards, state = null, view = 'map', selected = null;
 let lastInput = performance.now(), attract = false, attractCaption = 0;
 let lastToastT = 0, debriefShown = false, lastStepShown = -1;
+// Site training in the substation twin: { c: course, i: step, answers: {step: option}, found, mistakes }.
+let course = null;
 
 // Each module's default pose. tilt 0 = eye level, PI/2 = straight down.
 const VIEWS = {
@@ -78,6 +81,7 @@ sun.shadow.mapSize.set(4096, 4096);
 sun.shadow.bias = -0.0003;
 subject.add(sun, sun.target);
 const pose = { yaw: -0.18, tilt: 0.98, zoom: 1, yawTarget: -0.18, tiltTarget: 0.98 };
+const focus = new THREE.Vector3(), focusOffset = new THREE.Vector3();   // model point under the turntable's axis
 
 // A soft sky for image-based lighting: blue above, warm ground below, a bright sun patch. Gives
 // metal and glass something to reflect without loading an HDR file.
@@ -265,7 +269,11 @@ function frameShadow() {
 }
 
 function setView(v, angle = 'overview') {
+  if (course && v !== 'twin') leaveCourse();
   view = v;
+  focus.set(0, 0, 0);
+  $('#mission').dataset.mode = '';
+  renderMission();
   stage.clear();
   stage.add(mods[v].root);
   setAngle(angle);
@@ -289,6 +297,8 @@ function animate(dt) {
   if (attract) pose.yawTarget += dt * 0.12;
   pose.yaw += (pose.yawTarget - pose.yaw) * Math.min(1, dt * 6);
   pose.tilt += (pose.tiltTarget - pose.tilt) * Math.min(1, dt * 6);
+  // A training stop slides its equipment to the centre of the turntable.
+  stage.position.lerp(focusOffset.set(-focus.x, 0, -focus.z), Math.min(1, dt * 4));
   subject.rotation.set(pose.tilt, pose.yaw, 0, 'XYZ');
   subject.updateMatrixWorld(true);
   subject.getWorldQuaternion(worldQuat);
@@ -410,6 +420,7 @@ function pickAt(cx, cy) {
 const KIND = (id) => net.branches[id]?.kind;
 async function select(item) {
   selected = item;
+  if (item && view === 'twin') huntPick(item);
   grid.setSelected(view === 'map' ? item : null);
   twin.selected = view === 'twin' ? item : null;
   mgTwin.selected = view === 'mg' ? item : null;
@@ -526,6 +537,7 @@ $('#card').addEventListener('click', async (e) => {
 function renderMission() {
   const el = $('#mission');
   const sc = state?.scenario;
+  if (!sc && view === 'twin') { renderTraining(el); return; }
   if (!sc) {
     if (el.dataset.mode === 'free') return;
     el.dataset.mode = 'free';
@@ -569,6 +581,151 @@ async function startScenario() {
   frameSubject();
   await poll();
 }
+
+// ---- site training (substation twin): tour, contractor orientation, pre-job briefing ------------
+async function startCourse(id) {
+  const c = courseById(id);
+  if (!c) return;
+  touch();
+  attract = false;
+  if (view !== 'twin') setView('twin');
+  await leaveCourse();
+  course = { c, i: 0, answers: {}, found: new Set(), mistakes: 0, switched: false };
+  twin.setTraining(c.show);
+  goStep(0);
+  if (c.switching) {
+    course.switched = true;
+    for (const [dev, close] of c.switching) await api.operate(dev, close);
+    await poll();
+  }
+}
+
+// Put the simulator back the way the course found it (switching undone in reverse order).
+async function restoreSwitching(run = course) {
+  if (!run?.switched) return;
+  run.switched = false;
+  for (const [dev, close] of [...run.c.switching].reverse()) await api.operate(dev, !close);
+  await poll();
+}
+
+async function leaveCourse() {
+  const run = course;
+  course = null;
+  twin.setTraining({});
+  await restoreSwitching(run);
+}
+
+function endCourse() {
+  leaveCourse();
+  focus.set(0, 0, 0);
+  select(null);
+  setAngle('overview');
+  $('#mission').dataset.mode = '';
+  renderMission();
+}
+
+function goStep(i) {
+  course.i = Math.max(0, Math.min(course.c.steps.length, i));
+  const s = course.c.steps[course.i];
+  if (!s) restoreSwitching();      // course complete: the control center closes Feeder 2 back in
+  if (s && s.type === 'stop') {
+    select(s.item);
+    const a = twin.anchor(s.item);
+    focus.set(a.x, 0, a.z);
+    pose.tiltTarget = s.tilt ?? 0.5;
+    pose.zoom = s.zoom ?? 1.9;
+  } else {
+    // Quizzes and the hazard hunt look at the whole yard; the score card too.
+    if (!s || s.type === 'find') select(null);
+    if (!s || s.type === 'find') { focus.set(0, 0, 0); pose.tiltTarget = VIEWS.twin.tilt; pose.zoom = s?.zoom ?? 1; }
+  }
+  document.querySelectorAll('.angles button').forEach((b) => b.classList.remove('on'));
+  frameSubject();
+  $('#mission').dataset.mode = '';
+  renderMission();
+}
+
+// A tap during the hazard hunt.
+const PART_OF = { twin_cooling: 'twin_xfmr', twin_ltc: 'twin_xfmr' };
+function huntPick(item) {
+  const s = course?.c.steps[course.i];
+  if (!s || s.type !== 'find') return;
+  item = PART_OF[item] || item;
+  const name = TWIN_ITEMS[item]?.title || item;
+  if (s.targets.includes(item)) {
+    if (!course.found.has(item)) {
+      course.found.add(item);
+      toast(`${name}: stays energized. ${course.found.size} of ${s.targets.length} found.`, 'good', 4000);
+    }
+  } else if (s.wrong?.[item]) {
+    course.mistakes++;
+    toast(s.wrong[item], 'bad', 6000);
+  } else {
+    toast(`${name}: not next to the work zone. Look for live equipment around Feeder 2.`, '', 4000);
+  }
+  renderMission();
+}
+
+function renderTraining(el) {
+  if (!course) {
+    if (el.dataset.mode === 'train') return;
+    el.dataset.mode = 'train';
+    el.innerHTML = `<h3>Site training <span class="fine">self-guided</span></h3>
+      <p class="mission-body">Walk this substation without the travel, the outage or the risk. The three courses
+        follow the uses EPRI's member utilities named for a VR substation.</p>
+      ${COURSES.map((c) => `<button class="big secondary course" data-course="${c.id}">${c.title}<small>${c.blurb}</small></button>`).join('')}`;
+    return;
+  }
+  const { c, i } = course, s = c.steps[i], n = c.steps.length;
+  const key = `train:${c.id}:${i}:${course.answers[i] ?? ''}:${course.found.size}`;
+  if (el.dataset.mode === key) return;
+  el.dataset.mode = key;
+  const head = `<h3>${c.title} <span class="fine">${s ? `step ${i + 1} of ${n}` : 'complete'}</span></h3>
+    <div class="bar progress"><i style="width:${(100 * i) / n}%"></i></div>`;
+  const nav = (canNext, nextLabel = 'Next') => `<div class="row">
+      <button class="btn" data-step="back" ${i ? '' : 'disabled'}>Back</button>
+      <button class="btn primary" data-step="next" ${canNext ? '' : 'disabled'}>${nextLabel}</button>
+      <button class="btn" data-step="exit">Exit course</button></div>`;
+  if (!s) {
+    const quiz = c.steps.map((q, j) => [q, j]).filter(([q]) => q.type === 'quiz');
+    const right = quiz.filter(([q, j]) => course.answers[j] === q.answer).length;
+    const hunt = c.steps.some((q) => q.type === 'find');
+    el.innerHTML = `${head}<div class="mission-title">Course complete</div>
+      <p class="mission-body">${quiz.length ? `${right} of ${quiz.length} questions right first time.` : `You walked all ${n} stops.`}
+        ${hunt ? `Hazard hunt: ${course.mistakes ? `${course.mistakes} wrong tap${course.mistakes > 1 ? 's' : ''} on the work zone.` : 'no mistakes.'}` : ''}</p>
+      <div class="row"><button class="btn primary" data-course="${c.id}">Run it again</button><button class="btn" data-step="exit">Other courses</button></div>`;
+    return;
+  }
+  if (s.type === 'stop') {
+    el.innerHTML = `${head}<div class="mission-title">${s.title}</div><p class="mission-body">${s.body}</p>${nav(true, i === n - 1 ? 'Finish' : 'Next')}`;
+  } else if (s.type === 'quiz') {
+    const picked = course.answers[i];
+    el.innerHTML = `${head}<div class="mission-title">${s.title}</div><p class="mission-body">${s.q}</p>
+      <div class="opts">${s.options.map((o, j) => `<button class="btn ${picked === undefined ? '' : j === s.answer ? 'right' : j === picked ? 'wrong' : ''}"
+        data-opt="${j}" ${picked === undefined ? '' : 'disabled'}>${o}</button>`).join('')}</div>
+      ${picked === undefined ? '' : `<p class="why"><b>${picked === s.answer ? 'Right.' : 'Not quite.'}</b> ${s.why}</p>`}
+      ${nav(picked !== undefined, i === n - 1 ? 'Finish' : 'Next')}`;
+  } else if (s.type === 'find') {
+    const all = course.found.size >= s.targets.length;
+    el.innerHTML = `${head}<div class="mission-title">${s.title}</div><p class="mission-body">${s.body}</p>
+      <ul class="found">${s.targets.map((t) => `<li class="${course.found.has(t) ? 'done' : ''}">${course.found.has(t) ? TWIN_ITEMS[t].title : '?'}</li>`).join('')}</ul>
+      ${nav(all, all ? 'Next' : `${course.found.size} of ${s.targets.length} found`)}`;
+  }
+}
+
+$('#mission').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  if (b.dataset.course) { startCourse(b.dataset.course); return; }
+  if (!course) return;
+  touch();
+  if (b.dataset.opt !== undefined && course.answers[course.i] === undefined) {
+    course.answers[course.i] = Number(b.dataset.opt);
+    renderMission();
+  } else if (b.dataset.step === 'next') goStep(course.i + 1);
+  else if (b.dataset.step === 'back') goStep(course.i - 1);
+  else if (b.dataset.step === 'exit') endCourse();
+});
 
 function renderScore() {
   const sc = state?.scenario;
@@ -685,6 +842,8 @@ function touch() {
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   touch();
+  if (course && e.key === 'ArrowRight') $('#mission [data-step=next]:not(:disabled)')?.click();
+  if (course && e.key === 'ArrowLeft') $('#mission [data-step=back]:not(:disabled)')?.click();
   if (e.key === '1') setView('map');
   if (e.key === '2') setView('twin');
   if (e.key === '3') setView('mg');
@@ -713,7 +872,7 @@ const CAPTIONS = [
   'Everything runs on this workstation: simulation, what-if analysis and the tutor. No cloud.',
 ];
 function attractTick(now) {
-  if (!attract && now - lastInput > ATTRACT_AFTER_MS && !(state?.scenario && !state.scenario.done)) {
+  if (!attract && !course && now - lastInput > ATTRACT_AFTER_MS && !(state?.scenario && !state.scenario.done)) {
     attract = true;
     $('#mode-tag').textContent = 'Demo';
     $('#scorecard').hidden = true;
@@ -781,6 +940,7 @@ let oneline;
   setInterval(poll, 200);
   if (params.get('start') === 'storm') startScenario();
   if (params.get('start') === 'whatif') runWhatIf();
+  if (params.get('course')) startCourse(params.get('course'));
   setInterval(() => attractTick(performance.now()), 500);
 
   // ?mono forces the flat renderer (headless checks, or a plain 2D monitor beside the 3D panel).

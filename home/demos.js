@@ -91,7 +91,7 @@ export const WINGS = [
         id: 'energy-grid',
         name: 'Energy Grid',
         tagline: 'Restore a storm-damaged power grid.',
-        desc: 'Future Grids Training: restore a storm-damaged 12.47 kV grid with a live substation and microgrid twin.',
+        desc: 'Future Grids Training: restore a storm-damaged 12.47 kV grid, then walk the substation twin in EPRI-style site training (tour, limits of approach, pre-job briefing).',
         url: 'displayxr-demos/apps/energy-grid/',
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/energy-grid',
         chatter: ['Breaker 3 tripped. Storm drill!', 'Islanding the microgrid on battery', 'Tie switch closed, Feeder 1 restored', 'Feeder 1 at 104%, dispatch the battery'],
