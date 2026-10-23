@@ -60,8 +60,73 @@ export class SubstationTwin {
     this.time = 0;
     this._build();
     this._buildLayers();
+    this._buildTraining();
     this.kit.enableShadows();
     this.setLayers(PRESETS.default);
+    this.setTraining({});
+  }
+
+  // ---- site training overlays: limits of approach, the pre-job work zone, a person for scale ------
+  // Scale: the fence is 0.07 tall, a 7 ft (2.1 m) chain-link fence, so one model unit is about 30 m.
+  _buildTraining() {
+    const THREE = this.THREE;
+    const U = 1 / 30;
+    this.trainRoot = new THREE.Group();
+    this.root.add(this.trainRoot);
+    this.tg = { approach: new THREE.Group(), briefing: new THREE.Group(), person: new THREE.Group() };
+    for (const g of Object.values(this.tg)) this.trainRoot.add(g);
+    // A translucent box with outlined edges around [x0, x1] × [y0, y1] × [z0, z1], grown by `pad`
+    // on every side but never below the gravel.
+    const shell = (g, color, [x0, x1], [y0, y1], [z0, z1], pad, opacity = 0.1) => {
+      const yb = Math.max(G, y0 - pad), yt = y1 + pad;
+      const geo = new THREE.BoxGeometry(x1 - x0 + 2 * pad, yt - yb, z1 - z0 + 2 * pad);
+      const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false }));
+      o.position.set((x0 + x1) / 2, (yb + yt) / 2, (z0 + z1) / 2);
+      o.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.75, toneMapped: false })));
+      g.add(o);
+    };
+    const at = (g, label, x, y, z) => { label.sprite.position.set(x, y, z); g.add(label.sprite); return label; };
+
+    // Limits of approach (training.js MAD): around every exposed energized part, by voltage class.
+    const PINK = 0xff6ec7, hvPad = 3.25 * U, lvPad = 3.05 * U;
+    const A = this.tg.approach;
+    shell(A, PINK, [-0.74, -0.22], [0.1, 0.34], [-0.09, 0.09], hvPad);       // line, arresters, disconnect, breaker, CTs
+    shell(A, PINK, [-0.12, 0.09], [0.2, 0.33], [-0.06, 0.06], hvPad);        // transformer bushings
+    shell(A, PINK, [0.07, 0.52], [0.13, 0.21], [-0.06, 0.06], lvPad);        // 12.47 kV bus
+    shell(A, PINK, [0.565, 0.695], [0.07, 0.19], [0.07, 0.19], lvPad);       // capacitor bank
+    shell(A, PINK, [0.17, 0.45], [0.26, 0.29], [0.35, 0.37], lvPad);         // feeder riser terminations
+    at(A, makeLabel(THREE, 0.2, { bg: 'rgba(50,14,40,0.9)' }), -0.47, 0.5, 0).set('115 kV · 10 ft 8 in', '#ff9ad8', '3.25 m · unqualified persons');
+    at(A, makeLabel(THREE, 0.2, { bg: 'rgba(50,14,40,0.9)' }), 0.3, 0.36, -0.06).set('12.47 kV · 10 ft', '#ff9ad8', '3.05 m · unqualified persons');
+
+    // Pre-job briefing for Feeder 2: the work zone (isolated) and what stays energized beside it.
+    const B = this.tg.briefing;
+    shell(B, 0x43a047, [0.335, 0.465], [G, 0.155], [0.155, 0.245], 0.008, 0.22);   // F2 cubicle
+    shell(B, 0x43a047, [0.39, 0.43], [G, 0.3], [0.345, 0.37], 0.006, 0.22);        // F2 riser
+    for (const [x, y, z] of [[[0.07, 0.52], [0.12, 0.22], [-0.07, 0.07]], [[0.155, 0.285], [G, 0.155], [0.155, 0.245]],
+      [[0.55, 0.71], [G, 0.2], [0.06, 0.2]], [[-0.22, 0.12], [G, 0.34], [-0.17, 0.17]]]) shell(B, 0xff3b30, x, y, z, 0.006, 0.14);
+    at(B, makeLabel(THREE, 0.19, { bg: 'rgba(10,40,16,0.9)' }), 0.42, 0.42, 0.26).set('WORK ZONE · F2', '#81c784', 'isolated · locked · grounded');
+    at(B, makeLabel(THREE, 0.17, { bg: 'rgba(60,10,10,0.9)' }), 0.12, 0.33, 0.2).set('ENERGIZED', '#ff8a80', 'Feeder 1 + 12.47 kV bus');
+
+    // A 1.8 m worker in a hard hat and hi-vis vest.
+    const P = this.tg.person;
+    const k = this.kit;
+    const h = 1.8 * U;
+    k.cyl(0.0045, 0.004, h * 0.48, k.std(0x2f3a4a), 0, h * 0.24, 0, null, P, 10);            // legs
+    k.cyl(0.0058, 0.005, h * 0.32, k.std(0xc6ff00, { emissive: 0x4a6000 }), 0, h * 0.63, 0, null, P, 10);  // vest
+    const head = new THREE.Mesh(new THREE.SphereGeometry(h * 0.075, 12, 8), k.std(0xd9a582));
+    head.position.y = h * 0.86;
+    const hat = new THREE.Mesh(new THREE.SphereGeometry(h * 0.085, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), k.std(0xf5f5f5));
+    hat.position.y = h * 0.89;
+    P.add(head, hat);
+    this.trainRoot.traverse((o) => { if (o.isSprite || o.isLineSegments) o.userData.noShadow = true; });
+  }
+
+  // { approach, briefing, person }: which training overlays to show.
+  setTraining(show) {
+    for (const [id, g] of Object.entries(this.tg)) g.visible = !!show[id];
+    // The worker waits at the gate, or stands at the work zone during a briefing.
+    if (show.briefing) this.tg.person.position.set(0.4, G, 0.272);
+    else this.tg.person.position.set(0.04, 0, 0.36);
   }
 
   // ---- invisible layers: current through the yard, CT secondaries, energized zones ----------------
