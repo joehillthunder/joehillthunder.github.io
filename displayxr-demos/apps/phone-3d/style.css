@@ -1,0 +1,97 @@
+/* 3D Phone. Leia palette (Leia Blue #482BD9 and its violet tints) on a deep violet surround:
+   a woven canvas reads best on a dark page. Dark only, on purpose.
+   The phone bezel is a SIBLING drawn behind the screen, never an ancestor of the canvas: no
+   border-radius, shadow, border, filter, opacity or transform on the canvas or any ancestor
+   (woven-canvas-rules 7). */
+:root {
+  --bg: #0d0927;
+  --bg-alt: #130d38;
+  --tile: #0d0927;
+  --line: #2b2364;
+  --fg: #f4f2ff;
+  --muted: #b3acf0;
+  --blue: #482BD9;
+  --c1: #5950E0;
+  --c2: #847FEA;
+  --c3: #C4BFFD;
+  --f-display: "Source Serif 4", Georgia, serif;
+  --f-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 1rem/1.6 var(--f-body); -webkit-font-smoothing: antialiased; }
+a { color: var(--c3); }
+.wrap { width: min(1180px, 100%); margin: 0 auto; padding: 0 var(--gutter); }
+
+.top { position: sticky; top: 0; z-index: 5; background: #0d0927; border-bottom: 1px solid var(--line); }
+.top-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(1180px, 100%); margin: 0 auto; padding: 12px var(--gutter); }
+.brand { font: 700 1rem/1 var(--f-body); color: var(--fg); text-decoration: none; letter-spacing: 0.02em; }
+.brand span { color: var(--c2); font-weight: 500; }
+.mode { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; }
+.mode-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.mode[data-mode="3d"] { color: var(--fg); border-color: var(--c2); }
+.mode[data-mode="3d"] .mode-dot { background: var(--c3); }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 56px; align-items: center; padding-top: 56px; padding-bottom: 72px; }
+.eyebrow { margin: 0 0 12px; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c2); }
+h1 { margin: 0 0 20px; font: 700 clamp(2.25rem, 5.2vw, 4rem)/1.05 var(--f-display); }
+h2 { margin: 0 0 32px; font: 700 clamp(1.75rem, 3.2vw, 2.5rem)/1.15 var(--f-display); }
+h3 { margin: 0 0 8px; font: 700 1.1875rem/1.3 var(--f-body); }
+.lede { font-size: 1.25rem; color: var(--fg); max-width: 46ch; }
+.copy p { color: var(--muted); max-width: 54ch; }
+.copy .lede { color: var(--fg); }
+.mode-note { font-size: 0.875rem; border-left: 2px solid var(--blue); padding-left: 12px; }
+.how { margin: 20px 0 0; padding-left: 18px; color: var(--muted); }
+.how b { color: var(--fg); }
+
+/* ---- the phone ---- */
+.device { display: flex; flex-direction: column; align-items: center; gap: 16px; min-width: 0; }
+.tile { margin: 0; min-width: 0; }
+.phone { width: min(360px, 100%); }
+.handset { position: relative; padding: 24px 14px 22px; }
+.bezel {
+  position: absolute; inset: 0; border-radius: 46px;
+  background: linear-gradient(160deg, #3a3480, #17123f 45%, #241d5c);
+  outline: 1px solid #4a43a0;
+}
+.bezel::before { content: ""; position: absolute; top: 9px; left: 50%; width: 64px; height: 6px; margin-left: -32px; border-radius: 3px; background: #0b0820; }
+.screen { position: relative; background: var(--tile); }
+.screen canvas {
+  display: block; width: 100%; aspect-ratio: 9 / 16; max-width: 100%;
+  will-change: transform;            /* from first paint (rule 4) */
+  cursor: grab; touch-action: pan-y;
+}
+.screen canvas.dragging { cursor: grabbing; }
+.screen canvas:focus-visible { outline: 2px solid var(--c3); outline-offset: 2px; }
+.cover { position: absolute; inset: 0; background: var(--tile); display: grid; place-items: center; font-size: 0.8125rem; color: var(--muted); }
+.cover[hidden] { display: none; }    /* cut, never faded (rule 5) */
+.tile figcaption {
+  display: flex; gap: 10px; align-items: baseline; margin-top: 12px;
+  font-size: 0.8125rem; line-height: 1.4; color: var(--muted); min-height: 2.8em;
+}
+.tile figcaption .ch { color: var(--c3); font-weight: 700; letter-spacing: 0.1em; }
+.no-gl .screen::after { content: "3D scene needs WebGL"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.tile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tile-actions button, .dock button {
+  font: 500 0.875rem/1 var(--f-body); color: var(--fg); background: var(--bg-alt);
+  border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; cursor: pointer;
+}
+.tile-actions button:hover, .dock button:hover { border-color: var(--c2); }
+.tile-actions button:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c3); outline-offset: 2px; }
+.dock { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(360px, 100%); }
+.dock button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); }
+
+/* ---- bands ---- */
+.band { padding: 72px 0; border-top: 1px solid var(--line); }
+.band.alt { background: var(--bg-alt); }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.cards article { background: rgba(72, 43, 217, 0.12); border: 1px solid var(--line); border-radius: 20px; padding: 24px; }
+.cards p { margin: 0; color: var(--muted); }
+.foot { padding: 32px 0 48px; border-top: 1px solid var(--line); font-size: 0.875rem; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 32px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
