@@ -298,6 +298,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/leia-spatial',
         chatter: ['Tap the S, it flips!', 'The lens just went invisible', 'Tracked stereo wins', 'Pull out layer 2'],
       },
+      {
+        id: 'phone-3d',
+        name: '3D Phone',
+        tagline: 'A phone that switches between 2D and 3D.',
+        desc: 'A phone whose screen switches to glasses-free 3D: AI turns a flat photo into depth, a race track runs into the screen, a 3D video call, and a planet floating in front of the glass.',
+        url: 'displayxr-demos/apps/phone-3d/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/phone-3d',
+        chatter: ['My beach photo just got depth', 'The moon went in front!', 'Steer left, coin!', 'Flip it to 2D and back'],
+      },
     ],
   },
 ];

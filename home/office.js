@@ -630,6 +630,27 @@ const BUILD = {
       plates.forEach((p, i) => { p.position.y = 0.3 + i * spread; });
     });
   },
+  'phone-3d'(g) {
+    // A giant phone on a stand. Its screen flips between 2D and 3D: in 3D a globe, app tiles and
+    // a photo layer float off the glass; in 2D they press flat onto it.
+    box(g, 0.5, 0.5, 0.5, '#2a2a4a', 0, 0, -0.4);
+    box(g, 1.3, 2.3, 0.12, '#1b163f', 0, 0.5, -0.4);
+    const screen = box(g, 1.14, 2.1, 0.02, glow('#482BD9', 0.6), 0, 0.6, -0.33, { shadow: false });
+    const globe = sphere(g, 0.26, new THREE.MeshLambertMaterial({ color: '#3d7fd6', emissive: '#1a3a80', emissiveIntensity: 0.4 }), 0, 1.95, 0, 18);
+    const land = sphere(g, 0.27, new THREE.MeshLambertMaterial({ color: '#6aa043', transparent: true, opacity: 0.7 }), 0, 1.95, 0, 6);
+    const tiles = ['#ff9a62', '#5ef2ff', '#6dff9e', '#ffd76a'].map((c, i) => box(g, 0.32, 0.32, 0.08, glow(c, 0.5), i % 2 ? 0.22 : -0.22, 0.75 + Math.floor(i / 2) * 0.42, -0.2, { shadow: false }));
+    const hills = box(g, 1.0, 0.25, 0.04, glow('#847FEA', 0.5), 0, 0.68, -0.25, { shadow: false });
+    animators.push((t) => {
+      const on = Math.sin(t * 0.9) > -0.3;                 // mostly 3D, with a 2D beat
+      const k = on ? 1 : 0.05;
+      globe.position.z = -0.3 + 0.55 * k; land.position.z = globe.position.z;
+      globe.rotation.y = land.rotation.y = t * 0.8;
+      globe.position.y = land.position.y = 1.95 + Math.sin(t * 1.3) * 0.05;
+      tiles.forEach((b, i) => { b.position.z = -0.3 + (0.25 + Math.sin(t * 1.5 + i) * 0.05) * k; b.rotation.y = Math.sin(t + i) * 0.3 * k; });
+      hills.position.z = -0.3 + 0.12 * k;
+      screen.material.emissiveIntensity = on ? 0.6 : 0.3;
+    });
+  },
   muse(g, r) {
     box(g, 1.3, 0.8, 1.3, '#2a2238', 0, 0, 0);
     const holo = new THREE.Mesh(
