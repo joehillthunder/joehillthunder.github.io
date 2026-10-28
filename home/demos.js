@@ -77,6 +77,15 @@ export const WINGS = [
         source: 'https://snookersim.com/',
         chatter: ['Red, then the black', 'Screw back for position', 'That pot was a 147 pace', 'Snookered behind the blue'],
       },
+      {
+        id: 'time-crisis-2',
+        name: 'Time Crisis II',
+        tagline: "Namco's 1997 light-gun arcade game, rebuilt for PC.",
+        desc: "Time Crisis II, Namco's 1997 System 23 light-gun shooter, rebuilt to run natively on a PC by darkphoenixfox: mouse or light gun, gun recoil, widescreen, and two-cabinet LINK PLAY online. Bring your own MAME ROM set (timecrs2.zip); no game data is included.",
+        url: 'https://github.com/darkphoenixfox/namco22-decompile/tree/main/tc2',
+        source: 'https://github.com/darkphoenixfox/namco22-decompile',
+        chatter: ['Step off the pedal to reload!', 'Richard on red, Keith on blue', 'LINK PLAY is up, go!', 'Shoot the yellow-shirt guys first'],
+      },
     ],
   },
   {

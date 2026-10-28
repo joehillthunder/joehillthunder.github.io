@@ -212,6 +212,40 @@ function plant(x, z, s = 1) {
 
 const animators = [];
 const BUILD = {
+  'time-crisis-2'(g) {
+    // Twin linked light-gun cabinets (red and blue, like the arcade's LINK PLAY pair): each gun
+    // fires on its own beat, the screen flashes with it, and the foot pedal drops to take cover.
+    const shots = [];
+    [[-0.75, '#c8202a'], [0.75, '#2a5bd0']].forEach(([x, c], i) => {
+      box(g, 1.1, 1.9, 0.8, '#1d1d24', x, 0, -0.3);
+      box(g, 1.12, 0.3, 0.82, c, x, 1.9, -0.3);
+      box(g, 0.9, 0.12, 0.05, glow('#fff3c4', 0.8), x, 1.98, 0.11, { shadow: false });
+      box(g, 0.95, 0.75, 0.05, '#0c0c10', x, 0.95, 0.11);
+      const screen = glow('#ffb24a', 0.5);
+      box(g, 0.85, 0.65, 0.02, screen, x, 1.0, 0.14, { shadow: false });
+      box(g, 1.1, 0.12, 0.35, c, x, 0.8, 0.25);
+      const gun = new THREE.Group();
+      gun.position.set(x, 1.25, 0.75);
+      g.add(gun);
+      box(gun, 0.08, 0.1, 0.32, c, 0, 0, 0);
+      box(gun, 0.07, 0.18, 0.08, '#222', 0, -0.18, 0.12);
+      const flash = box(gun, 0.12, 0.12, 0.04, glow('#fff1a0', 2), 0, -0.01, -0.18, { shadow: false });
+      box(g, 0.55, 0.04, 0.4, '#333', x, 0, 0.95);
+      const pedal = box(g, 0.4, 0.05, 0.3, c, x, 0.06, 0.95);
+      shots.push({ screen, gun, flash, pedal, o: i * 0.37 });
+    });
+    animators.push((t) => {
+      // 3 s cycle: two bursts of shots, then step off the pedal to take cover and reload.
+      for (const s of shots) {
+        const p = (t + s.o) % 3;
+        const firing = p < 2 && (p * 4) % 1 < 0.15;
+        s.flash.visible = firing;
+        s.screen.emissiveIntensity = firing ? 1.2 : p >= 2 ? 0.15 : 0.5;
+        s.gun.rotation.x = firing ? 0.18 : 0;
+        s.pedal.rotation.x = p >= 2 ? 0 : -0.2;
+      }
+    });
+  },
   'snooker-sim'(g) {
     // A snooker table: the triangle of reds and the colours on their spots, a cue that strokes
     // the cue ball up the table and back, and a lamp over the baize.
