@@ -713,30 +713,6 @@ const BUILD = {
       });
     });
   },
-  'echo-worlds'(g) {
-    // a cut-away dollhouse room turning on a plinth (Echo-3 scan), a phone that captured it,
-    // and a scan beam sweeping over the room
-    box(g, 1.3, 0.8, 1.3, '#3a3f4a', 0, 0, 0);
-    const house = new THREE.Group();
-    house.position.set(0, 0.8, 0);
-    g.add(house);
-    box(house, 1.1, 0.04, 1.1, '#c8a06a', 0, 0, 0);
-    box(house, 1.1, 0.42, 0.05, '#7fc46a', 0, 0.04, -0.53);
-    box(house, 0.05, 0.42, 1.1, '#e3cf62', -0.53, 0.04, 0);
-    box(house, 0.05, 0.22, 1.1, '#e3cf62', 0.53, 0.04, 0);
-    box(house, 0.32, 0.12, 0.18, '#f4f1ea', -0.15, 0.04, -0.2);
-    [[-0.32, 0.18], [0.0, 0.25], [0.2, -0.1]].forEach(([x, z], i) => box(house, 0.1, 0.1, 0.1, ['#f2c230', '#9b59d0', '#e05a5a'][i], x, 0.04, z));
-    box(house, 0.2, 0.3, 0.1, '#5a6270', 0.3, 0.04, -0.42);
-    const phone = box(g, 0.16, 0.3, 0.02, '#1c1e23', 0.95, 1.45, 0.55);
-    phone.rotation.y = -0.7;
-    box(g, 0.13, 0.25, 0.005, glow('#7fd0ff', 0.6), 0.95, 1.45, 0.565).rotation.y = -0.7;
-    const beam = box(g, 1.2, 0.02, 0.02, glow('#d9a35b', 1.2), 0, 1.0, 0, { shadow: false });
-    animators.push((t) => {
-      house.rotation.y = t * 0.35;
-      beam.position.z = Math.sin(t * 1.3) * 0.55;
-      beam.position.y = 0.9 + Math.abs(Math.cos(t * 1.3)) * 0.35;
-    });
-  },
   'physical-ai'(g) {
     // a kitchen counter with an SO-101 arm putting three oranges on a plate, a parallel-eval board
     // whose cells turn green, and a screen with a falling loss curve
