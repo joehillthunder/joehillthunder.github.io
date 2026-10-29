@@ -83,6 +83,11 @@ h3 { margin: 0 0 8px; font: 700 1.1875rem/1.3 var(--f-body); }
 .dock { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(360px, 100%); }
 .dock button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); }
 
+/* ---- the device turntable ---- */
+.device-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 56px; align-items: center; }
+.tile-device .screen { outline: 1px solid var(--line); }
+.tile-device .screen canvas { aspect-ratio: 4 / 5; }
+
 /* ---- bands ---- */
 .band { padding: 72px 0; border-top: 1px solid var(--line); }
 .band.alt { background: var(--bg-alt); }
@@ -94,4 +99,5 @@ h3 { margin: 0 0 8px; font: 700 1.1875rem/1.3 var(--f-body); }
 @media (max-width: 860px) {
   .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 32px; }
   .cards { grid-template-columns: minmax(0, 1fr); }
+  .device-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
 }

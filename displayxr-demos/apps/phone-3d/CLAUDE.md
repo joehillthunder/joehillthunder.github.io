@@ -13,7 +13,7 @@ names), and no pricing. It may say "Leia Inc." and use the Leia palette. Say "3D
 ## Files
 - `index.html`: copy, the phone figure (`.handset` > `.bezel` sibling + `.screen` > canvas) and
   the app dock (`[data-app]` buttons).
-- `scenes.js`: one builder, `phone`. Apps (`home`, `photos`, `game`, `call`, `learn`) build
+- `scenes.js`: two builders. `device` is the phone on a turntable (real 164 x 74 x 7.3 mm proportions, studio reflections). `phone` Apps (`home`, `photos`, `game`, `call`, `learn`) build
   lazily on first open and swap by visibility. `stage` holds everything; its `scale.z` is the
   2D/3D switch. Each app returns `{ group, pick, tap, update, status, primary, onShow? }`.
 - `app.js`: the inline-3D wiring, copied from `../leia-spatial/app.js` (one lazy session, cover
@@ -24,3 +24,6 @@ names), and no pricing. It may say "Leia Inc." and use the Leia palette. Say "3D
 - Metres on a display rig: screen 0.135 × 0.24 m at the glass (VDH 0.24), content within about
   +2.5 cm and -3.5 cm. Planes behind the glass are scaled by `fill(z)` to cover the frustum.
 - Textures are procedural canvases with lots of fine detail (strokes, speckle) so they read in 3D.
+- Themes: `<meta name="phone-theme" content="…">` picks the wallpaper, punch-hole and device look
+  (`THEMES` in `scenes.js`). This public page uses `generic`. Brand-styled themes are for private
+  copies only, never published here.
