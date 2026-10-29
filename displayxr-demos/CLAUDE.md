@@ -29,7 +29,6 @@ displayxr-demos/
   apps/aviation-coach/
   apps/playground-port/
   apps/world-gen/      ← World Labs Marble
-  apps/echo-worlds/    ← SpAItial Echo-3 gallery worlds as 3D dollhouses (own CLAUDE.md)
 ```
 
 ## Where the SDK rules live
