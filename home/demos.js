@@ -196,6 +196,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/physical-ai',
         chatter: ['Orange two is on the plate', 'DAgger round 3: 10 out of 10', 'Replaying Lightwheel demo 17', 'Nine envs in parallel, all green'],
       },
+      {
+        id: 'echo-worlds',
+        name: 'Echo-3 Worlds',
+        tagline: 'Real rooms scanned with a phone, as 3D dollhouses.',
+        desc: "Rooms captured with an iPhone and rebuilt by SpAItial's Echo-3 world model: cut away like a dollhouse, turned in glasses-free 3D, and measured in real metres.",
+        url: 'displayxr-demos/apps/echo-worlds/',
+        source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/echo-worlds',
+        chatter: ['That playroom is 5.8 metres wide', 'Two minutes of phone video, one world', 'Cut the ceiling off, look inside', 'Next room: the robotics lab'],
+      },
     ],
   },
   {
