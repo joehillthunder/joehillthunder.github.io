@@ -28,6 +28,9 @@ const { worlds } = await fetch(new URL('./worlds.json', import.meta.url)).then((
 const REST = { yaw: 30, pitch: Number(params.get('pitch') ?? 35), zoom: Number(params.get('zoom') ?? 0.75) };
 const SPIN = 6; // deg/s once idle
 const DEPTH_STEPS = [0.5, 0.75, 1, 1.25, 1.5];
+// The page's 100 % = 0.75 × the SDK display rig's default: seated on the Leia panel the default
+// read "a bit strong" (2026-10-28, runtime 2.57.1 + leia-sr 2.19.1). ?depthBase= overrides.
+const DEPTH_BASE = Number(params.get('depthBase') ?? 0.75);
 
 let world = worlds.find((w) => w.id === params.get('world')) ?? worlds[0];
 let depthIdx = 2;
@@ -73,6 +76,7 @@ await handle.ready.catch((err) => {
 });
 frameRoom(world);
 applyCut();
+setDepth(depthIdx);
 rest();
 showTitle();
 const woven = await handle.firstWoven;
@@ -210,7 +214,7 @@ $('cut').addEventListener('click', (e) => {
 });
 function setDepth(i) {
   depthIdx = Math.max(0, Math.min(DEPTH_STEPS.length - 1, i));
-  handle.setStereo({ ipdScale: DEPTH_STEPS[depthIdx], parallaxScale: DEPTH_STEPS[depthIdx] });
+  handle.setStereo({ ipdScale: DEPTH_BASE * DEPTH_STEPS[depthIdx], parallaxScale: DEPTH_BASE * DEPTH_STEPS[depthIdx] });
   $('depthOut').textContent = `${Math.round(DEPTH_STEPS[depthIdx] * 100)} %`;
 }
 $('depthDown').addEventListener('click', () => setDepth(depthIdx - 1));
