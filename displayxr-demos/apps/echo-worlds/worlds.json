@@ -1,0 +1,234 @@
+{
+ "cutHeight": 1.6,
+ "source": "tools/echo3_frame.py over each world's coarsest LOD",
+ "worlds": [
+  {
+   "id": "splat-009-a3d7d7b2084d",
+   "name": "Kids Playroom",
+   "title": "Colorful Kids Playroom",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-009-a3d7d7b2084d.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/51f5d96a-bbfe-4259-a209-cee8d6264039/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/51f5d96a-bbfe-4259-a209-cee8d6264039",
+   "splats": 11374624,
+   "floorY": -1.519,
+   "size": [
+    5.75,
+    6.01
+   ],
+   "clip": {
+    "min": [
+     -3.18,
+     -1.82,
+     -3.71
+    ],
+    "max": [
+     3.07,
+     0.08,
+     2.79
+    ]
+   },
+   "frame": {
+    "center": [
+     -0.05,
+     -0.72,
+     -0.46
+    ],
+    "extent": [
+     5.75,
+     1.9000000000000001,
+     6.01
+    ]
+   }
+  },
+  {
+   "id": "splat-021-805f18a986c8",
+   "name": "Robotics Workshop",
+   "title": "Robotics Workshop",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-021-805f18a986c8.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/ce3cd052-bdfa-4eeb-a5aa-24feef458e20/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/ce3cd052-bdfa-4eeb-a5aa-24feef458e20",
+   "splats": 17038570,
+   "floorY": -1.58,
+   "size": [
+    3.36,
+    4.13
+   ],
+   "clip": {
+    "min": [
+     -1.97,
+     -1.88,
+     -2.29
+    ],
+    "max": [
+     1.89,
+     0.02,
+     2.34
+    ]
+   },
+   "frame": {
+    "center": [
+     -0.04,
+     -0.78,
+     0.02
+    ],
+    "extent": [
+     3.36,
+     1.9000000000000001,
+     4.13
+    ]
+   }
+  },
+  {
+   "id": "splat-008-1020f57fbee6",
+   "name": "Fireplace Lounge",
+   "title": "House with Fireplace Lounge",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-008-1020f57fbee6.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/cbd8b97b-6953-45e1-abdf-93d818711af7/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/cbd8b97b-6953-45e1-abdf-93d818711af7",
+   "splats": 9951190,
+   "floorY": -1.419,
+   "size": [
+    10.86,
+    10.17
+   ],
+   "clip": {
+    "min": [
+     -5.38,
+     -1.72,
+     -3.68
+    ],
+    "max": [
+     5.98,
+     0.18,
+     6.99
+    ]
+   },
+   "frame": {
+    "center": [
+     0.3,
+     -0.62,
+     1.65
+    ],
+    "extent": [
+     10.86,
+     1.9000000000000001,
+     10.17
+    ]
+   }
+  },
+  {
+   "id": "splat-011-dc5135b6b5bf",
+   "name": "Vaulted Hall",
+   "title": "Historic Vaulted Hall",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-011-dc5135b6b5bf.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/9cdde88a-f423-4538-8bb2-8da601a43b72/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/9cdde88a-f423-4538-8bb2-8da601a43b72",
+   "splats": 7459057,
+   "floorY": -1.651,
+   "size": [
+    6.65,
+    9.33
+   ],
+   "clip": {
+    "min": [
+     -3.36,
+     -1.95,
+     -5.73
+    ],
+    "max": [
+     3.79,
+     -0.05,
+     4.11
+    ]
+   },
+   "frame": {
+    "center": [
+     0.22,
+     -0.85,
+     -0.81
+    ],
+    "extent": [
+     6.65,
+     1.9000000000000001,
+     9.34
+    ]
+   }
+  },
+  {
+   "id": "splat-024-cd1c262f66bf",
+   "name": "Game Room",
+   "title": "Game Room & Auditorium",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-024-cd1c262f66bf.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/ef436548-e213-48fb-87dd-4eeac48e6f5d/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/ef436548-e213-48fb-87dd-4eeac48e6f5d",
+   "splats": 13184628,
+   "floorY": -1.629,
+   "size": [
+    11.36,
+    17.29
+   ],
+   "clip": {
+    "min": [
+     -3.43,
+     -1.93,
+     -4.46
+    ],
+    "max": [
+     8.43,
+     -0.03,
+     13.33
+    ]
+   },
+   "frame": {
+    "center": [
+     2.5,
+     -0.83,
+     4.43
+    ],
+    "extent": [
+     11.36,
+     1.9000000000000001,
+     17.29
+    ]
+   }
+  },
+  {
+   "id": "splat-018-aa612739ee25",
+   "name": "School Library",
+   "title": "School Library",
+   "url": "https://echodot.spaitial.io/echo-3-release/featured-gallery-v4/splat-018-aa612739ee25.lod/lod-meta.json",
+   "thumb": "https://img.spaitial.ai/cb8fc580-771b-4b39-95cd-32030663136e/thumbnail.webp",
+   "gallery": "https://app.spaitial.ai/worlds/cb8fc580-771b-4b39-95cd-32030663136e",
+   "splats": 16088658,
+   "floorY": -1.397,
+   "size": [
+    9.44,
+    4.39
+   ],
+   "clip": {
+    "min": [
+     -4.57,
+     -1.7,
+     -2.63
+    ],
+    "max": [
+     5.37,
+     0.2,
+     2.26
+    ]
+   },
+   "frame": {
+    "center": [
+     0.4,
+     -0.6,
+     -0.19
+    ],
+    "extent": [
+     9.44,
+     1.9000000000000001,
+     4.39
+    ]
+   }
+  }
+ ]
+}
