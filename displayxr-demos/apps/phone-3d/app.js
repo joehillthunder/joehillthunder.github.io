@@ -23,6 +23,7 @@ const VDH = 0.24;                       // virtual display height, metres (the S
 const params = new URLSearchParams(location.search);
 const DEBUG = params.has('debug');
 const FORCE_2D = params.has('2d');
+const THEME = document.querySelector('meta[name="phone-theme"]')?.content || 'generic';
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const log = (...a) => console.log('[phone-3d]', ...a);
 
@@ -349,7 +350,7 @@ class Tile {
 const tiles = [];
 for (const fig of document.querySelectorAll('[data-scene]')) {
   try {
-    tiles.push(new Tile(fig, { onApp: (name) => markApp(name) }));
+    tiles.push(new Tile(fig, { theme: THEME, onApp: (name) => markApp(name) }));
   } catch (e) {
     console.warn('[phone-3d] tile failed', fig.dataset.scene, e);
     fig.classList.add('no-gl');
@@ -395,7 +396,7 @@ if (wall) {
 updateBadge();
 
 // ---- the dock under the phone switches apps; the scene reports back when it switches itself --
-const phone = tiles[0];
+const phone = tiles.find((t) => t.name === 'phone');
 const dockButtons = [...document.querySelectorAll('[data-app]')];
 for (const b of dockButtons) {
   b.addEventListener('click', () => { phone?.content.setApp(b.dataset.app); if (phone) phone.lastInput = performance.now(); });
