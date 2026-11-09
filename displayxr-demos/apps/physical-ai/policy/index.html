@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Policy Lab</title>
+<meta name="description" content="A pretrained robot policy in glasses-free 3D: prompt it with a 12 s demo, run a fleet, review rollouts as 3D paths, time teleop flat vs 3D, see a depth camera point cloud and a two-arm handover. Part of the Physical AI Lab; 2D in any browser.">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="cover" aria-hidden="true"></div>
+
+<header id="top" data-inline3d-overlay>
+  <div class="brand">
+    <div class="cobrand"><strong>Robot Policy Lab</strong><span>Physical AI Lab · a pretrained policy in glasses-free 3D · <a href="../" style="color:inherit">train your own ↗</a></span></div>
+  </div>
+  <nav id="steps" aria-label="Chapters">
+    <button type="button" data-step="prompt"><b>1</b> Prompt it</button>
+    <button type="button" data-step="fleet"><b>2</b> Fleet</button>
+  </nav>
+  <div class="view">
+    <span id="mode" class="badge">2D</span>
+    <label id="depth-wrap" hidden>3D <input id="depth" type="range" min="0" max="1.6" step="0.05" value="1"></label>
+    <button id="help" type="button" title="About this demo (?)">?</button>
+  </div>
+</header>
+
+<aside id="panel" data-inline3d-overlay>
+
+  <!-- 1 · PROMPT -->
+  <section data-chapter="prompt">
+    <h2>Show it once, then let it work</h2>
+    <p class="lede">Two containers, three oranges, one pretrained policy. A 12-second demonstration is the prompt: it says
+      which container to fill and in what order. The policy reads that from the demo and does the rest.
+      <b>No training happens here.</b></p>
+
+    <div class="card prior" id="prior-card"></div>
+
+    <h3><span class="n">1</span> Give a 12 s prompt</h3>
+    <div class="row">
+      <label class="inline">Container <select id="p-slot"><option value="0">Plate</option><option value="1">Blue bowl</option></select></label>
+      <label class="inline">Order <select id="p-first"><option value="0">1 → 2 → 3</option><option value="1">2 → 3 → 1</option><option value="2" selected>3 → 2 → 1</option></select></label>
+    </div>
+    <div class="row">
+      <button id="p-example" type="button" class="primary">Play example prompt</button>
+      <button id="p-teleop" type="button">Record your own</button>
+    </div>
+    <div id="ctx" class="ctx" aria-label="Context window">
+      <div class="ctx-bar"><i id="ctx-fill"></i><span class="ctx-cut" title="12 s prompt"></span></div>
+      <div class="ctx-legend"><span>prompt <b id="ctx-t">0.0</b> / 12 s</span><span class="muted">30 s context window</span></div>
+      <div id="ctx-events" class="chips small"></div>
+    </div>
+    <div id="teleop-pad" class="pad" hidden>
+      <button data-k="KeyW" type="button">↑</button><button data-k="KeyA" type="button">←</button><button data-k="KeyS" type="button">↓</button><button data-k="KeyD" type="button">→</button>
+      <button data-k="KeyR" type="button">up</button><button data-k="KeyF" type="button">down</button><button data-k="Space" type="button">grip</button>
+    </div>
+    <p class="small" id="teleop-help" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, <kbd>R</kbd>/<kbd>F</kbd> up/down, <kbd>Space</kbd> grip.
+      Grab one orange and drop it in a container before the 12 s run out.</p>
+
+    <h3><span class="n">2</span> What the policy read</h3>
+    <div id="readout" class="card readout"><span class="muted">Give a prompt first.</span></div>
+
+    <h3><span class="n">3</span> Run it on a new layout</h3>
+    <div class="row">
+      <button id="p-run" type="button" class="primary" disabled>Run prompted policy</button>
+      <button id="p-check" type="button" disabled>Score 10 new layouts</button>
+    </div>
+    <div class="status" id="p-status"></div>
+
+    <h3>End effector</h3>
+    <div class="row" id="effectors"></div>
+    <p class="small">Changes the look only. The sim's grasp rule is the same for every end effector.</p>
+
+    <details class="small"><summary>How this stand-in works, and what it isn't</summary>
+      <p>The policy is a small network (15 inputs, two 128-unit layers) trained offline on <span id="prior-mins">–</span> minutes of
+        scripted demonstrations with both containers, then refined with DAgger. It is goal-conditioned: it reaches for whatever
+        goal it is given. The prompt reader takes the order of grasps and the first drop point from the demo and turns them
+        into those goals. No weights change.</p>
+      <p>This is a small stand-in for a robot foundation model, made to show the workflow on a 3D display. Real foundation
+        models learn far more from a short demonstration than this one does.</p>
+      <p>The kitchen and SO-101 arm come from Lightwheel's open-source LeIsaac assets (Apache-2.0).</p>
+    </details>
+  </section>
+
+  <!-- 2 · FLEET -->
+  <section data-chapter="fleet" hidden>
+    <h2>One policy, many cells</h2>
+    <p class="lede">Nine cells in three settings: kitchen, warehouse and lab. Each has its own objects and end effector, and each gets
+      its own prompt. The same pretrained policy runs all of them at once. In 3D you can read every cell's grasp height and
+      drop at a glance.</p>
+    <div class="row">
+      <button id="f-run" type="button" class="primary">Run the fleet</button>
+      <button id="f-shuffle" type="button">New prompts</button>
+      <button id="f-back" type="button" hidden>Back to the kitchen</button>
+    </div>
+    <div class="status" id="f-status"></div>
+    <table id="f-table"><thead><tr><th>Setting</th><th>End effector</th><th class="num">Done</th></tr></thead><tbody></tbody></table>
+
+    <h3>Why a fleet view matters</h3>
+    <p class="small">Robot foundation models are trained on hundreds of thousands of hours of real manipulation. More robots and more
+      settings mean more rollouts to review, and a 3D display lets one person check many of them at once.</p>
+  </section>
+
+</aside>
+
+<div id="hud" data-inline3d-overlay>
+  <span id="hud-who"></span><span id="hud-phase"></span><span id="hud-oranges"></span><span id="hud-t"></span>
+</div>
+<div id="toast" data-inline3d-overlay hidden></div>
+
+<div id="loading" data-inline3d-overlay>
+  <div class="box"><strong>Robot Policy Lab</strong><span id="load-msg">Loading the kitchen and SO-101…</span><div class="track"><div id="load-bar"></div></div></div>
+</div>
+
+<div id="intro" data-inline3d-overlay hidden>
+  <div class="box">
+    <div class="kicker">Physical AI Lab · Robot Policy Lab</div>
+    <h1>See what your robots learn, in glasses-free 3D</h1>
+    <p>Robot foundation models are moving toward learning a task from a short demonstration and working across grippers and hands.
+      Every step of that loop is spatial: the demonstration, the policy's grasp, a fleet at work. A glasses-free 3D display shows
+      it in real depth, with no headset and at a desk.</p>
+    <ol class="pipe">
+      <li><b>Prompt it</b> a 12 s demonstration steers a pretrained policy</li>
+      <li><b>Fleet</b> one policy across kitchen, warehouse and lab, and three end effectors</li>
+      <li><b>Rollouts</b> twelve runs as 3D paths; see where failures split off</li>
+      <li><b>2D vs 3D teleop</b> time the same pick flat and in 3D</li>
+      <li><b>Robot’s eye</b> the scene as the policy’s depth camera sees it</li>
+      <li><b>Handover</b> two arms pass oranges in mid-air</li>
+    </ol>
+    <p class="small">A simulation. The policy is a small network trained offline in this sim, a stand-in for a real foundation model.
+      Want to train one yourself? The <a href="../">Physical AI Lab</a> walks through demos, training and evaluation.</p>
+    <p class="small">On a Leia display, open it in the DisplayXR Browser to see it in 3D. Drag to orbit, scroll to zoom, right-drag to pan.</p>
+    <button id="intro-go" type="button" class="primary">Start</button>
+    <p class="credit small">Kitchen and SO-101 arm: Lightwheel LeIsaac assets (Apache-2.0). Not affiliated with or
+      endorsed by Lightwheel.</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

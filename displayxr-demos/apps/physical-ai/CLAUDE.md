@@ -69,3 +69,13 @@ and a loss-curve screen. Keep its `desc` and `chatter` in step when the app chan
   with sed, so keep the hook in its own file). Under SwiftShader the page runs at about 6 fps, which is fine for flow tests.
 - Headless Edge profiles grow fast. Use `--disk-cache-size` and delete them afterwards (this PC's disk filled up once).
 - Real 3D can only be judged on the Leia panel. Ask the user to look.
+
+## policy/ — Robot Policy Lab (the HQ room's link since 2026-11-09)
+A second page in this folder: a pretrained, goal-conditioned policy (`policy/assets/prior.json`, BC + 5 DAgger rounds on 60
+scripted demos with two containers) in six chapters: Prompt it (a 12 s demo sets container + order, no weights change),
+Fleet (9 themed cells), Rollouts (12 runs as 3D tool-path tubes), 2D vs 3D teleop (timed trials, `stage.setStereo`),
+Robot's eye (simulated depth camera → point cloud), Handover (two arms, scripted). Chapters 3–6 are plug-ins
+(`policy/js/chapters.js`, contract in its header; `ctx` at the bottom of `policy/js/main.js`). GLBs load from this folder's
+`assets/` (`../../` from `policy/js`). Success numbers shown in the UI come from `policy/assets/results.json` (measured
+offline); keep them in step if the prior changes. The bake tools and dead ends are in the private source repo
+`~/dev/displayxr-generalist` (local only). Keep this page unbranded: no partner names.
