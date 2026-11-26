@@ -1159,6 +1159,62 @@ const BUILD = {
       cloud.scale.setScalar(0.92 + Math.sin(t * 1.3) * 0.08);
     });
   },
+  'world-labs'(g) {
+    // A floating world island under a dome of splats: a little Coit Tower on a green hill, trees,
+    // and an explorer walking the rim, the whole world bobbing slowly on a projector plinth.
+    box(g, 0.9, 0.5, 0.9, '#2a3340', 0, 0, 0);
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.9, 0.3, 0.7, 20, 1, true),
+      new THREE.MeshBasicMaterial({ color: '#7cc4ff', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    beam.position.y = 0.85;
+    g.add(beam);
+    const world = new THREE.Group();
+    world.position.y = 1.35;
+    g.add(world);
+    const ground = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.7, 0.22, 20), new THREE.MeshLambertMaterial({ color: '#5fae5a', flatShading: true }));
+    ground.castShadow = ground.receiveShadow = true;
+    world.add(ground);
+    const hill = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.3, 10), new THREE.MeshLambertMaterial({ color: '#4f9d4a', flatShading: true }));
+    hill.position.set(0.1, 0.25, -0.1);
+    world.add(hill);
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.55, 10), mat('#eef1f5'));
+    tower.position.set(0.1, 0.65, -0.1);
+    tower.castShadow = true;
+    world.add(tower);
+    box(world, 0.2, 0.05, 0.2, '#eef1f5', 0.1, 0.9, -0.1);
+    [[-0.6, 0.2], [-0.45, -0.5], [0.6, 0.35], [0.5, -0.55], [-0.15, 0.65]].forEach(([x, z]) => {
+      box(world, 0.05, 0.12, 0.05, '#7a5232', x, 0.11, z);
+      sphere(world, 0.11, '#3f8f45', x, 0.32, z, 8);
+    });
+    const explorer = new THREE.Group();
+    world.add(explorer);
+    box(explorer, 0.07, 0.12, 0.05, '#ffa45c', 0, 0, 0, { shadow: false });
+    sphere(explorer, 0.04, '#f1c9a5', 0, 0.16, 0, 8);
+    // The splat sky: a shell of coloured points, sky blue at the top fading to haze at the rim.
+    const n = 1100, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const u = Math.random() * 6.28, v = Math.acos(rand(0.05, 1)), r = rand(1.15, 1.3);
+      pos.set([Math.sin(v) * Math.cos(u) * r, Math.cos(v) * r * 0.85, Math.sin(v) * Math.sin(u) * r], i * 3);
+      c.setHSL(0.55 + rand(-0.03, 0.03), 0.65, 0.62 + (1 - Math.cos(v)) * 0.25);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const dome = new THREE.Points(geo, new THREE.PointsMaterial({ size: 2.5, sizeAttenuation: false, vertexColors: true }));
+    dome.layers.set(LABEL_LAYER);
+    world.add(dome);
+    animators.push((t) => {
+      world.position.y = 1.35 + Math.sin(t * 0.8) * 0.06;
+      world.rotation.y = t * 0.15;
+      dome.rotation.y = -t * 0.1;
+      const a = t * 0.7;
+      explorer.position.set(Math.cos(a) * 0.82, 0.11, -Math.sin(a) * 0.82);
+      explorer.rotation.y = a + Math.PI;
+      beam.material.opacity = 0.14 + Math.sin(t * 2) * 0.05;
+    });
+  },
 };
 
 rooms.forEach((r, i) => {
