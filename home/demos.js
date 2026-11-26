@@ -199,8 +199,8 @@ export const WINGS = [
       {
         id: 'spaitial',
         name: 'SpAItial Worlds',
-        tagline: 'Text, photos or a phone scan become walkable 3D worlds.',
-        desc: "SpAItial's Echo world models turn a prompt, a photo, a 360° panorama or an iPhone room scan into a Gaussian-splat world. A splat preview, eight Echo-3 gallery rooms, the API flow, exports and pricing.",
+        tagline: 'Phone-scanned rooms as 3D dollhouses you can measure.',
+        desc: "Six rooms from SpAItial's Echo-3 gallery, scanned with an iPhone, as glasses-free 3D dollhouses: cut away, turned and measured in metres. An About page covers the Echo models, API, exports and pricing.",
         url: 'displayxr-spaitial/',
         source: 'https://github.com/joehillthunder/displayxr-spaitial',
         chatter: ['One sentence, one world, nine minutes', 'Two minutes of phone video, one room', 'Export it as .spz for the web', 'Cut the ceiling off, look inside'],
