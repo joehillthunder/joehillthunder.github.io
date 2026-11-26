@@ -196,6 +196,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/joehillthunder.github.io/tree/main/displayxr-demos/apps/physical-ai',
         chatter: ['12 s prompt: bowl, 3-2-1', 'Fleet: 8 of 9 cells done', 'Run 5 split off at the grasp', 'Handover in mid-air'],
       },
+      {
+        id: 'spaitial',
+        name: 'SpAItial Worlds',
+        tagline: 'Text, photos or a phone scan become walkable 3D worlds.',
+        desc: "SpAItial's Echo world models turn a prompt, a photo, a 360° panorama or an iPhone room scan into a Gaussian-splat world. A splat preview, eight Echo-3 gallery rooms, the API flow, exports and pricing.",
+        url: 'displayxr-spaitial/',
+        source: 'https://github.com/joehillthunder/displayxr-spaitial',
+        chatter: ['One sentence, one world, nine minutes', 'Two minutes of phone video, one room', 'Export it as .spz for the web', 'Cut the ceiling off, look inside'],
+      },
     ],
   },
   {
