@@ -233,6 +233,15 @@ export const WINGS = [
         source: 'https://github.com/joehillthunder/displayxr-music-visualizer',
         chatter: ['Switching to synthwave', 'Bass hit, the orb jumped', 'Nebula style on the Spotify feed', 'Lofi mode for focus'],
       },
+      {
+        id: 'world-labs',
+        name: 'World Labs Worlds',
+        tagline: 'Walk through World Labs splat worlds in 3D.',
+        desc: "World Labs Gaussian-splat worlds, rendered with World Labs' own Spark renderer: a 40-million-splat Coit Tower streamed with level of detail, plus your own Marble worlds (drop a .spz on the page).",
+        url: 'displayxr-world-labs/',
+        source: 'https://github.com/joehillthunder/displayxr-world-labs',
+        chatter: ['Streaming 40M splats at 60 fps', 'Walking up to Coit Tower', 'Dropped in a Marble world', 'Pages load as you move'],
+      },
     ],
   },
   {
